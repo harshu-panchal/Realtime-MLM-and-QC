@@ -167,13 +167,12 @@ async function getReadinessStatus() {
     ready = false;
   }
   
-  // Check Redis (only required in production)
+  // Check Redis (if enabled)
   const redisHealth = await checkRedisHealth();
   checks.redis = redisHealth;
   setGauge("dependency_up", redisHealth.status === "UP" ? 1 : 0, { dependency: "redis" });
   
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (isProduction && redisHealth.status !== 'UP') {
+  if (isRedisEnabled() && redisHealth.status === 'DOWN') {
     ready = false;
   }
 
