@@ -269,10 +269,24 @@ async function startup() {
     }
 
     // Step 6: Create database indexes
-    try {
-      await createAllIndexes();
-    } catch (error) {
-      console.error('[Startup] Warning: Failed to create indexes:', error.message);
+    //
+    // Indexes are a property of the MongoDB collections themselves, not of
+    // any one server process, so once they've been created by a normal
+    // (non-serverless) boot they persist for every other environment
+    // connecting to the same cluster — including Vercel. On Vercel this
+    // step would otherwise run on every cold start and pay ~25 sequential
+    // round trips (one createAllIndexes() no-op check per index) before any
+    // request can be served, which is a major contributor to cold-start
+    // latency. Skip it there; run `node -e "import('./app/services/databaseIndexManager.js').then(m=>m.createAllIndexes())"`
+    // (or redeploy a non-Vercel environment once) after adding a new index.
+    if (!process.env.VERCEL) {
+      try {
+        await createAllIndexes();
+      } catch (error) {
+        console.error('[Startup] Warning: Failed to create indexes:', error.message);
+      }
+    } else {
+      console.log('[Startup] Skipping index creation on Vercel cold start (managed by non-serverless environments)');
     }
     
     // Step 7: Start search index worker (if worker role)
