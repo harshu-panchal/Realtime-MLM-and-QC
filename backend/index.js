@@ -493,5 +493,28 @@ async function main() {
   }
 }
 
-// Start the application
-main();
+let vercelApp = null;
+let vercelInitPromise = null;
+
+async function getVercelApp() {
+  if (vercelApp) return vercelApp;
+  if (!vercelInitPromise) {
+    vercelInitPromise = (async () => {
+      registerShutdownHandlers();
+      await startup();
+      vercelApp = createApp();
+      return vercelApp;
+    })();
+  }
+  return vercelInitPromise;
+}
+
+export default async function handler(req, res) {
+  const app = await getVercelApp();
+  return app(req, res);
+}
+
+// Start the standalone HTTP server only when not running in Vercel serverless
+if (!process.env.VERCEL) {
+  main();
+}
