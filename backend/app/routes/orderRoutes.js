@@ -46,6 +46,10 @@ import {
   allowRoles,
   requireApprovedSeller,
 } from "../middleware/authMiddleware.js";
+import {
+  confirmOrderReceived,
+  forceOrderDelivered,
+} from "../controller/shiprocketOrderController.js";
 
 const router = express.Router();
 
@@ -86,6 +90,22 @@ router.post(
   verifyToken,
   allowRoles("delivery", "admin"),
   reconcileCodCashSubmission,
+);
+
+// E-commerce (Shiprocket) fulfillment — see shiprocketWorkflowService.js.
+// Quick Commerce orders never reach DELIVERED_PENDING_CONFIRMATION, so
+// these are no-ops for them.
+router.post(
+  "/:id/confirm-received",
+  verifyToken,
+  allowRoles("customer", "user"),
+  confirmOrderReceived,
+);
+router.post(
+  "/:id/force-delivered",
+  verifyToken,
+  allowRoles("admin"),
+  forceOrderDelivered,
 );
 
 // Customer routes

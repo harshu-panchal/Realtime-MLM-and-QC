@@ -1,6 +1,7 @@
 import Seller from "../models/seller.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
+import { submitBusinessTypeChangeRequest } from "../services/admin/sellerBusinessTypeService.js";
 import {
     issueSellerVerificationOtp,
     verifySellerOtpCode,
@@ -26,6 +27,8 @@ const SELLER_DOCUMENT_FIELDS = {
 };
 
 const REQUIRED_SELLER_DOCUMENT_FIELDS = Object.keys(SELLER_DOCUMENT_FIELDS);
+
+const VALID_BUSINESS_TYPES = ["quick_commerce", "ecommerce"];
 
 const parseDocumentsPayload = (documents) => {
     if (!documents) {
@@ -90,6 +93,7 @@ export const signupSeller = async (req, res) => {
             phoneVerificationToken,
             shopName,
             category,
+            businessType,
             description,
             address,
             locality,
@@ -134,6 +138,14 @@ export const signupSeller = async (req, res) => {
 
         if (!name || !email || !phone || !password || !shopName) {
             return handleResponse(res, 400, "All fields are required");
+        }
+
+        if (!businessType || !VALID_BUSINESS_TYPES.includes(businessType)) {
+            return handleResponse(
+                res,
+                400,
+                "businessType is required and must be either 'quick_commerce' or 'ecommerce'",
+            );
         }
 
         verifySellerVerificationToken({
@@ -188,6 +200,7 @@ export const signupSeller = async (req, res) => {
             password,
             shopName,
             category,
+            businessType,
             description,
             address,
             locality,
@@ -222,6 +235,28 @@ export const signupSeller = async (req, res) => {
         });
     } catch (error) {
         return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   REQUEST BUSINESS TYPE CHANGE (Seller)
+================================ */
+export const requestBusinessTypeChange = async (req, res) => {
+    try {
+        const { requestedType, reason } = req.body || {};
+        const seller = await submitBusinessTypeChangeRequest({
+            sellerId: req.user.id,
+            requestedType,
+            reason,
+        });
+
+        if (!seller) {
+            return handleResponse(res, 404, "Seller not found");
+        }
+
+        return handleResponse(res, 200, "Business type change request submitted", seller);
+    } catch (error) {
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 

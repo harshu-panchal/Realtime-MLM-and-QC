@@ -1,5 +1,6 @@
 import Cart from "../models/cart.js";
 import Product from "../models/product.js";
+import Seller from "../models/seller.js";
 import handleResponse from "../utils/helper.js";
 import { getApprovedOrLegacyFilter } from "../services/productModerationService.js";
 
@@ -23,8 +24,16 @@ async function getCustomerVisibleProductById(productId) {
     _id: productId,
     ...CUSTOMER_VISIBLE_PRODUCT_MATCH,
   })
-    .select("_id")
+    .select("_id sellerId")
     .lean();
+}
+
+// A cart may only hold items from one business type (Quick Commerce or
+// E-commerce) at a time — resolve which type this product's seller is.
+async function getSellerBusinessType(sellerId) {
+  if (!sellerId) return null;
+  const seller = await Seller.findById(sellerId).select("businessType").lean();
+  return seller?.businessType || null;
 }
 
 async function fetchPopulatedCart(cartId) {
@@ -70,17 +79,35 @@ export const getCart = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const customerId = req.user.id;
-    const { productId, quantity = 1, variantSku = "" } = req.body;
+    const { productId, quantity = 1, variantSku = "", forceReplace = false } = req.body;
     const normalizedVariantSku = String(variantSku || "").trim();
     const customerVisibleProduct = await getCustomerVisibleProductById(productId);
     if (!customerVisibleProduct) {
       return handleResponse(res, 404, "Product is not available for purchase");
     }
 
+    const incomingBusinessType = await getSellerBusinessType(customerVisibleProduct.sellerId);
+
     let cart = await Cart.findOne({ customerId });
 
     if (!cart) {
       cart = new Cart({ customerId, items: [] });
+    }
+
+    if (
+      cart.items.length > 0 &&
+      cart.businessType &&
+      incomingBusinessType &&
+      cart.businessType !== incomingBusinessType
+    ) {
+      if (!forceReplace) {
+        return handleResponse(res, 409, "Your cart contains items from a different store type", {
+          conflict: true,
+          cartBusinessType: cart.businessType,
+          incomingBusinessType,
+        });
+      }
+      cart.items = [];
     }
 
     const itemIndex = cart.items.findIndex(
@@ -94,6 +121,10 @@ export const addToCart = async (req, res) => {
       cart.items[itemIndex].quantity += quantity;
     } else {
       cart.items.push({ productId, variantSku: normalizedVariantSku, quantity });
+    }
+
+    if (incomingBusinessType) {
+      cart.businessType = incomingBusinessType;
     }
 
     await cart.save();
@@ -136,6 +167,10 @@ export const updateQuantity = async (req, res) => {
       return handleResponse(res, 404, "Product not in cart");
     }
 
+    if (cart.items.length === 0) {
+      cart.businessType = null;
+    }
+
     cart.markModified("items");
     await cart.save();
     const updatedCart = await fetchPopulatedCart(cart._id);
@@ -173,6 +208,10 @@ export const removeFromCart = async (req, res) => {
       return false;
     });
 
+    if (cart.items.length === 0) {
+      cart.businessType = null;
+    }
+
     cart.markModified("items");
     await cart.save();
     const updatedCart = await fetchPopulatedCart(cart._id);
@@ -194,6 +233,7 @@ export const clearCart = async (req, res) => {
 
     if (cart) {
       cart.items = [];
+      cart.businessType = null;
       await cart.save();
     }
 

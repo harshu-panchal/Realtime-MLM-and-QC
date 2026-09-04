@@ -18,6 +18,8 @@ export const customerApi = {
 
   // Sellers & Location
   getNearbySellers: (params) => getWithDedupe("/seller/nearby", params),
+  getSellerStorefrontMeta: (sellerId, params) =>
+    getWithDedupe(`/seller/${sellerId}/storefront-meta`, params),
 
   // Cart
   getCart: () => getWithDedupe("/cart", {}, { ttl: 2000 }), // Very short cache for cart
@@ -66,6 +68,8 @@ export const customerApi = {
     axiosInstance.post(`/orders/${orderId}/payment/verify-online`, data),
   markOrderDelivered: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/delivered`, data || {}),
+  confirmOrderReceived: (orderId) =>
+    axiosInstance.post(`/orders/${orderId}/confirm-received`),
   markOrderCodCollected: (orderId, data) =>
     axiosInstance.post(`/orders/${orderId}/cod/mark-collected`, data || {}),
   reconcileOrderCod: (orderId, data) =>

@@ -96,6 +96,7 @@ const ActiveSellers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [businessTypeFilter, setBusinessTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -118,7 +119,7 @@ const ActiveSellers = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [categoryFilter, sortBy, pageSize]);
+  }, [categoryFilter, businessTypeFilter, sortBy, pageSize]);
 
   useEffect(() => {
     const currentSeq = ++requestSeq.current;
@@ -131,6 +132,7 @@ const ActiveSellers = () => {
         const response = await adminApi.getActiveSellers({
           q: debouncedSearch || undefined,
           category: categoryFilter !== "all" ? categoryFilter : undefined,
+          businessType: businessTypeFilter !== "all" ? businessTypeFilter : undefined,
           sort: sortBy,
           page,
           limit: pageSize,
@@ -172,7 +174,7 @@ const ActiveSellers = () => {
     };
 
     loadSellers();
-  }, [debouncedSearch, categoryFilter, sortBy, page, pageSize, refreshTick]);
+  }, [debouncedSearch, categoryFilter, businessTypeFilter, sortBy, page, pageSize, refreshTick]);
 
   const summaryCards = useMemo(
     () => [
@@ -285,7 +287,7 @@ const ActiveSellers = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full lg:w-auto">
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
@@ -297,6 +299,16 @@ const ActiveSellers = () => {
                   {category}
                 </option>
               ))}
+            </select>
+
+            <select
+              value={businessTypeFilter}
+              onChange={(event) => setBusinessTypeFilter(event.target.value)}
+              className="px-4 py-3 bg-white ring-1 ring-slate-200 rounded-2xl text-xs font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              <option value="all">All business types</option>
+              <option value="quick_commerce">Quick Commerce</option>
+              <option value="ecommerce">E-commerce</option>
             </select>
 
             <select
@@ -390,6 +402,12 @@ const ActiveSellers = () => {
                             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
                               {seller.category || "General"}
                             </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[8px] font-black uppercase tracking-widest border-brand-100 text-brand-600"
+                            >
+                              {seller.businessType === "ecommerce" ? "E-commerce" : "Quick Commerce"}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -548,6 +566,12 @@ const ActiveSellers = () => {
                         className="text-[8px] font-black uppercase tracking-widest"
                       >
                         {selectedSeller.category || "General"}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[8px] font-black uppercase tracking-widest border-brand-100 text-brand-600"
+                      >
+                        {selectedSeller.businessType === "ecommerce" ? "E-commerce" : "Quick Commerce"}
                       </Badge>
                     </div>
                   </div>

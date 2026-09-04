@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Lottie from "lottie-react";
+import { Bolt } from "lucide-react";
 import LocationDrawer from "./LocationDrawer";
 import { useLocation } from "../../context/LocationContext";
+import { useCommerceMode, COMMERCE_MODES } from "../../context/CommerceModeContext";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import { useSettings } from "@core/context/SettingsContext";
 import DefaultLogo from "@/assets/DefaultLogo.svg";
@@ -146,6 +148,67 @@ function CategoryNavColumn({
   );
 }
 
+function CommerceModeToggle({ mode, setMode, fullWidth = false, layoutId = "commerce-mode-pill" }) {
+  const isQuick = mode === COMMERCE_MODES.QUICK;
+  const slideTransition = { type: "spring", stiffness: 500, damping: 40, mass: 0.9 };
+  return (
+    <div
+      className={cn(
+        "relative inline-flex items-center gap-1 bg-white border border-slate-100 rounded-full p-1 shadow-3xs",
+        fullWidth ? "w-full" : "shrink-0",
+      )}
+      role="tablist"
+      aria-label="Browsing mode"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={isQuick}
+        onClick={() => setMode(COMMERCE_MODES.QUICK)}
+        className={cn(
+          "relative flex items-center justify-center gap-1.5 rounded-full py-2",
+          fullWidth ? "flex-1" : "px-5",
+        )}
+      >
+        {isQuick && (
+          <motion.div
+            layoutId={layoutId}
+            transition={slideTransition}
+            className="absolute inset-0 rounded-full shadow-sm"
+            style={{ background: "var(--primary)" }}
+          />
+        )}
+        <Bolt size={15} className={cn("relative z-10", isQuick ? "fill-white" : "fill-slate-400")} strokeWidth={0} />
+        <span className={cn("relative z-10 font-black text-xs uppercase tracking-widest", isQuick ? "text-white" : "text-slate-500")}>
+          Quick
+        </span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={!isQuick}
+        onClick={() => setMode(COMMERCE_MODES.SHOP_ALL)}
+        className={cn(
+          "relative flex items-center justify-center rounded-full py-2",
+          fullWidth ? "flex-1" : "px-5",
+        )}
+      >
+        {!isQuick && (
+          <motion.div
+            layoutId={layoutId}
+            transition={slideTransition}
+            className="absolute inset-0 rounded-full shadow-sm"
+            style={{ background: "var(--primary)" }}
+          />
+        )}
+        <span className={cn("relative z-10 font-black text-xs uppercase tracking-widest", !isQuick ? "text-white" : "text-slate-500")}>
+          ShopAll
+        </span>
+      </button>
+    </div>
+  );
+}
+
 const MainLocationHeader = ({
   categories = [],
   activeCategory,
@@ -182,6 +245,7 @@ const MainLocationHeader = ({
   }, []);
   const { currentLocation, refreshLocation, isFetchingLocation } =
     useLocation();
+  const { mode, setMode } = useCommerceMode();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { settings } = useSettings();
   const { cartCount } = useCart();
@@ -327,7 +391,7 @@ const MainLocationHeader = ({
   const contentOpacity = useTransform(scrollY, [0, 160], [1, 1]);
   const navHeight = useTransform(scrollY, [0, 200], ["80px", "80px"]);
   const navOpacity = useTransform(scrollY, [0, 200], [1, 1]);
-  const navMargin = useTransform(scrollY, [0, 200], [8, 8]);
+  const navMargin = useTransform(scrollY, [0, 200], [2, 2]);
   const categorySpacing = useTransform(scrollY, [0, 200], [3, 3]);
   const cartOpacity = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
   const cartScale = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
@@ -374,8 +438,13 @@ const MainLocationHeader = ({
 
 
 
+          {/* Quick / ShopAll Toggle (Desktop, full width, above the main header row) */}
+          <div className="hidden md:block relative z-20 px-2 lg:px-6 pt-1 max-w-md">
+            <CommerceModeToggle mode={mode} setMode={setMode} fullWidth layoutId="commerce-mode-pill-desktop" />
+          </div>
+
           {/* Desktop/Tablet Header Layout (md and above) */}
-          <div className="hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 mb-8 mt-1">
+          <div className="hidden md:flex items-center justify-between relative z-20 px-2 lg:px-6 mb-8 mt-4">
             {/* Left Section: Logo + Location row */}
             <div className="flex items-center gap-4 lg:gap-8">
               <div
@@ -544,7 +613,10 @@ const MainLocationHeader = ({
           </div>
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
-          <div className="md:hidden pt-1 pb-1.5 space-y-1.5 select-none">
+          <div className="md:hidden pt-1 pb-0 space-y-1.5 select-none">
+            {/* Quick / ShopAll Toggle — full width, topmost element */}
+            <CommerceModeToggle mode={mode} setMode={setMode} fullWidth layoutId="commerce-mode-pill-mobile" />
+
             {/* Top row: Logo/Branding + Bell Button */}
             <motion.div
               style={{
@@ -623,7 +695,7 @@ const MainLocationHeader = ({
               </div>
             </div>
 
-            {/* Middle row: Deliver to Address capsule (w-fit) */}
+            {/* Middle row: Deliver to Address capsule */}
             <div className="flex justify-start">
               <div
                 onClick={() => setIsLocationOpen(true)}

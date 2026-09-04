@@ -16,6 +16,8 @@ jest.unstable_mockModule("../app/services/sellerVerificationService.js", () => (
   issueSellerVerificationOtp: jest.fn(),
   verifySellerOtpCode: jest.fn(),
   verifySellerVerificationToken: mockVerifySellerVerificationToken,
+  issueSellerResetOtp: jest.fn(),
+  verifySellerResetOtpCode: jest.fn(),
 }));
 
 jest.unstable_mockModule("../app/services/mediaService.js", () => ({
@@ -41,6 +43,7 @@ describe("sellerAuthController signupSeller", () => {
         phoneVerificationToken: "phone-token",
         shopName: "Noyo Mart",
         category: "Groceries",
+        businessType: "quick_commerce",
         address: "MG Road",
         documents: JSON.stringify({
           tradeLicense: "https://example.com/trade-license.pdf",
@@ -80,6 +83,7 @@ describe("sellerAuthController signupSeller", () => {
     });
     expect(mockSellerCreate).toHaveBeenCalledWith(
       expect.objectContaining({
+        businessType: "quick_commerce",
         emailVerified: true,
         phoneVerified: true,
         isVerified: false,

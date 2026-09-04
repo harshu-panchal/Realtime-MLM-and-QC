@@ -17,6 +17,7 @@ import {
 export async function getSellerLocationsData({
   q = "",
   category = "all",
+  businessType = "all",
   city = "all",
   lifecycle = "all",
   mapLimit: rawMapLimit = "500",
@@ -27,6 +28,7 @@ export async function getSellerLocationsData({
 }) {
   const normalizedLifecycle = String(lifecycle || "all").trim().toLowerCase();
   const normalizedCategory = String(category || "all").trim();
+  const normalizedBusinessType = String(businessType || "all").trim().toLowerCase();
   const normalizedCity = String(city || "all").trim();
   const normalizedSort = String(sort || "orders_desc").trim().toLowerCase();
   const search = String(q || "").trim();
@@ -40,6 +42,13 @@ export async function getSellerLocationsData({
     filters.push({
       category: new RegExp(`^${escapeRegExp(normalizedCategory)}$`, "i"),
     });
+  }
+
+  if (
+    normalizedBusinessType === "quick_commerce" ||
+    normalizedBusinessType === "ecommerce"
+  ) {
+    filters.push({ businessType: normalizedBusinessType });
   }
 
   if (search) {
@@ -59,7 +68,7 @@ export async function getSellerLocationsData({
   const baseQuery = filters.length ? { $and: filters } : {};
   const sellers = await Seller.find(baseQuery)
     .select(
-      "_id name shopName email phone category address location serviceRadius isActive isVerified applicationStatus reviewedAt createdAt rejectionReason",
+      "_id name shopName email phone category businessType address location serviceRadius isActive isVerified applicationStatus reviewedAt createdAt rejectionReason",
     )
     .lean();
 
@@ -156,6 +165,7 @@ export async function getSellerLocationsData({
       email: seller.email || "",
       phone: seller.phone || "",
       category: seller.category || "General",
+      businessType: seller.businessType || "quick_commerce",
       city: seller.city,
       lifecycle: seller.lifecycle,
       hasValidLocation: seller.hasValidLocation,
@@ -267,6 +277,7 @@ export async function getSellerLocationsData({
 export async function getActiveSellersData({
   q = "",
   category = "all",
+  businessType = "all",
   sort = "recent",
   page,
   limit,
@@ -279,6 +290,11 @@ export async function getActiveSellersData({
     filters.push({
       category: new RegExp(`^${escapeRegExp(category)}$`, "i"),
     });
+  }
+
+  const normalizedBusinessType = String(businessType || "all").trim().toLowerCase();
+  if (normalizedBusinessType === "quick_commerce" || normalizedBusinessType === "ecommerce") {
+    filters.push({ businessType: normalizedBusinessType });
   }
 
   const search = String(q || "").trim();
@@ -413,6 +429,7 @@ export async function getActiveSellersData({
       email: seller.email || "",
       phone: seller.phone || "",
       category: seller.category || "General",
+      businessType: seller.businessType || "quick_commerce",
       status: seller.isVerified && seller.isActive ? "active" : "inactive",
       verificationStatus: seller.isVerified ? "verified" : "unverified",
       joinedAt,

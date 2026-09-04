@@ -42,7 +42,10 @@ const CategoryManagement = () => {
         description: '',
         status: 'active',
         type: 'header',
-        parentId: ''
+        parentId: '',
+        // Which storefront tab(s) this node appears under: Quick tab
+        // (Quick Commerce sellers), ShopAll tab (E-commerce sellers), or both.
+        businessType: 'both'
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -231,7 +234,8 @@ const CategoryManagement = () => {
                 description: item.description || '',
                 status: item.status || 'active',
                 type: item.type,
-                parentId: item.parentId || ''
+                parentId: item.parentId || '',
+                businessType: item.businessType || 'both'
             });
             setEditingItem(item);
             setPreviewUrl(item.image || null);
@@ -243,7 +247,8 @@ const CategoryManagement = () => {
                 description: '',
                 status: 'active',
                 type: type,
-                parentId: parentId || ''
+                parentId: parentId || '',
+                businessType: 'both'
             });
             setEditingItem(null);
             setPreviewUrl(null);
@@ -314,6 +319,11 @@ const CategoryManagement = () => {
                                         </span>
                                         {item.status === 'inactive' && (
                                             <Badge variant="gray" className="text-[7px] h-3 px-1 font-bold uppercase tracking-tighter">Draft</Badge>
+                                        )}
+                                        {item.businessType && item.businessType !== 'both' && (
+                                            <Badge variant="outline" className="text-[7px] h-3 px-1 font-bold uppercase tracking-tighter border-brand-200 text-brand-600">
+                                                {item.businessType === 'quick_commerce' ? 'Quick' : 'ShopAll'}
+                                            </Badge>
                                         )}
                                     </div>
                                     <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{item.slug}</span>
@@ -760,6 +770,29 @@ const CategoryManagement = () => {
                                                 <EyeOff className="h-3.5 w-3.5" />
                                                 <span>DRAFT</span>
                                             </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-900">Storefront Visibility</p>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">Which tab shows this</p>
+                                        </div>
+                                        <div className="flex p-1 bg-slate-200/60 rounded-xl">
+                                            {[
+                                                { value: 'quick_commerce', label: 'Quick' },
+                                                { value: 'ecommerce', label: 'ShopAll' },
+                                                { value: 'both', label: 'Both' },
+                                            ].map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    onClick={() => setFormData({ ...formData, businessType: option.value })}
+                                                    className={cn("px-3.5 py-1.5 rounded-lg text-[10px] font-black transition-all tracking-widest",
+                                                        formData.businessType === option.value ? "bg-white text-brand-600 shadow-sm" : "text-slate-400")}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
 

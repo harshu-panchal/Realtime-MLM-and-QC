@@ -68,6 +68,15 @@ export function formatSellerApplication(seller) {
     email: seller.email || "",
     phone: seller.phone || "",
     category: seller.category || "General",
+    businessType: seller.businessType || "quick_commerce",
+    businessTypeChangeRequest:
+      seller.businessTypeChangeRequest?.status === "pending"
+        ? {
+            requestedType: seller.businessTypeChangeRequest.requestedType,
+            reason: seller.businessTypeChangeRequest.reason || "",
+            requestedAt: seller.businessTypeChangeRequest.requestedAt || null,
+          }
+        : null,
     applicationDate: createdAt.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",

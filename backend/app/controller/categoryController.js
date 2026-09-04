@@ -18,8 +18,12 @@ function normalizeUrl(value) {
   return normalized;
 }
 
-function categoryCacheKey({ tree = false, type = "all" } = {}) {
-  return buildKey("catalog", "categories", `${tree ? "tree" : "flat"}:${type || "all"}`);
+function categoryCacheKey({ tree = false, type = "all", businessType = "all" } = {}) {
+  return buildKey(
+    "catalog",
+    "categories",
+    `${tree ? "tree" : "flat"}:${type || "all"}:${businessType || "all"}`,
+  );
 }
 
 function normalizeParentId(parentId) {
@@ -159,11 +163,19 @@ export const getCategories = async (req, res) => {
       });
     }
 
+    const { businessType } = req.query;
     const query = {};
     if (type === "header" || type === "category" || type === "subcategory") {
       query.type = type;
     }
-    const cacheKey = categoryCacheKey({ tree: false, type: query.type || "all" });
+    if (businessType === "quick_commerce" || businessType === "ecommerce") {
+      query.businessType = { $in: [businessType, "both"] };
+    }
+    const cacheKey = categoryCacheKey({
+      tree: false,
+      type: query.type || "all",
+      businessType: businessType || "all",
+    });
     const categories = await getOrSet(
       cacheKey,
       async () => {
@@ -204,7 +216,7 @@ export const getCategories = async (req, res) => {
 export const createCategory = async (req, res) => {
   try {
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder", "businessType"];
     
     // Strict Whitelisting and Sanitization
     for (const key of allowedKeys) {
@@ -285,7 +297,7 @@ export const updateCategory = async (req, res) => {
     }
 
     const categoryData = {};
-    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder"];
+    const allowedKeys = ["name", "slug", "description", "type", "parentId", "status", "iconId", "headerColor", "headerFontColor", "headerIconColor", "adminCommission", "adminCommissionType", "adminCommissionValue", "handlingFees", "handlingFeeType", "handlingFeeValue", "sortOrder", "businessType"];
     
     for (const key of allowedKeys) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {

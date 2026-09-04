@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import AdminLiveTrackingSection from '../components/orders/AdminLiveTrackingSection';
+import AdminShipmentSection from '../components/orders/AdminShipmentSection';
 import { adminApi } from '../services/adminApi';
 import {
     ChevronLeft,
@@ -218,8 +219,12 @@ const OrderDetail = () => {
 
             </div>
 
-            {/* ── Live Delivery Tracking ───────────────────────────────────── */}
-            <AdminLiveTrackingSection orderId={orderId} order={order} />
+            {/* ── Live Delivery Tracking (Quick Commerce) / Shipment (E-commerce) ── */}
+            {order.businessType === "ecommerce" ? (
+                <AdminShipmentSection order={order} onOrderUpdate={setOrder} />
+            ) : (
+                <AdminLiveTrackingSection orderId={orderId} order={order} />
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}

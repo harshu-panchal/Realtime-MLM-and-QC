@@ -324,6 +324,9 @@ const PendingSellers = () => {
                                             <div>
                                                 <h3 className="ds-h2 leading-tight">{viewingSeller.shopName}</h3>
                                                 <p className="text-xs font-bold text-primary mt-1 uppercase tracking-widest">{viewingSeller.category || 'General'} PARTNER</p>
+                                                <span className="inline-block mt-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 border border-brand-100">
+                                                    {viewingSeller.businessType === 'ecommerce' ? 'E-commerce' : 'Quick Commerce'}
+                                                </span>
                                             </div>
 
                                             <div className="space-y-4">

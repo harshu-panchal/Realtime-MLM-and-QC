@@ -48,6 +48,7 @@ const ProductManagement = React.lazy(
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
 const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
+const BusinessTypeChangeRequests = React.lazy(() => import("../pages/BusinessTypeChangeRequests"));
 const ActiveDeliveryBoys = React.lazy(
   () => import("../pages/ActiveDeliveryBoys"),
 );
@@ -150,6 +151,7 @@ const navItems = [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
       { label: "Seller Locations", path: "/admin/seller-locations" },
+      { label: "Business Type Requests", path: "/admin/sellers/business-type-requests" },
     ],
   },
   {
@@ -274,6 +276,7 @@ const AdminRoutes = () => {
         <Route path="/offer-sections" element={<OfferSectionsManagement />} />
         <Route path="/coupons" element={<CouponManagement />} />
         <Route path="/sellers/pending" element={<PendingSellers />} />
+        <Route path="/sellers/business-type-requests" element={<BusinessTypeChangeRequests />} />
         <Route path="/seller-locations" element={<SellerLocations />} />
         <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
         <Route

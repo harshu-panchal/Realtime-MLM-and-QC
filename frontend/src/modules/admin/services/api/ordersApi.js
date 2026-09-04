@@ -28,6 +28,10 @@ export const adminOrdersApi = {
     /** Fetch the driving-route polyline for a live order (same endpoint used by customer & delivery apps). */
     getOrderRoute: (orderId, params) =>
         axiosInstance.get(`/orders/workflow/${orderId}/route`, { params }),
+
+    /** E-commerce (Shiprocket) fulfillment fallback for customers who never confirm receipt. */
+    forceOrderDelivered: (orderId) =>
+        axiosInstance.post(`/orders/${orderId}/force-delivered`),
 };
 
 export default adminOrdersApi;

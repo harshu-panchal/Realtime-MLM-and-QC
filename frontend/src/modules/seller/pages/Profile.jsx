@@ -26,6 +26,9 @@ const SellerProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [isRequestingTypeChange, setIsRequestingTypeChange] = useState(false);
+  const [changeReason, setChangeReason] = useState("");
+  const [isSubmittingChangeRequest, setIsSubmittingChangeRequest] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     shopName: "",
@@ -119,6 +122,22 @@ const SellerProfile = () => {
       toast.error(error.response?.data?.message || "Failed to update profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRequestBusinessTypeChange = async () => {
+    const requestedType = profile?.businessType === "ecommerce" ? "quick_commerce" : "ecommerce";
+    setIsSubmittingChangeRequest(true);
+    try {
+      await sellerApi.requestBusinessTypeChange({ requestedType, reason: changeReason });
+      toast.success("Change request submitted for admin review");
+      setIsRequestingTypeChange(false);
+      setChangeReason("");
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to submit change request");
+    } finally {
+      setIsSubmittingChangeRequest(false);
     }
   };
 
@@ -463,6 +482,77 @@ const SellerProfile = () => {
                 </div>
               </div>
             </div>
+          </Card>
+
+          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-lg">
+            <h4 className="text-[10px] font-black uppercase tracking-[4px] text-slate-400 mb-6">
+              Business Type
+            </h4>
+            <div className="flex items-center gap-4 mb-5">
+              <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                {profile?.businessType === "ecommerce" ? (
+                  <Globe size={20} className="text-slate-700" />
+                ) : (
+                  <Rocket size={20} className="text-slate-700" />
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  Currently registered as
+                </p>
+                <p className="text-sm font-bold text-slate-900">
+                  {profile?.businessType === "ecommerce" ? "E-commerce" : "Quick Commerce"}
+                </p>
+              </div>
+            </div>
+
+            {profile?.businessTypeChangeRequest?.status === "pending" ? (
+              <div className="p-3 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold">
+                Change to{" "}
+                {profile.businessTypeChangeRequest.requestedType === "ecommerce"
+                  ? "E-commerce"
+                  : "Quick Commerce"}{" "}
+                pending admin review.
+              </div>
+            ) : isRequestingTypeChange ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-500">
+                  Request to switch to{" "}
+                  <span className="font-bold text-slate-800">
+                    {profile?.businessType === "ecommerce" ? "Quick Commerce" : "E-commerce"}
+                  </span>
+                  . Subject to admin approval.
+                </p>
+                <textarea
+                  value={changeReason}
+                  onChange={(e) => setChangeReason(e.target.value)}
+                  placeholder="Reason (optional)"
+                  className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-xs font-medium outline-none resize-none"
+                  rows={2}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsRequestingTypeChange(false)}
+                    disabled={isSubmittingChangeRequest}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleRequestBusinessTypeChange}
+                    isLoading={isSubmittingChangeRequest}
+                  >
+                    Submit Request
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setIsRequestingTypeChange(true)}>
+                Request Change
+              </Button>
+            )}
           </Card>
         </div>
       </div>

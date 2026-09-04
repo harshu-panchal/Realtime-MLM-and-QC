@@ -242,6 +242,7 @@ const SellerLocations = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [lifecycle, setLifecycle] = useState("all");
   const [category, setCategory] = useState("all");
+  const [businessType, setBusinessType] = useState("all");
   const [city, setCity] = useState("all");
   const [sort, setSort] = useState("orders_desc");
   const [mapView, setMapView] = useState("coverage");
@@ -286,7 +287,7 @@ const SellerLocations = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [lifecycle, category, city, sort]);
+  }, [lifecycle, category, businessType, city, sort]);
 
   useEffect(() => {
     const currentSeq = ++requestSeq.current;
@@ -298,6 +299,7 @@ const SellerLocations = () => {
           q: debouncedSearch || undefined,
           lifecycle,
           category: category !== "all" ? category : undefined,
+          businessType: businessType !== "all" ? businessType : undefined,
           city: city !== "all" ? city : undefined,
           sort,
           page,
@@ -366,6 +368,7 @@ const SellerLocations = () => {
     debouncedSearch,
     lifecycle,
     category,
+    businessType,
     city,
     sort,
     page,
@@ -584,6 +587,15 @@ const SellerLocations = () => {
                 ))}
               </select>
             </div>
+
+            <select
+              value={businessType}
+              onChange={(event) => setBusinessType(event.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-white ring-1 ring-slate-200 text-[11px] font-bold text-slate-700 outline-none">
+              <option value="all">All business types</option>
+              <option value="quick_commerce">Quick Commerce</option>
+              <option value="ecommerce">E-commerce</option>
+            </select>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">

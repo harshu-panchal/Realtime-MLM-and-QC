@@ -31,6 +31,10 @@ export const addToCartSchema = Joi.object({
   productId: objectIdLike.required(),
   quantity: Joi.number().integer().min(1).max(99).required(),
   variantSku: variantSkuField,
+  // When the cart already holds items from the other business type
+  // (Quick Commerce vs E-commerce), the controller returns a 409 conflict
+  // unless this is set — in which case it clears the cart before adding.
+  forceReplace: Joi.boolean().optional(),
 });
 
 /** PUT /cart/update — update quantity (and optionally variantSku) for an existing line item. */

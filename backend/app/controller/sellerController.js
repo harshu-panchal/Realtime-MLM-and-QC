@@ -1,15 +1,22 @@
 import Seller from "../models/seller.js";
 import Transaction from "../models/transaction.js";
+import Product from "../models/product.js";
+import Category from "../models/category.js";
 import { handleResponse, calculateDistance } from "../utils/helper.js";
 import mongoose from "mongoose";
 import { invalidateSellerName } from "../services/entityNameCache.js";
+import { getApprovedOrLegacyFilter } from "../services/productModerationService.js";
 
 /* ===============================
    GET NEARBY SELLERS
 ================================ */
+// This is the Quick tab's dedicated lookup — permanently scoped to
+// Quick Commerce sellers, since E-commerce sellers are never subject to
+// radius/proximity gating (see customerVisibilityService.getEcommerceSellerIds
+// for the ShopAll counterpart).
 export const getNearbySellers = async (req, res) => {
   try {
-    const { lat, lng } = req.query;
+    const { lat, lng, headerId, categoryId } = req.query;
 
     if (!lat || !lng) {
       return handleResponse(res, 400, "Latitude and longitude are required");
@@ -24,6 +31,7 @@ export const getNearbySellers = async (req, res) => {
     const sellers = await Seller.find({
       isActive: true,
       isVerified: true,
+      businessType: "quick_commerce",
       location: {
         $near: {
           $geometry: {
@@ -36,7 +44,7 @@ export const getNearbySellers = async (req, res) => {
     }).lean();
 
     // Filter based on individual service radius
-    const nearbySellers = sellers.filter((seller) => {
+    let nearbySellers = sellers.filter((seller) => {
       const sellerLng = seller.location.coordinates[0];
       const sellerLat = seller.location.coordinates[1];
       const distance = calculateDistance(
@@ -52,12 +60,76 @@ export const getNearbySellers = async (req, res) => {
       return distance <= (seller.serviceRadius || 5);
     });
 
+    // Optional: scope to sellers who actually have active products under the
+    // clicked header/category (Quick tab's "sellers for this category" list).
+    const categoryFilter = headerId || categoryId;
+    if (categoryFilter && nearbySellers.length > 0) {
+      const matchingSellerIds = await Product.distinct("sellerId", {
+        sellerId: { $in: nearbySellers.map((s) => s._id) },
+        status: "active",
+        $or: [{ headerId: categoryFilter }, { categoryId: categoryFilter }],
+      });
+      const matchingSet = new Set(matchingSellerIds.map(String));
+      nearbySellers = nearbySellers.filter((seller) => matchingSet.has(String(seller._id)));
+    }
+
     return handleResponse(
       res,
       200,
       "Nearby sellers fetched successfully",
       nearbySellers,
     );
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   GET SELLER STOREFRONT (public, Quick tab)
+================================ */
+// Powers the seller storefront page: seller identity + the list of
+// categories this seller actually has active products under (rendered as
+// tabs). Product data per tab is fetched separately via the existing
+// getProducts endpoint (sellerId + categoryId + mode=quick) to avoid a
+// second products-listing implementation.
+export const getSellerStorefront = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return handleResponse(res, 400, "Invalid seller id");
+    }
+
+    const seller = await Seller.findOne({
+      _id: sellerId,
+      isActive: true,
+      isVerified: true,
+    })
+      .select("shopName address businessType")
+      .lean();
+
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    const categoryIds = await Product.distinct("categoryId", {
+      $and: [{ sellerId, status: "active" }, getApprovedOrLegacyFilter()],
+    });
+
+    const categories = categoryIds.length
+      ? await Category.find({ _id: { $in: categoryIds } })
+          .select("name image sortOrder")
+          .sort({ sortOrder: 1, name: 1 })
+          .lean()
+      : [];
+
+    return handleResponse(res, 200, "Seller storefront fetched successfully", {
+      seller: {
+        _id: seller._id,
+        shopName: seller.shopName,
+        address: seller.address,
+      },
+      categories,
+    });
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

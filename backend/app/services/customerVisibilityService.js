@@ -29,10 +29,14 @@ function buildNearbySellersKey(lat, lng) {
   return buildKey("sellers", "nearby", `${rLat}:${rLng}`);
 }
 
+// Quick Commerce is the only business type ever subject to radius/proximity
+// gating, so this function hard-scopes to it — callers never need to
+// remember to filter ecommerce sellers out of a "nearby" result.
 export async function getNearbySellerIdsForCustomer(lat, lng) {
   const fetchFn = async () => {
     const sellers = await Seller.find({
       isActive: true,
+      businessType: "quick_commerce",
       location: {
         $near: {
           $geometry: {
@@ -61,5 +65,22 @@ export async function getNearbySellerIdsForCustomer(lat, lng) {
   };
 
   return getOrSet(buildNearbySellersKey(lat, lng), fetchFn, getTTL("nearbySellers"));
+}
+
+// ShopAll (E-commerce) counterpart: nationwide, no lat/lng, no radius math —
+// every active ecommerce seller is visible to every customer everywhere.
+export async function getEcommerceSellerIds() {
+  const fetchFn = async () => {
+    const sellers = await Seller.find({
+      isActive: true,
+      businessType: "ecommerce",
+    })
+      .select("_id")
+      .lean();
+
+    return sellers.map((entity) => String(entity._id));
+  };
+
+  return getOrSet(buildKey("sellers", "ecommerce", "all"), fetchFn, getTTL("nearbySellers"));
 }
 

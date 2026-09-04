@@ -367,6 +367,50 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+
+    // Denormalized from seller.businessType at order-creation time (Phase 1
+    // deliberately left this off Order — Phase 2 branches fulfillment on
+    // it, so every order created from here on carries its own copy rather
+    // than requiring a populate on every workflow read).
+    businessType: {
+      type: String,
+      enum: ["quick_commerce", "ecommerce"],
+    },
+
+    // Populated only for ecommerce orders — see shiprocketWorkflowService.js.
+    shipment: {
+      provider: { type: String, default: "shiprocket" },
+      shiprocketOrderId: String,
+      shipmentId: String,
+      awbCode: String,
+      courierName: String,
+      courierId: String,
+      labelUrl: String,
+      manifestUrl: String,
+      trackingStatus: String,
+      trackingHistory: [
+        {
+          status: String,
+          statusDate: Date,
+          activity: String,
+          location: String,
+          raw: mongoose.Schema.Types.Mixed,
+        },
+      ],
+      pickupScheduledAt: Date,
+      pickupTokenNumber: String,
+    },
+
+    // Ecommerce "Delivered" requires explicit customer confirmation (or an
+    // admin override) rather than a proximity/OTP handoff like local
+    // delivery — see WORKFLOW_STATUS.DELIVERED_PENDING_CONFIRMATION.
+    deliveryConfirmedByCustomer: {
+      confirmed: { type: Boolean, default: false },
+      confirmedAt: Date,
+      confirmedVia: { type: String, enum: ["customer", "admin_override"] },
+      adminOverrideBy: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+    },
+
     sellerPendingExpiresAt: Date,
     deliverySearchExpiresAt: Date,
     sellerAcceptedAt: Date,
@@ -580,6 +624,7 @@ orderSchema.index({ status: 1, expiresAt: 1 });
 orderSchema.index({ seller: 1, returnStatus: 1, returnRequestedAt: -1 });
 orderSchema.index({ workflowStatus: 1, sellerPendingExpiresAt: 1 });
 orderSchema.index({ workflowStatus: 1, deliverySearchExpiresAt: 1 });
+orderSchema.index({ businessType: 1, workflowStatus: 1, createdAt: -1 });
 orderSchema.index({ returnStatus: 1, returnSearchExpiresAt: 1 });
 orderSchema.index({ deliveryBoy: 1, workflowStatus: 1 });
 orderSchema.index({ paymentMode: 1, paymentStatus: 1, createdAt: -1 });

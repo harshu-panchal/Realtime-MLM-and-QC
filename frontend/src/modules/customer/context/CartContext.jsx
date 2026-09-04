@@ -19,6 +19,11 @@ export const useCart = () => useContext(CartContext);
 export const CartProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState(() => loadGuestCart());
+  // Set when the backend rejects an add-to-cart because the cart already
+  // holds items from the other business type (Quick Commerce vs
+  // E-commerce). `pendingProduct` is re-submitted with forceReplace if the
+  // customer confirms via CartConflictModal.
+  const [cartConflict, setCartConflict] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const pendingRequestsRef = React.useRef(0);
@@ -129,7 +134,7 @@ export const CartProvider = ({ children }) => {
     };
   }, [cart, isAuthenticated]);
 
-  const addToCart = async (product) => {
+  const addToCart = async (product, { forceReplace = false } = {}) => {
     const variantSku = String(product?.variantSku || product?.variantName || "").trim();
     const id = product.id || product._id;
     const key = `${id}::${variantSku || ""}`;
@@ -173,17 +178,47 @@ export const CartProvider = ({ children }) => {
           productId: id,
           variantSku,
           quantity: 1,
+          forceReplace,
         });
         pendingRequestsRef.current -= 1;
         await syncCart(response.data.result.items);
+        if (forceReplace) setCartConflict(null);
       } catch (error) {
         pendingRequestsRef.current -= 1;
+        const status = error.response?.status;
+        const conflictResult = error.response?.data?.result;
+        if (status === 409 && conflictResult?.conflict) {
+          // This item never actually made it into the cart — undo the
+          // optimistic add and surface the conflict for the UI to resolve.
+          setCart((prev) =>
+            prev.filter(
+              (item) => `${item.id || item._id}::${String(item.variantSku || "").trim()}` !== key,
+            ),
+          );
+          setCartConflict({
+            pendingProduct: product,
+            cartBusinessType: conflictResult.cartBusinessType,
+            incomingBusinessType: conflictResult.incomingBusinessType,
+          });
+          return;
+        }
         console.error("Error adding to cart on backend", error);
         // Re-fetch entire cart to ensure consistency on error
         if (pendingRequestsRef.current === 0) {
           await fetchCart();
         }
       }
+    }
+  };
+
+  const resolveCartConflict = async (action) => {
+    if (!cartConflict) return;
+    if (action === "replace") {
+      const product = cartConflict.pendingProduct;
+      setCartConflict(null);
+      await addToCart(product, { forceReplace: true });
+    } else {
+      setCartConflict(null);
     }
   };
 
@@ -304,8 +339,10 @@ export const CartProvider = ({ children }) => {
     cartTotal,
     cartCount,
     loading,
+    cartConflict,
+    resolveCartConflict,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cart, cartTotal, cartCount, loading]);
+  }), [cart, cartTotal, cartCount, loading, cartConflict]);
 
   return (
     <CartContext.Provider value={cartValue}>

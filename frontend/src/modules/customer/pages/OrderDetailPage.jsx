@@ -6,6 +6,7 @@ import HelpModal from "../components/order/HelpModal";
 import LiveTrackingMap from "../components/order/LiveTrackingMap";
 import DeliveryOtpDisplay from "../components/DeliveryOtpDisplay";
 import OrderProgressTracker from "../components/order/OrderProgressTracker";
+import EcommerceShipmentTracker from "../components/order/EcommerceShipmentTracker";
 import ReturnProgressTracker from "../components/order/ReturnProgressTracker";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import { useSettings } from "@core/context/SettingsContext";
@@ -896,24 +897,33 @@ const OrderDetailPage = () => {
 
 
 
-        {/* Order Progress Tracker */}
-        {!isAwaitingOnlinePayment && (
-          <OrderProgressTracker
-            order={order}
-            estimatedArrivalText={estimatedArrival.arrivalTimeText}
-            arrivingInText={estimatedArrival.arrivingInText}
-            totalDistanceText={estimatedArrival.totalDistanceText}
-          />
+        {/* E-commerce orders get a shipment-tracking timeline instead of the
+            hyperlocal rider progress bar/OTP UI — no live GPS or proximity
+            handoff is possible for a nationwide courier shipment. */}
+        {order.businessType === "ecommerce" ? (
+          <EcommerceShipmentTracker order={order} onOrderUpdate={setOrder} />
+        ) : (
+          <>
+            {/* Order Progress Tracker */}
+            {!isAwaitingOnlinePayment && (
+              <OrderProgressTracker
+                order={order}
+                estimatedArrivalText={estimatedArrival.arrivalTimeText}
+                arrivingInText={estimatedArrival.arrivingInText}
+                totalDistanceText={estimatedArrival.totalDistanceText}
+              />
+            )}
+
+            {/* Live Tracking Map removed per user request */}
+
+            {/* Proximity-based Delivery OTP Display */}
+            <DeliveryOtpDisplay
+              orderId={order?.orderId || orderId}
+              checkoutGroupId={order?.checkoutGroupId || orderId}
+              initialOtp={order?.deliveryOtp}
+            />
+          </>
         )}
-
-        {/* Live Tracking Map removed per user request */}
-
-        {/* Proximity-based Delivery OTP Display */}
-        <DeliveryOtpDisplay
-          orderId={order?.orderId || orderId}
-          checkoutGroupId={order?.checkoutGroupId || orderId}
-          initialOtp={order?.deliveryOtp}
-        />
 
         {/* Delivery Partner Card - Redesigned */}
         {order.deliveryBoy && status !== "delivered" && status !== "cancelled" && (

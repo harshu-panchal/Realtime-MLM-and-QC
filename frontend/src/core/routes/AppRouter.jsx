@@ -13,6 +13,7 @@ import { CartAnimationProvider } from '../../modules/customer/context/CartAnimat
 import { ProductDetailProvider } from '../../modules/customer/context/ProductDetailContext';
 import { VariantSelectionProvider } from '../../modules/customer/context/VariantSelectionContext';
 import { LocationProvider } from '../../modules/customer/context/LocationContext';
+import { CommerceModeProvider } from '../../modules/customer/context/CommerceModeContext';
 import { PageTransitionProvider } from '../../modules/customer/context/PageTransitionContext';
 import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 
@@ -27,6 +28,7 @@ import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
 const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
+const SellerStorefrontPage = lazy(() => import('../../modules/customer/pages/SellerStorefrontPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
 const OffersPage = lazy(() => import('../../modules/customer/pages/OffersPage'));
 const ShopByStorePage = lazy(() => import('../../modules/customer/pages/ShopByStorePage'));
@@ -63,26 +65,28 @@ const CustomerLayoutWrapper = () => {
     }, []);
 
     return (
-        <LocationProvider>
-            <PageTransitionProvider>
-                <WishlistProvider>
-                    <CartProvider>
-                        <CartAnimationProvider>
-                            <ProductDetailProvider>
-                                <VariantSelectionProvider>
-                                    <ScrollToTop />
-                                    <CustomerLayout>
-                                        <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                            <Outlet />
-                                        </Suspense>
-                                    </CustomerLayout>
-                                </VariantSelectionProvider>
-                            </ProductDetailProvider>
-                        </CartAnimationProvider>
-                    </CartProvider>
-                </WishlistProvider>
-            </PageTransitionProvider>
-        </LocationProvider>
+        <CommerceModeProvider>
+            <LocationProvider>
+                <PageTransitionProvider>
+                    <WishlistProvider>
+                        <CartProvider>
+                            <CartAnimationProvider>
+                                <ProductDetailProvider>
+                                    <VariantSelectionProvider>
+                                        <ScrollToTop />
+                                        <CustomerLayout>
+                                            <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                                                <Outlet />
+                                            </Suspense>
+                                        </CustomerLayout>
+                                    </VariantSelectionProvider>
+                                </ProductDetailProvider>
+                            </CartAnimationProvider>
+                        </CartProvider>
+                    </WishlistProvider>
+                </PageTransitionProvider>
+            </LocationProvider>
+        </CommerceModeProvider>
     );
 };
 
@@ -174,6 +178,7 @@ const AppRouter = () => {
                         { index: true, element: <Home /> },
                         { path: 'categories', element: <CategoriesPage /> },
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
+                        { path: 'quick/seller/:sellerId', element: <SellerStorefrontPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'support', element: <TermsPage /> },
                         { path: 'privacy', element: <PrivacyPage /> },

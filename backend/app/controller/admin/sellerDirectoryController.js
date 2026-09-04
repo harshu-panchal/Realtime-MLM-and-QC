@@ -11,6 +11,7 @@ export const getSellerLocations = async (req, res) => {
     const {
       q = "",
       category = "all",
+      businessType = "all",
       city = "all",
       lifecycle = "all",
       mapLimit: rawMapLimit = "500",
@@ -25,6 +26,7 @@ export const getSellerLocations = async (req, res) => {
     const data = await getSellerLocationsData({
       q,
       category,
+      businessType,
       city,
       lifecycle,
       mapLimit: rawMapLimit,
@@ -42,7 +44,7 @@ export const getSellerLocations = async (req, res) => {
 
 export const getActiveSellers = async (req, res) => {
   try {
-    const { q = "", category = "all", sort = "recent" } = req.query;
+    const { q = "", category = "all", businessType = "all", sort = "recent" } = req.query;
     const { page, limit, skip } = getPagination(req, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -51,6 +53,7 @@ export const getActiveSellers = async (req, res) => {
     const data = await getActiveSellersData({
       q,
       category,
+      businessType,
       sort,
       page,
       limit,

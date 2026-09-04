@@ -85,6 +85,7 @@ import getPagination from "../utils/pagination.js";
 import {
   parseCustomerCoordinates,
   getNearbySellerIdsForCustomer,
+  getEcommerceSellerIds,
 } from "../services/customerVisibilityService.js";
 import {
   enqueueProductIndex,
@@ -130,6 +131,12 @@ function isCustomerVisibilityRequest(req) {
   const role = String(req.user?.role || "").toLowerCase();
   // Admin and seller should not be subject to location filtering
   return !role || (role !== "admin" && role !== "seller" && role !== "delivery");
+}
+
+// "quick" (default) = hyperlocal, radius-gated Quick Commerce sellers.
+// "shopAll" = nationwide E-commerce sellers, no lat/lng or radius involved.
+function resolveCommerceMode(modeParam) {
+  return modeParam === "shopAll" ? "shopAll" : "quick";
 }
 
 function parseSellerIdFilters({ sellerId, sellerIds }) {
@@ -303,8 +310,10 @@ export const getProducts = async (req, res) => {
       sort,
       lat,
       lng,
+      mode,
     } = req.query;
     const enforceRadius = isCustomerVisibilityRequest(req);
+    const commerceMode = resolveCommerceMode(mode);
 
     const query = {};
     if (search) {
@@ -367,29 +376,17 @@ export const getProducts = async (req, res) => {
     if (finalSubcategoryId && finalSubcategoryId !== "all") query.subcategoryId = finalSubcategoryId;
 
     const requestedSellerIds = parseSellerIdFilters({ sellerId, sellerIds });
-    const coords = parseCustomerCoordinates({ lat, lng });
-    const shouldApplyLocationFilter = enforceRadius || coords.valid;
-    if (enforceRadius && !coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer product visibility",
-      );
-    }
-    if (shouldApplyLocationFilter) {
-      const nearbySellerIds = await getNearbySellerIdsForCustomer(
-        coords.lat,
-        coords.lng,
-      );
 
-      const nearbySet = new Set(nearbySellerIds.map(String));
+    if (enforceRadius && commerceMode === "shopAll") {
+      // ShopAll (E-commerce): nationwide, no coordinates needed at all.
+      const ecommerceSellerIds = await getEcommerceSellerIds();
+      const ecommerceSet = new Set(ecommerceSellerIds.map(String));
       const finalSellerIds = requestedSellerIds.length
-        ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
-        : nearbySellerIds;
+        ? requestedSellerIds.filter((id) => ecommerceSet.has(String(id)))
+        : ecommerceSellerIds;
 
-      // If specific sellers were requested but none are nearby, return empty
       if (requestedSellerIds.length > 0 && !finalSellerIds.length) {
-        return handleResponse(res, 200, "No products available in your area", {
+        return handleResponse(res, 200, "No products available", {
           items: [],
           page: 1,
           limit: 24,
@@ -399,6 +396,40 @@ export const getProducts = async (req, res) => {
       }
 
       query.sellerId = { $in: finalSellerIds };
+    } else {
+      const coords = parseCustomerCoordinates({ lat, lng });
+      const shouldApplyLocationFilter = enforceRadius || coords.valid;
+      if (enforceRadius && !coords.valid) {
+        return handleResponse(
+          res,
+          400,
+          "lat and lng are required for customer product visibility",
+        );
+      }
+      if (shouldApplyLocationFilter) {
+        const nearbySellerIds = await getNearbySellerIdsForCustomer(
+          coords.lat,
+          coords.lng,
+        );
+
+        const nearbySet = new Set(nearbySellerIds.map(String));
+        const finalSellerIds = requestedSellerIds.length
+          ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
+          : nearbySellerIds;
+
+        // If specific sellers were requested but none are nearby, return empty
+        if (requestedSellerIds.length > 0 && !finalSellerIds.length) {
+          return handleResponse(res, 200, "No products available in your area", {
+            items: [],
+            page: 1,
+            limit: 24,
+            total: 0,
+            totalPages: 1,
+          });
+        }
+
+        query.sellerId = { $in: finalSellerIds };
+      }
     }
 
     if (categoryIds && typeof categoryIds === "string") {
@@ -1186,10 +1217,14 @@ export const getProductById = async (req, res) => {
     const { id } = req.params;
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
     const enforceRadius = isCustomerVisibilityRequest(req);
+    const commerceMode = resolveCommerceMode(req.query?.mode);
 
     let nearbySellerSet = null;
-    const coords = parseCustomerCoordinates(req.query || {});
-    if (enforceRadius) {
+    if (enforceRadius && commerceMode === "shopAll") {
+      const ecommerceSellerIds = await getEcommerceSellerIds();
+      nearbySellerSet = new Set(ecommerceSellerIds.map(String));
+    } else if (enforceRadius) {
+      const coords = parseCustomerCoordinates(req.query || {});
       if (!coords.valid) {
         return handleResponse(
           res,

@@ -3,36 +3,44 @@ import handleResponse from "../utils/helper.js";
 import {
   parseCustomerCoordinates,
   getNearbySellerIdsForCustomer,
+  getEcommerceSellerIds,
 } from "../services/customerVisibilityService.js";
 import { buildKey, getOrSet, getTTL } from "../services/cacheService.js";
 import { getApprovedOrLegacyFilter } from "../services/productModerationService.js";
 
 export const getPublicOfferSections = async (req, res) => {
   try {
-    const coords = parseCustomerCoordinates(req.query || {});
-    if (!coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer offer visibility",
-      );
+    const isShopAll = req.query?.mode === "shopAll";
+    let coords = { valid: false, lat: null, lng: null };
+
+    if (!isShopAll) {
+      coords = parseCustomerCoordinates(req.query || {});
+      if (!coords.valid) {
+        return handleResponse(
+          res,
+          400,
+          "lat and lng are required for customer offer visibility",
+        );
+      }
     }
 
-    // Round coordinates to 3 decimals for cache bucket
-    const cacheKey = buildKey(
-      "offersections",
-      "public",
-      `${coords.lat.toFixed(3)}:${coords.lng.toFixed(3)}`,
-    );
+    // ShopAll has no location dependency, so it gets a single nationwide
+    // cache bucket instead of one keyed by rounded coordinates.
+    const cacheKey = isShopAll
+      ? buildKey("offersections", "public", "shopAll:national")
+      : buildKey(
+          "offersections",
+          "public",
+          `${coords.lat.toFixed(3)}:${coords.lng.toFixed(3)}`,
+        );
 
     const filteredSections = await getOrSet(
       cacheKey,
       async () => {
-        const nearbySellerIds = await getNearbySellerIdsForCustomer(
-          coords.lat,
-          coords.lng,
-        );
-        const nearbySellerSet = new Set(nearbySellerIds.map(String));
+        const visibleSellerIds = isShopAll
+          ? await getEcommerceSellerIds()
+          : await getNearbySellerIdsForCustomer(coords.lat, coords.lng);
+        const nearbySellerSet = new Set(visibleSellerIds.map(String));
 
         const sections = await OfferSection.find({ status: "active" })
           .sort({ order: 1, createdAt: 1 })

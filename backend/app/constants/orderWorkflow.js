@@ -12,6 +12,18 @@ export const WORKFLOW_STATUS = {
   OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
   DELIVERED: "DELIVERED",
   CANCELLED: "CANCELLED",
+
+  // E-commerce-only branch (Phase 2, Shiprocket fulfillment). Kept as
+  // distinct values from the hyperlocal ones above so none of the
+  // rider/proximity transition logic in orderWorkflowService.js needs to
+  // learn about them — shiprocketWorkflowService.js owns these instead.
+  SHIPMENT_CREATED: "SHIPMENT_CREATED",
+  PICKUP_SCHEDULED: "PICKUP_SCHEDULED",
+  SHIPPED: "SHIPPED",
+  IN_TRANSIT: "IN_TRANSIT",
+  OUT_FOR_DELIVERY_COURIER: "OUT_FOR_DELIVERY_COURIER",
+  DELIVERED_PENDING_CONFIRMATION: "DELIVERED_PENDING_CONFIRMATION",
+  RTO: "RTO",
 };
 
 /** Milliseconds — override via env in services */
@@ -56,6 +68,16 @@ export function legacyStatusFromWorkflow(workflowStatus) {
     case WORKFLOW_STATUS.DELIVERED:
       return "delivered";
     case WORKFLOW_STATUS.CANCELLED:
+      return "cancelled";
+    case WORKFLOW_STATUS.SHIPMENT_CREATED:
+    case WORKFLOW_STATUS.PICKUP_SCHEDULED:
+      return "confirmed";
+    case WORKFLOW_STATUS.SHIPPED:
+    case WORKFLOW_STATUS.IN_TRANSIT:
+    case WORKFLOW_STATUS.OUT_FOR_DELIVERY_COURIER:
+    case WORKFLOW_STATUS.DELIVERED_PENDING_CONFIRMATION:
+      return "out_for_delivery";
+    case WORKFLOW_STATUS.RTO:
       return "cancelled";
     default:
       return "pending";

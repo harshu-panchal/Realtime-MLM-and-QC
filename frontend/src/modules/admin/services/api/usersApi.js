@@ -21,6 +21,13 @@ export const adminUsersApi = {
     approveSeller: (id) => axiosInstance.patch(`/admin/sellers/approve/${id}`),
     rejectSeller: (id, data) =>
         axiosInstance.delete(`/admin/sellers/reject/${id}`, { data }),
+
+    getBusinessTypeChangeRequests: (params) =>
+        axiosInstance.get('/admin/sellers/business-type-requests', { params }),
+    approveBusinessTypeChangeRequest: (sellerId, data) =>
+        axiosInstance.post(`/admin/sellers/${sellerId}/business-type-request/approve`, data),
+    rejectBusinessTypeChangeRequest: (sellerId, data) =>
+        axiosInstance.post(`/admin/sellers/${sellerId}/business-type-request/reject`, data),
 };
 
 export default adminUsersApi;

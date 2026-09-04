@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Cart from "../models/cart.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
 import Order from "../models/order.js";
+import Seller from "../models/seller.js";
 import User from "../models/customer.js";
 import Transaction from "../models/transaction.js";
 import Coupon from "../models/coupon.js";
@@ -478,6 +479,27 @@ export async function placeOrderAtomic({
     const sellerTimeoutMs = DEFAULT_SELLER_TIMEOUT_MS();
     const shouldStartSellerWorkflow = paymentMode === "COD";
 
+    // Denormalize each order's businessType from its seller at creation
+    // time (Order.businessType) so Phase 2 fulfillment can branch on it
+    // without a populate on every read. Batched once per checkout.
+    const sellerIdsInCheckout = [
+      ...new Set(
+        pricingSnapshot.sellerBreakdownEntries
+          .map((entry) => entry.actualSellerId && String(entry.actualSellerId))
+          .filter(Boolean),
+      ),
+    ];
+    const sellerBusinessTypeById = new Map(
+      sellerIdsInCheckout.length
+        ? (
+            await Seller.find({ _id: { $in: sellerIdsInCheckout } })
+              .select("businessType")
+              .session(session)
+              .lean()
+          ).map((s) => [String(s._id), s.businessType])
+        : [],
+    );
+
     for (let index = 0; index < pricingSnapshot.sellerBreakdownEntries.length; index += 1) {
       const entry = pricingSnapshot.sellerBreakdownEntries[index];
       const orderId = await generateUniquePublicOrderId({ session });
@@ -524,6 +546,7 @@ export async function placeOrderAtomic({
         orderId,
         customer: customerId,
         seller: entry.actualSellerId || null,
+        businessType: sellerBusinessTypeById.get(String(entry.actualSellerId)) || undefined,
         items: mapOrderItemsForPersistence(entry.items),
         address: normalizedAddress,
         paymentMode,

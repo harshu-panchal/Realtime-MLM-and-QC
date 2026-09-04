@@ -8,8 +8,9 @@ import {
     verifySellerResetOtp,
     resetSellerPassword,
     checkSellerExists,
+    requestBusinessTypeChange,
 } from "../controller/sellerAuthController.js";
-import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers } from "../controller/sellerController.js";
+import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers, getSellerStorefront } from "../controller/sellerController.js";
 import { getSellerStats, getSellerEarnings } from "../controller/sellerStatsController.js";
 import { getSellerWalletSummaryController } from "../controller/adminFinanceController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -50,6 +51,7 @@ router.post(
 router.post("/check-exists", checkSellerExists);
 router.post("/login", loginSeller);
 router.get("/nearby", getNearbySellers);
+router.get("/:sellerId/storefront-meta", getSellerStorefront);
 
 // Profile routes
 router.get(
@@ -71,5 +73,6 @@ router.get("/stats", verifyToken, allowRoles("seller"), getSellerStats);
 router.get("/earnings", verifyToken, allowRoles("seller"), getSellerEarnings);
 router.get("/wallet/summary", verifyToken, allowRoles("seller"), getSellerWalletSummaryController);
 router.post("/request-withdrawal", verifyToken, allowRoles("seller"), requestWithdrawal);
+router.post("/business-type-request", verifyToken, allowRoles("seller"), requestBusinessTypeChange);
 
 export default router;

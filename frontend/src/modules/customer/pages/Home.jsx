@@ -26,6 +26,7 @@ import CardBanner from "@/assets/CardBanner.jpg";
 import SectionRenderer from "../components/experience/SectionRenderer";
 import ExperienceBannerCarousel from "../components/experience/ExperienceBannerCarousel";
 import { useLocation } from "../context/LocationContext";
+import { useCommerceMode, COMMERCE_MODES } from "../context/CommerceModeContext";
 import { useSettings } from "@core/context/SettingsContext";
 import Lottie from "lottie-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
@@ -40,6 +41,7 @@ import {
 } from "../constants/homeConstants";
 import PromoMarquee from "../components/home/PromoMarquee";
 import QuickCategorySlider from "../components/home/QuickCategorySlider";
+import QuickCategorySellersSection from "../components/home/QuickCategorySellersSection";
 import LowestPriceSection from "../components/home/LowestPriceSection";
 import OfferSections from "../components/home/OfferSections";
 import BestsellersSection from "../components/home/BestsellersSection";
@@ -165,11 +167,14 @@ const homePageDataCache = new Map();
 const headerSectionsMemoryCache = {};
 const heroConfigMemoryCache = {};
 
-const getHomePageDataCacheKey = (location) => {
+const getHomePageDataCacheKey = (location, mode) => {
+  // ShopAll has no location dependency — a single nationwide cache entry
+  // covers every customer regardless of where they are.
+  if (mode === COMMERCE_MODES.SHOP_ALL) return "home:shopAll:national";
   const lat = Number(location?.latitude);
   const lng = Number(location?.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "home:no-location";
-  return `home:${lat.toFixed(5)}:${lng.toFixed(5)}`;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "home:quick:no-location";
+  return `home:quick:${lat.toFixed(5)}:${lng.toFixed(5)}`;
 };
 
 const homeStaticTexts = [
@@ -180,17 +185,18 @@ const homeStaticTexts = [
   "Search"
 ];
 
-const getCachedHomePageData = (location) =>
-  homePageDataCache.get(getHomePageDataCacheKey(location)) || null;
+const getCachedHomePageData = (location, mode) =>
+  homePageDataCache.get(getHomePageDataCacheKey(location, mode)) || null;
 
 const Home = () => {
   const { scrollY } = useScroll();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { currentLocation } = useLocation();
+  const { mode } = useCommerceMode();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const quickCatsRef = useRef(null);
-  const cachedHomePageData = getCachedHomePageData(currentLocation);
+  const cachedHomePageData = getCachedHomePageData(currentLocation, mode);
 
   const { language } = useTranslation();
   const { getTranslatedText } = usePageTranslation(homeStaticTexts);
@@ -345,7 +351,7 @@ const Home = () => {
   };
 
   const fetchData = async ({ forceRefresh = false } = {}) => {
-    const cacheKey = getHomePageDataCacheKey(currentLocation);
+    const cacheKey = getHomePageDataCacheKey(currentLocation, mode);
     if (!forceRefresh) {
       const cached = homePageDataCache.get(cacheKey);
       if (cached) {
@@ -356,17 +362,26 @@ const Home = () => {
     }
     setIsLoading(true);
     try {
-      const hasValidLocation = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
-      const productParams = { limit: 20 };
+      const isShopAll = mode === COMMERCE_MODES.SHOP_ALL;
+      // ShopAll (E-commerce) is nationwide — it never needs the customer's
+      // coordinates. Quick (hyperlocal) keeps the existing lat/lng gate.
+      const hasValidLocation = !isShopAll && Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
+      const shouldFetchProducts = isShopAll || hasValidLocation;
+      const productParams = { limit: 20, mode: isShopAll ? "shopAll" : "quick" };
       if (hasValidLocation) {
         productParams.lat = currentLocation.latitude;
         productParams.lng = currentLocation.longitude;
       }
+      const offerSectionParams = isShopAll
+        ? { mode: "shopAll" }
+        : hasValidLocation
+          ? { lat: currentLocation.latitude, lng: currentLocation.longitude, mode: "quick" }
+          : null;
       const [catRes, prodRes, expRes, sectionsRes] = await Promise.all([
-        customerApi.getCategories(),
-        hasValidLocation ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
+        customerApi.getCategories({ businessType: isShopAll ? "ecommerce" : "quick_commerce" }),
+        shouldFetchProducts ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
         customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
-        hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
+        offerSectionParams ? customerApi.getOfferSections(offerSectionParams).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
       ]);
       const nextHomeData = {
         categories: [ALL_CATEGORY],
@@ -426,7 +441,7 @@ const Home = () => {
     } catch (e) { }
   };
 
-  useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude]);
+  useEffect(() => { fetchData(); }, [currentLocation?.latitude, currentLocation?.longitude, mode]);
   const headerSectionsCache = useRef(headerSectionsMemoryCache);
   const heroConfigCache = useRef(heroConfigMemoryCache);
 
@@ -532,9 +547,17 @@ const Home = () => {
     return null; // Particles were already simplified out earlier
   };
 
+  // Quick tab: clicking a real header category shows the nearby-sellers list
+  // for that category inline (QuickCategorySellersSection, rendered below
+  // the hero banner) instead of navigating to a separate page — same
+  // in-place switch as ShopAll's activeCategory-driven sections.
+  const handleHeaderCategorySelect = (cat) => {
+    setActiveCategory(cat);
+  };
+
   return (
     <div className="min-h-screen pt-[210px] md:pt-[220px] bg-white">
-      <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
+      <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleHeaderCategorySelect} />
 
       <>
         {(() => {
@@ -556,16 +579,23 @@ const Home = () => {
 
           return (
             <motion.div ref={heroRef} className="block md:hidden will-change-transform pt-2" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="mx-4 mt-12 mb-1 relative overflow-hidden rounded-[24px] shadow-md z-20">
+              <div className="mx-4 mt-24 mb-1 relative overflow-hidden rounded-[24px] shadow-md z-20">
                 <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge />
               </div>
             </motion.div>
           );
         })()}
 
-        <div className="mt-4 md:mt-6">
-          <FestivalDealsSection />
-        </div>
+        {mode === COMMERCE_MODES.QUICK && activeCategory && activeCategory._id !== "all" ? (
+          <QuickCategorySellersSection
+            categoryId={activeCategory._id}
+            categoryName={activeCategory.name}
+          />
+        ) : (
+          <div className="mt-4 md:mt-6">
+            <FestivalDealsSection />
+          </div>
+        )}
 
         <div className="w-full z-[60] bg-transparent pt-1 pb-2 mb-2">
           <div className="relative mt-2 md:mt-8 z-30">

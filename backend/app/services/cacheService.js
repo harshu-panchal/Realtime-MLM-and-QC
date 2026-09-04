@@ -35,6 +35,10 @@ const TTL_CONFIG = {
   deliveryCodSummary: parseInt(process.env.CACHE_DELIVERY_COD_SUMMARY_TTL || "30", 10), // 30s
   sellerStats: parseInt(process.env.CACHE_SELLER_STATS_TTL || "60", 10), // 1 minute
   sellerReturns: parseInt(process.env.CACHE_SELLER_RETURNS_TTL || "30", 10), // 30s
+
+  // Shiprocket auth tokens are valid ~10 days; cache for 9 to refresh with a
+  // safety margin instead of re-authenticating on every request.
+  shiprocketToken: parseInt(process.env.CACHE_SHIPROCKET_TOKEN_TTL || String(9 * 24 * 60 * 60), 10),
 };
 
 /**

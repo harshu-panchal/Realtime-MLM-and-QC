@@ -34,6 +34,7 @@ export const STORAGE_KEYS = Object.freeze({
     RECENT_SEARCHES: 'appzeto_recent_searches',
     FAQ_CACHE: 'customer_faqs_cache_v1',
     EXPERIENCE_RETURN: 'experienceReturn',
+    COMMERCE_MODE: 'commerce_mode_v1',
 
     // ── Delivery operational state ───────────────────────────────────────────
     DELIVERY_LAST_LOCATION: 'delivery_partner_last_location',

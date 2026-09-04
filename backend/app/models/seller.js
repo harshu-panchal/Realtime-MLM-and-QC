@@ -135,12 +135,49 @@ const sellerSchema = new mongoose.Schema(
       default: 5, // Default 5km
     },
     lastLogin: Date,
+
+    // Quick Commerce (hyperlocal, radius-gated) vs E-commerce (nationwide,
+    // Shiprocket-fulfilled). Chosen once at signup; see businessTypeChangeRequest
+    // for the seller-initiated, admin-approved change flow.
+    businessType: {
+      type: String,
+      enum: ["quick_commerce", "ecommerce"],
+      required: true,
+      default: "quick_commerce",
+    },
+
+    businessTypeChangeRequest: {
+      requestedType: {
+        type: String,
+        enum: ["quick_commerce", "ecommerce"],
+      },
+      reason: {
+        type: String,
+        trim: true,
+      },
+      status: {
+        type: String,
+        enum: ["none", "pending", "approved", "rejected"],
+        default: "none",
+      },
+      requestedAt: Date,
+      reviewedAt: Date,
+      reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Admin",
+      },
+      adminNote: {
+        type: String,
+        trim: true,
+      },
+    },
   },
   { timestamps: true },
 );
 
 sellerSchema.index({ location: "2dsphere" });
 sellerSchema.index({ isActive: 1, isVerified: 1 });
+sellerSchema.index({ businessType: 1 });
 
 // Hash password before saving
 sellerSchema.pre("save", async function (next) {

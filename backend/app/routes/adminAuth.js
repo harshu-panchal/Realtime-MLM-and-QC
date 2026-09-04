@@ -33,6 +33,9 @@ import {
     getUserById,
     getSellers,
     getSellerLocations,
+    getBusinessTypeChangeRequests,
+    approveBusinessTypeChangeRequest,
+    rejectBusinessTypeChangeRequest,
 } from "../controller/adminController.js";
 import {
     exportAdminFinanceStatementController,
@@ -158,6 +161,25 @@ router.delete(
     verifyToken,
     allowRoles("admin"),
     rejectSellerApplication
+);
+
+router.get(
+    "/sellers/business-type-requests",
+    verifyToken,
+    allowRoles("admin"),
+    getBusinessTypeChangeRequests
+);
+router.post(
+    "/sellers/:sellerId/business-type-request/approve",
+    verifyToken,
+    allowRoles("admin"),
+    approveBusinessTypeChangeRequest
+);
+router.post(
+    "/sellers/:sellerId/business-type-request/reject",
+    verifyToken,
+    allowRoles("admin"),
+    rejectBusinessTypeChangeRequest
 );
 
 router.get(

@@ -58,6 +58,25 @@ const REQUIRED_DOCUMENT_CONFIG = [
   { id: "idProof", label: "ID Proof" },
 ];
 
+// Step 1: identity/OTP, Step 2: business type, Step 3: address/service area,
+// Step 4: documents.
+const TOTAL_SIGNUP_STEPS = 4;
+
+const BUSINESS_TYPE_OPTIONS = [
+  {
+    value: "quick_commerce",
+    title: "Quick Commerce",
+    description: "Hyperlocal delivery to nearby customers, like Blinkit/Zomato.",
+    icon: Rocket,
+  },
+  {
+    value: "ecommerce",
+    title: "E-commerce",
+    description: "Nationwide shipping to customers anywhere, like Amazon/Flipkart.",
+    icon: Globe,
+  },
+];
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(() => {
     const saved = sessionStorage.getItem("seller_isLogin");
@@ -81,6 +100,7 @@ const Auth = () => {
       city: "",
       state: "",
       category: "",
+      businessType: "",
       description: "",
       lat: null,
       lng: null,
@@ -474,7 +494,12 @@ const Auth = () => {
         return;
       }
 
-      if (!isLogin && signupStep < 3) {
+      if (!isLogin && signupStep === 2 && !formData.businessType) {
+        toast.error("Please select a business type to continue.");
+        return;
+      }
+
+      if (!isLogin && signupStep < TOTAL_SIGNUP_STEPS) {
         setSignupStep((prev) => prev + 1);
         return;
       }
@@ -608,7 +633,7 @@ const Auth = () => {
             <span className="inline-block px-4 py-1 bg-slate-100 text-slate-800 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
               {isLogin
                 ? "Welcome Back"
-                : `New Partnership - Step ${signupStep} of 3`}
+                : `New Partnership - Step ${signupStep} of ${TOTAL_SIGNUP_STEPS}`}
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">
               Seller{" "}
@@ -622,8 +647,12 @@ const Auth = () => {
                 : signupStep === 1
                   ? "Register your store and Start Operating instantly."
                   : signupStep === 2
-                    ? "Set your shop address and service area precisely."
-                    : "Upload verification documents to complete your application."}
+                    ? "Choose the business model that fits how you'll sell."
+                    : signupStep === 3
+                      ? formData.businessType === "ecommerce"
+                        ? "Set your business address for records and shipping."
+                        : "Set your shop address and service area precisely."
+                      : "Upload verification documents to complete your application."}
             </p>
           </div>
         </div>
@@ -1091,12 +1120,55 @@ const Auth = () => {
                   </>
                 )}
 
-                {/* SIGNUP STEP 2 (Shop address and service area) */}
+                {/* SIGNUP STEP 2 (Business type selection) */}
                 {!isLogin && signupStep === 2 && (
+                  <div className="space-y-4">
+                    <div className="pt-2 space-y-3">
+                      {BUSINESS_TYPE_OPTIONS.map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = formData.businessType === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({ ...prev, businessType: option.value }))
+                            }
+                            className={`w-full flex items-start gap-4 p-4 rounded-lg border-2 text-left transition-all ${isSelected
+                              ? "border-brand-500 bg-brand-50/50"
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                              }`}>
+                            <div
+                              className={`p-2.5 rounded-md ${isSelected ? "bg-brand-100 text-brand-600" : "bg-white text-slate-600 shadow-sm"}`}>
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1">
+                              <p
+                                className={`text-sm font-black ${isSelected ? "text-brand-700" : "text-slate-800"}`}>
+                                {option.title}
+                              </p>
+                              <p className="text-xs text-slate-600 font-medium mt-0.5">
+                                {option.description}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <CheckCircle className="w-5 h-5 text-brand-600 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* SIGNUP STEP 3 (Shop/business address and service area) */}
+                {!isLogin && signupStep === 3 && (
                   <div className="space-y-4">
                     <div className="pt-2">
                       <p className="text-sm font-black text-slate-600 uppercase tracking-widest mb-3">
-                        Shop Location & Service Area
+                        {formData.businessType === "ecommerce"
+                          ? "Business Address"
+                          : "Shop Location & Service Area"}
                       </p>
                       <button
                         type="button"
@@ -1123,7 +1195,9 @@ const Auth = () => {
                             </p>
                             <p className="text-xs text-slate-600 font-medium truncate max-w-[250px]">
                               {formData.lat
-                                ? `${formData.address} (${formData.radius}km)`
+                                ? formData.businessType === "ecommerce"
+                                  ? formData.address
+                                  : `${formData.address} (${formData.radius}km)`
                                 : "Precisely mark your shop location"}
                             </p>
                           </div>
@@ -1228,8 +1302,8 @@ const Auth = () => {
                   </div>
                 )}
 
-                {/* SIGNUP STEP 3 (Verification documents) */}
-                {!isLogin && signupStep === 3 && (
+                {/* SIGNUP STEP 4 (Verification documents) */}
+                {!isLogin && signupStep === 4 && (
                   <div className="space-y-4">
                     <div className="pt-2">
                       <p className="text-sm font-black text-slate-600 uppercase tracking-widest mb-3">
@@ -1297,7 +1371,7 @@ const Auth = () => {
                       ? "WORKING..."
                       : isLogin
                         ? "ENTER DASHBOARD"
-                        : signupStep < 3
+                        : signupStep < TOTAL_SIGNUP_STEPS
                           ? "NEXT STEP"
                           : "SUBMIT APPLICATION"}
                     <ArrowRight
@@ -1340,6 +1414,12 @@ const Auth = () => {
             formData.lat ? { lat: formData.lat, lng: formData.lng } : null
           }
           initialRadius={formData.radius}
+          hideRadius={formData.businessType === "ecommerce"}
+          title={
+            formData.businessType === "ecommerce"
+              ? "Select Business Address"
+              : "Select Shop Location"
+          }
         />
       )}
     </div>

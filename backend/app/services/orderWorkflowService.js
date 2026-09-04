@@ -44,6 +44,7 @@ import { requireCanonicalOrderId } from "../utils/orderLookup.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import logger from "./logger.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { sellerAcceptAtomic as shiprocketSellerAcceptAtomic } from "./shiprocketWorkflowService.js";
 
 const DELIVERY_SEARCH_MAX_ATTEMPTS = () =>
   parseInt(process.env.DELIVERY_SEARCH_MAX_ATTEMPTS || "3", 10);
@@ -148,6 +149,18 @@ export async function removeReturnPickupTimeoutJob(orderId, attempt = 1) {
  */
 export async function sellerAcceptAtomic(sellerId, orderId) {
   orderId = await requireCanonicalOrderId(orderId);
+
+  // Ecommerce orders never enter the hyperlocal delivery-search/rider
+  // broadcast path below — they hand off to Shiprocket instead. This check
+  // must stay above the DELIVERY_SEARCH transition so quick-commerce
+  // orders are completely unaffected by this branch.
+  const businessTypePreview = await Order.findOne({ orderId, seller: sellerId })
+    .select("businessType")
+    .lean();
+  if (businessTypePreview?.businessType === "ecommerce") {
+    return shiprocketSellerAcceptAtomic(sellerId, orderId);
+  }
+
   const now = new Date();
   const sellerMs = DEFAULT_SELLER_TIMEOUT_MS();
   const deliveryMs = DEFAULT_DELIVERY_TIMEOUT_MS();

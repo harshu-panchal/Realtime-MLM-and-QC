@@ -94,6 +94,14 @@ const categorySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Which storefront(s) this node appears under: the Quick tab, the
+    // ShopAll tab, or both. Applies to header/category/subcategory nodes
+    // alike, independent of the `type` tier field above.
+    businessType: {
+      type: String,
+      enum: ["quick_commerce", "ecommerce", "both"],
+      default: "both",
+    },
   },
   {
     timestamps: true,
@@ -236,6 +244,7 @@ categorySchema.pre("findOneAndUpdate", function syncLegacyFinanceFieldsOnUpdate(
 categorySchema.index({ type: 1, status: 1 });
 categorySchema.index({ parentId: 1, status: 1 });
 categorySchema.index({ name: 1 });
+categorySchema.index({ businessType: 1, type: 1, status: 1 });
 
 // Virtual for children categories
 categorySchema.virtual("children", {

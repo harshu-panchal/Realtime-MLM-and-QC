@@ -6,4 +6,5 @@ export * from "./admin/walletController.js";
 export * from "./admin/cashController.js";
 export * from "./admin/sellerDirectoryController.js";
 export * from "./admin/userController.js";
+export * from "./admin/sellerBusinessTypeController.js";
 

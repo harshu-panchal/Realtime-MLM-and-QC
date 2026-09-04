@@ -36,6 +36,14 @@ const cartSchema = new mongoose.Schema(
                 },
             },
         ],
+        // A cart may only hold items from one business type (Quick Commerce
+        // or E-commerce) at a time. Set on first successful add, reset to
+        // null whenever items becomes empty. Enforced in cartController.addToCart.
+        businessType: {
+            type: String,
+            enum: ["quick_commerce", "ecommerce"],
+            default: null,
+        },
     },
     { timestamps: true }
 );

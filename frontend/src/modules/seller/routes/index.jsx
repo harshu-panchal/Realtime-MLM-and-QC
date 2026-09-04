@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
+import { useAuth } from "@core/context/AuthContext";
 import Orders from "../pages/Orders";
 import {
   HiOutlineSquares2X2,
@@ -29,14 +30,16 @@ const Transactions = React.lazy(() => import("../pages/Transactions"));
 const DeliveryTracking = React.lazy(() => import("../pages/DeliveryTracking"));
 const Profile = React.lazy(() => import("../pages/Profile"));
 const Withdrawals = React.lazy(() => import("../pages/Withdrawals"));
+const ShipmentOrders = React.lazy(() => import("../pages/ShipmentOrders"));
 
-const navItems = [
+const baseNavItems = [
   { label: "Dashboard", path: "/seller", icon: HiOutlineSquares2X2, end: true },
   { label: "Products", path: "/seller/products", icon: HiOutlineCube },
   { label: "Stock", path: "/seller/inventory", icon: HiOutlineArchiveBox },
   { label: "Orders", path: "/seller/orders", icon: HiOutlineTruck },
+  { label: "Shipments", path: "/seller/shipments", icon: HiOutlineTruck, ecommerceOnly: true },
   { label: "Returns", path: "/seller/returns", icon: HiOutlineArchiveBox },
-  { label: "Track Orders", path: "/seller/tracking", icon: HiOutlineMapPin },
+  { label: "Track Orders", path: "/seller/tracking", icon: HiOutlineMapPin, quickCommerceOnly: true },
   {
     label: "Sales Reports",
     path: "/seller/analytics",
@@ -61,9 +64,18 @@ const navItems = [
 ];
 
 const SellerRoutes = () => {
+  const { user } = useAuth();
+  const isEcommerce = user?.businessType === "ecommerce";
+
   useEffect(() => {
     setActiveRole(ROLES.SELLER);
   }, []);
+
+  const navItems = baseNavItems.filter((item) => {
+    if (item.ecommerceOnly) return isEcommerce;
+    if (item.quickCommerceOnly) return !isEcommerce;
+    return true;
+  });
 
   return (
     <DashboardLayout navItems={navItems} title="Seller Panel">
@@ -73,6 +85,7 @@ const SellerRoutes = () => {
         <Route path="/products/add" element={<AddProduct />} />
         <Route path="/inventory" element={<StockManagement />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/shipments" element={<ShipmentOrders />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/tracking" element={<DeliveryTracking />} />
         <Route path="/analytics" element={<Analytics />} />

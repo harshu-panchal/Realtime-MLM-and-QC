@@ -13,6 +13,7 @@ export const sellerSignupSchema = Joi.object({
   password: trimmedString.min(8).max(128).required(),
   phone: phone.required(),
   shopName: trimmedString.min(2).max(200).required(),
+  businessType: Joi.string().valid("quick_commerce", "ecommerce").required(),
   address: trimmedString.max(500).optional(),
 });
 

@@ -107,6 +107,7 @@ const OrdersList = () => {
                     items: o.items?.length || 0,
                     amount: o.pricing?.total || 0,
                     status: getLegacyStatusFromOrder(o),
+                    businessType: o.businessType,
                     workflowStatus: o.workflowStatus,
                     workflowVersion: o.workflowVersion,
                     returnStatus: o.returnStatus,
@@ -394,10 +395,15 @@ const OrdersList = () => {
                                                     #{order.id}
                                                     <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all text-slate-400" />
                                                 </h4>
-                                                <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                     <Badge variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-400 py-0.5">
                                                         {order.items} {order.items > 1 ? 'Items' : 'Item'}
                                                     </Badge>
+                                                    {order.businessType === 'ecommerce' && (
+                                                        <Badge variant="outline" className="text-[9px] font-bold border-brand-200 text-brand-600 py-0.5">
+                                                            E-commerce
+                                                        </Badge>
+                                                    )}
                                                     <span className="text-[10px] font-bold text-slate-300">•</span>
                                                     <span className="text-[10px] font-bold text-slate-400">{order.date}</span>
                                                 </div>
