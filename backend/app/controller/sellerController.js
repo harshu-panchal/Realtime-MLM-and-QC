@@ -25,9 +25,7 @@ export const getNearbySellers = async (req, res) => {
     const customerLat = Number(lat);
     const customerLng = Number(lng);
 
-    // Fetch all active/verified sellers
-    // We could use $geoNear, but to strictly follow the requirement of individual radii,
-    // we'll fetch sellers within a reasonable max distance (e.g. 100km) and then filter.
+    // Fetch all active/verified quick commerce sellers
     const sellers = await Seller.find({
       isActive: true,
       isVerified: true,
@@ -38,30 +36,33 @@ export const getNearbySellers = async (req, res) => {
             type: "Point",
             coordinates: [customerLng, customerLat],
           },
-          $maxDistance: 100000, // 100km max search area for performance
+          $maxDistance: 100000, // 100km max search area
         },
       },
-    }).lean();
+    })
+      .select(
+        "shopName address locality city pincode state location serviceRadius isActive isVerified businessType bannerImage logo rating deliveryTime offerTitle offerSubtitle"
+      )
+      .lean();
 
     // Filter based on individual service radius
     let nearbySellers = sellers.filter((seller) => {
-      const sellerLng = seller.location.coordinates[0];
-      const sellerLat = seller.location.coordinates[1];
+      const sellerLng = seller.location?.coordinates?.[0];
+      const sellerLat = seller.location?.coordinates?.[1];
+      if (sellerLat === undefined || sellerLng === undefined) return false;
+
       const distance = calculateDistance(
         customerLat,
         customerLng,
         sellerLat,
-        sellerLng,
+        sellerLng
       );
 
-      // Add distance to seller object for frontend
       seller.distance = distance;
-
       return distance <= (seller.serviceRadius || 5);
     });
 
-    // Optional: scope to sellers who actually have active products under the
-    // clicked header/category (Quick tab's "sellers for this category" list).
+    // Scope to sellers having active products in category if category filter is present
     const categoryFilter = headerId || categoryId;
     if (categoryFilter && nearbySellers.length > 0) {
       const matchingSellerIds = await Product.distinct("sellerId", {
@@ -73,11 +74,34 @@ export const getNearbySellers = async (req, res) => {
       nearbySellers = nearbySellers.filter((seller) => matchingSet.has(String(seller._id)));
     }
 
+    // Parallel fast fetch top 4 active products per seller (indexed + limited per seller)
+    if (nearbySellers.length > 0) {
+      await Promise.all(
+        nearbySellers.map(async (seller) => {
+          const prods = await Product.find({
+            sellerId: seller._id,
+            status: "active",
+          })
+            .select("name mainImage image images price salePrice discountPrice")
+            .limit(4)
+            .lean();
+
+          seller.topProducts = prods.map((prod) => ({
+            _id: prod._id,
+            name: prod.name,
+            image: prod.mainImage || prod.image || (prod.images && prod.images[0]) || "",
+            price: prod.salePrice || prod.discountPrice || prod.price || 0,
+            originalPrice: prod.price || 0,
+          }));
+        })
+      );
+    }
+
     return handleResponse(
       res,
       200,
       "Nearby sellers fetched successfully",
-      nearbySellers,
+      nearbySellers
     );
   } catch (error) {
     return handleResponse(res, 500, error.message);
@@ -104,7 +128,9 @@ export const getSellerStorefront = async (req, res) => {
       isActive: true,
       isVerified: true,
     })
-      .select("shopName address businessType")
+      .select(
+        "shopName address businessType bannerImage logo rating locality city serviceRadius category description deliveryTime offerTitle offerSubtitle"
+      )
       .lean();
 
     if (!seller) {
@@ -123,11 +149,7 @@ export const getSellerStorefront = async (req, res) => {
       : [];
 
     return handleResponse(res, 200, "Seller storefront fetched successfully", {
-      seller: {
-        _id: seller._id,
-        shopName: seller.shopName,
-        address: seller.address,
-      },
+      seller,
       categories,
     });
   } catch (error) {
@@ -225,7 +247,27 @@ export const getSellerProfile = async (req, res) => {
 ================================ */
 export const updateSellerProfile = async (req, res) => {
   try {
-    const { name, shopName, phone, address, locality, pincode, city, state, lat, lng, radius } = req.body;
+    const {
+      name,
+      shopName,
+      phone,
+      address,
+      locality,
+      pincode,
+      city,
+      state,
+      lat,
+      lng,
+      radius,
+      bannerImage,
+      logo,
+      deliveryTime,
+      offerTitle,
+      offerSubtitle,
+      category,
+      description,
+      rating,
+    } = req.body;
 
     // Find seller
     const seller = await Seller.findById(req.user.id);
@@ -242,6 +284,14 @@ export const updateSellerProfile = async (req, res) => {
     if (pincode !== undefined) seller.pincode = pincode;
     if (city !== undefined) seller.city = city;
     if (state !== undefined) seller.state = state;
+    if (bannerImage !== undefined) seller.bannerImage = bannerImage;
+    if (logo !== undefined) seller.logo = logo;
+    if (deliveryTime !== undefined) seller.deliveryTime = deliveryTime;
+    if (offerTitle !== undefined) seller.offerTitle = offerTitle;
+    if (offerSubtitle !== undefined) seller.offerSubtitle = offerSubtitle;
+    if (category !== undefined) seller.category = category;
+    if (description !== undefined) seller.description = description;
+    if (rating !== undefined) seller.rating = Number(rating);
 
     // Validate and update geo data
     if (lat !== undefined && lng !== undefined) {

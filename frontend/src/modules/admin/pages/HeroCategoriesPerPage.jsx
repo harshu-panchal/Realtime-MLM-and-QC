@@ -3,6 +3,7 @@ import {
   HiOutlinePencilSquare,
   HiOutlinePhoto,
   HiOutlinePlus,
+  HiOutlineTrash,
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { adminApi } from "../services/adminApi";
@@ -380,15 +381,15 @@ export default function HeroCategoriesPerPage() {
                           </div>
                         </div>
                       </div>
-                      {formBanners.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeBannerItem(idx)}
-                          className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                        >
-                          <HiOutlineXMark className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeBannerItem(idx)}
+                        title="Delete banner"
+                        className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 bg-rose-50/50 rounded-xl transition-all flex items-center gap-1 border border-rose-100/80 shrink-0 text-xs font-bold"
+                      >
+                        <HiOutlineTrash className="w-4 h-4" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
                     </div>
                   </Card>
                 ))}

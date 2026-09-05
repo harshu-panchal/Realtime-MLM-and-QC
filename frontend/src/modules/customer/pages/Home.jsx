@@ -405,12 +405,13 @@ const Home = () => {
         const formattedHeaders = dbCats.filter((cat) => cat.type === "header").map((cat) => {
           const catName = cat.name;
           const meta = CATEGORY_METADATA[catName] || CATEGORY_METADATA[catName.toUpperCase()] || { icon: "✨", theme: DEFAULT_CATEGORY_THEME, banner: { title: catName.toUpperCase(), subtitle: "TOP PICKS", floatingElements: "sparkles" } };
-          const IconComp = (cat.iconId && ICON_COMPONENTS[cat.iconId]) || meta.icon || "✨";
-          return { ...cat, id: cat._id, icon: IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
+          const customImg = cat.image || cat.headerImage || cat.customImage;
+          const IconComp = customImg || (cat.iconId && ICON_COMPONENTS[cat.iconId]) || cat.icon || meta.icon || "✨";
+          return { ...cat, id: cat._id, image: customImg || cat.image, icon: IconComp, theme: meta.theme, banner: { ...meta.banner, textColor: "text-white" } };
         });
         nextHomeData.formattedHeaders = formattedHeaders;
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
-        const mergedAllCategory = allHeaderFromAdmin ? { ...ALL_CATEGORY, headerColor: allHeaderFromAdmin.headerColor || ALL_CATEGORY.headerColor, headerFontColor: allHeaderFromAdmin.headerFontColor || ALL_CATEGORY.headerFontColor, headerIconColor: allHeaderFromAdmin.headerIconColor || ALL_CATEGORY.headerIconColor, icon: allHeaderFromAdmin.icon || ALL_CATEGORY.icon } : ALL_CATEGORY;
+        const mergedAllCategory = allHeaderFromAdmin ? { ...ALL_CATEGORY, headerColor: allHeaderFromAdmin.headerColor || ALL_CATEGORY.headerColor, headerFontColor: allHeaderFromAdmin.headerFontColor || ALL_CATEGORY.headerFontColor, headerIconColor: allHeaderFromAdmin.headerIconColor || ALL_CATEGORY.headerIconColor, icon: allHeaderFromAdmin.image || allHeaderFromAdmin.icon || ALL_CATEGORY.icon, image: allHeaderFromAdmin.image } : ALL_CATEGORY;
         nextHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
         nextHomeData.activeCategory = mergedAllCategory;
         nextHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
@@ -556,10 +557,11 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen pt-[210px] md:pt-[220px] bg-white">
+    <div className="min-h-screen pt-[190px] md:pt-[200px] bg-white">
       <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleHeaderCategorySelect} />
 
       <>
+        {/* Hero Banners (displayed in both Quick and ShopAll modes) */}
         {(() => {
           const isAllCategory = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
           const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl && isAllCategory;
@@ -578,130 +580,137 @@ const Home = () => {
           }
 
           return (
-            <motion.div ref={heroRef} className="block md:hidden will-change-transform pt-2" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="mx-4 mt-24 mb-1 relative overflow-hidden rounded-[24px] shadow-md z-20">
+            <motion.div ref={heroRef} className="will-change-transform pt-1" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
+              <div className="mx-4 mt-[65px] mb-2 relative overflow-hidden rounded-[24px] shadow-md z-20">
                 <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge />
               </div>
             </motion.div>
           );
         })()}
 
-        {mode === COMMERCE_MODES.QUICK && activeCategory && activeCategory._id !== "all" ? (
-          <QuickCategorySellersSection
-            categoryId={activeCategory._id}
-            categoryName={activeCategory.name}
-          />
-        ) : (
-          <div className="mt-4 md:mt-6">
-            <FestivalDealsSection />
-          </div>
-        )}
-
-        <div className="w-full z-[60] bg-transparent pt-1 pb-2 mb-2">
-          <div className="relative mt-2 md:mt-8 z-30">
-            <QuickCategorySlider
-              categories={effectiveQuickCategories}
-              onCategoryClick={(id) => setExpandedCategoryId(expandedCategoryId === id ? null : id)}
+        {mode === COMMERCE_MODES.QUICK ? (
+          /* QUICK MODE: Hero banners & nearby category shops (Zomato style), NO extra categories slider or admin sections */
+          <div className="pb-12 pt-2">
+            {/* Nearby Category Sellers List (Zomato Style) */}
+            <QuickCategorySellersSection
+              categoryId={activeCategory?._id}
+              categoryName={activeCategory?.name}
             />
           </div>
-        </div>
-        {expandedCategoryId && (
-          <div className="px-4 mb-5 pb-10 relative z-50 animate-in slide-in-from-top-2 fade-in duration-300">
-            <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h4 className="text-sm font-bold text-slate-800">
-                  {effectiveQuickCategories.find(c => c.id === expandedCategoryId)?.name} {getTranslatedText("Subcategories")}
-                </h4>
-                <button
-                  onClick={() => {
-                    window.scrollTo(0, 0);
-                    navigate(`/category/${expandedCategoryId}`);
-                  }}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  {getTranslatedText("View All")}
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {Object.values(displaySubcategoryMap)
-                  .filter(sub => sub.parentId === expandedCategoryId)
-                  .map(sub => (
-                    <div
-                      key={sub._id}
-                      onClick={() => {
-                        window.scrollTo(0, 0);
-                        navigate(`/category/${expandedCategoryId}`, { state: { activeSubcategoryId: sub._id } });
-                      }}
-                      className="flex flex-col items-center gap-1.5 cursor-pointer group"
-                    >
-                      <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center p-1.5 shadow-sm border border-slate-100 group-hover:border-primary/50 group-hover:shadow-md transition-all">
-                        <img
-                          src={sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png"}
-                          alt={sub.name}
-                          className="w-full h-full object-contain group-hover:scale-110 transition-transform"
-                        />
-                      </div>
-                      <span className="text-[10px] text-center font-semibold text-slate-600 leading-tight line-clamp-2 group-hover:text-primary">
-                        {sub.name}
-                      </span>
-                    </div>
-                  ))}
-                {Object.values(displaySubcategoryMap).filter(sub => sub.parentId === expandedCategoryId).length === 0 && (
-                  <div className="col-span-4 text-center py-4 text-xs text-slate-400 font-medium">
-                    {getTranslatedText("No subcategories found.")}
-                  </div>
-                )}
-              </div>
+        ) : (
+          /* SHOP ALL MODE: Full E-commerce view with Admin Sections, Offer Banners, Today's Deals, Bestsellers, etc. */
+          <>
+            <div className="mt-4 md:mt-6">
+              <FestivalDealsSection />
+            </div>
 
-              {(() => {
-                const isMatch = (productField, targetId) => {
-                  if (!productField) return false;
-                  return productField === targetId || productField._id === targetId || productField.id === targetId;
-                };
-                const categoryProducts = displayProducts.filter(p =>
-                  isMatch(p.categoryId, expandedCategoryId) ||
-                  isMatch(p.headerId, expandedCategoryId) ||
-                  isMatch(p.subcategoryId, expandedCategoryId)
-                );
-                if (categoryProducts.length === 0) return null;
-                return (
-                  <div className="mt-5 pt-4 border-t border-slate-200/60">
-                    <div className="flex items-center justify-between mb-3 px-1">
-                      <h4 className="text-[13px] font-bold text-slate-700">
-                        {getTranslatedText("Latest in")} {effectiveQuickCategories.find(c => c.id === expandedCategoryId)?.name || "Category"}
-                      </h4>
-                    </div>
-                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 snap-x">
-                      {categoryProducts.slice(0, 10).map((product, index) => (
-                        <div key={product.id || product._id} className="min-w-[140px] max-w-[140px] snap-start">
-                          <ProductCard product={product} compact={true} priority={index < 4} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+          <div className="w-full z-[60] bg-transparent pt-1 pb-2 mb-2">
+            <div className="relative mt-2 md:mt-8 z-30">
+              <QuickCategorySlider
+                categories={effectiveQuickCategories}
+                onCategoryClick={(id) => setExpandedCategoryId(expandedCategoryId === id ? null : id)}
+              />
             </div>
           </div>
-        )}
-        
-        <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
-        <CategoryShowcase categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
-        
-        {sectionsForRenderer.filter(s => s.displayType === "multiple_banners").length > 0 && (
-          <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-2 md:py-4">
-            <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType === "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
-          </div>
-        )}
+          {expandedCategoryId && (
+            <div className="px-4 mb-5 pb-10 relative z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+              <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h4 className="text-sm font-bold text-slate-800">
+                    {effectiveQuickCategories.find(c => c.id === expandedCategoryId)?.name} {getTranslatedText("Subcategories")}
+                  </h4>
+                  <button
+                    onClick={() => {
+                      window.scrollTo(0, 0);
+                      navigate(`/category/${expandedCategoryId}`);
+                    }}
+                    className="text-xs font-bold text-primary hover:underline"
+                  >
+                    {getTranslatedText("View All")}
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.values(displaySubcategoryMap)
+                    .filter(sub => sub.parentId === expandedCategoryId)
+                    .map(sub => (
+                      <div
+                        key={sub._id}
+                        onClick={() => {
+                          window.scrollTo(0, 0);
+                          navigate(`/category/${expandedCategoryId}`, { state: { activeSubcategoryId: sub._id } });
+                        }}
+                        className="flex flex-col items-center gap-1.5 cursor-pointer group"
+                      >
+                        <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center p-1.5 shadow-sm border border-slate-100 group-hover:border-primary/50 group-hover:shadow-md transition-all">
+                          <img
+                            src={sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png"}
+                            alt={sub.name}
+                            className="w-full h-full object-contain group-hover:scale-110 transition-transform"
+                          />
+                        </div>
+                        <span className="text-[10px] text-center font-semibold text-slate-600 leading-tight line-clamp-2 group-hover:text-primary">
+                          {sub.name}
+                        </span>
+                      </div>
+                    ))}
+                  {Object.values(displaySubcategoryMap).filter(sub => sub.parentId === expandedCategoryId).length === 0 && (
+                    <div className="col-span-4 text-center py-4 text-xs text-slate-400 font-medium">
+                      {getTranslatedText("No subcategories found.")}
+                    </div>
+                  )}
+                </div>
 
-        <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
-        <BestsellersSection config={bestsellerConfig} categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
+                {(() => {
+                  const isMatch = (productField, targetId) => {
+                    if (!productField) return false;
+                    return productField === targetId || productField._id === targetId || productField.id === targetId;
+                  };
+                  const categoryProducts = displayProducts.filter(p =>
+                    isMatch(p.categoryId, expandedCategoryId) ||
+                    isMatch(p.headerId, expandedCategoryId) ||
+                    isMatch(p.subcategoryId, expandedCategoryId)
+                  );
+                  if (categoryProducts.length === 0) return null;
+                  return (
+                    <div className="mt-5 pt-4 border-t border-slate-200/60">
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <h4 className="text-[13px] font-bold text-slate-700">
+                          {getTranslatedText("Latest in")} {effectiveQuickCategories.find(c => c.id === expandedCategoryId)?.name || "Category"}
+                        </h4>
+                      </div>
+                      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 snap-x">
+                        {categoryProducts.slice(0, 10).map((product, index) => (
+                          <div key={product.id || product._id} className="min-w-[140px] max-w-[140px] snap-start">
+                            <ProductCard product={product} compact={true} priority={index < 4} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+          
+          <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
+          <CategoryShowcase categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
+          
+          {sectionsForRenderer.filter(s => s.displayType === "multiple_banners").length > 0 && (
+            <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-2 md:py-4">
+              <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType === "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
+            </div>
+          )}
 
-        {sectionsForRenderer.filter(s => s.displayType !== "multiple_banners").length > 0 && (
-          <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
-            <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType !== "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
-          </div>
-        )}
+          <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
+          <BestsellersSection config={bestsellerConfig} categoryMap={displayCategoryMap} subcategoryMap={displaySubcategoryMap} />
+
+          {sectionsForRenderer.filter(s => s.displayType !== "multiple_banners").length > 0 && (
+            <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
+              <SectionRenderer sections={sectionsForRenderer.filter(s => s.displayType !== "multiple_banners")} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
+            </div>
+          )}
+        </>
+      )}
       </>
     </div>
   );

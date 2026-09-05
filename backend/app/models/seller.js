@@ -45,6 +45,39 @@ const sellerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    bannerImage: {
+      type: String,
+      trim: true,
+    },
+
+    logo: {
+      type: String,
+      trim: true,
+    },
+
+    deliveryTime: {
+      type: String,
+      trim: true,
+      default: "15-25 mins",
+    },
+
+    offerTitle: {
+      type: String,
+      trim: true,
+      default: "20% OFF up to ₹50",
+    },
+
+    offerSubtitle: {
+      type: String,
+      trim: true,
+      default: "Use code WELCOME20 on orders above ₹199",
+    },
+
+    rating: {
+      type: Number,
+      default: 4.4,
+    },
+
     address: {
       type: String,
       trim: true,

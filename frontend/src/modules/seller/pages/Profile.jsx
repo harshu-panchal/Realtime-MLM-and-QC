@@ -13,6 +13,14 @@ import {
   Globe,
   MapPin,
   CheckCircle,
+  Image,
+  Clock,
+  Tag,
+  Sparkles,
+  Star,
+  Upload,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
@@ -38,7 +46,54 @@ const SellerProfile = () => {
     lng: null,
     radius: 5,
     address: "",
+    bannerImage: "",
+    logo: "",
+    deliveryTime: "15-25 mins",
+    offerTitle: "20% OFF up to ₹50",
+    offerSubtitle: "Use code WELCOME20 on orders above ₹199",
+    category: "",
+    rating: 4.4,
   });
+
+  const bannerInputRef = React.useRef(null);
+  const logoInputRef = React.useRef(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const handleFileUpload = async (file, targetField) => {
+    if (!file) return;
+
+    if (targetField === "bannerImage") setIsUploadingBanner(true);
+    if (targetField === "logo") setIsUploadingLogo(true);
+
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      const res = await sellerApi.uploadMedia(data);
+      const uploadedUrl = res.data?.result?.secureUrl || res.data?.result?.url;
+
+      if (uploadedUrl) {
+        setFormData((prev) => ({ ...prev, [targetField]: uploadedUrl }));
+        toast.success(
+          `${targetField === "bannerImage" ? "Cover banner" : "Shop logo"} uploaded!`
+        );
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch (err) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFormData((prev) => ({ ...prev, [targetField]: e.target.result }));
+        toast.success(
+          `${targetField === "bannerImage" ? "Cover banner" : "Shop logo"} selected!`
+        );
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      if (targetField === "bannerImage") setIsUploadingBanner(false);
+      if (targetField === "logo") setIsUploadingLogo(false);
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -58,6 +113,13 @@ const SellerProfile = () => {
         lng: data.location?.coordinates[0] || null,
         radius: data.serviceRadius || 5,
         address: data.address || "",
+        bannerImage: data.bannerImage || "",
+        logo: data.logo || "",
+        deliveryTime: data.deliveryTime || "15-25 mins",
+        offerTitle: data.offerTitle || "20% OFF up to ₹50",
+        offerSubtitle: data.offerSubtitle || "Use code WELCOME20 on orders above ₹199",
+        category: data.category || "",
+        rating: data.rating || 4.4,
       });
     } catch (error) {
       toast.error("Failed to fetch profile");
@@ -432,6 +494,248 @@ const SellerProfile = () => {
                   exactly at your physical storefront for accurate delivery
                   assignments.
                 </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Storefront Branding & Dynamic Store Settings Card */}
+          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-lg">
+            <div className="flex justify-between items-center mb-8 border-b border-slate-50 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <Sparkles className="text-amber-500" size={22} />
+                  Storefront Branding & Promotions
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Customize your cover banner, store logo, estimated delivery time, and active deal strips shown on customer app cards & storefront.
+                </p>
+              </div>
+              {!isEditing && (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-6 py-2 text-[10px] font-black tracking-[2px]"
+                >
+                  EDIT BRANDING
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cover Banner File Upload */}
+                <div className="space-y-3 md:col-span-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Image size={14} className="text-slate-400" />
+                    Shop Cover Banner Image File
+                  </label>
+
+                  <input
+                    type="file"
+                    ref={bannerInputRef}
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e.target.files?.[0], "bannerImage")}
+                    className="hidden"
+                  />
+
+                  <div className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-2xl p-4 bg-slate-50 flex flex-col items-center justify-center transition-all min-h-[140px] relative overflow-hidden group">
+                    {formData.bannerImage ? (
+                      <div className="w-full h-40 rounded-xl overflow-hidden relative">
+                        <img
+                          src={formData.bannerImage}
+                          alt="Cover Banner"
+                          className="w-full h-full object-cover"
+                        />
+                        {isEditing && (
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => bannerInputRef.current?.click()}
+                              className="px-4 py-2 bg-white text-slate-900 font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 hover:scale-105 transition-transform"
+                            >
+                              <Upload size={14} /> Change Banner File
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData((prev) => ({ ...prev, bannerImage: "" }))}
+                              className="p-2 bg-rose-600 text-white rounded-xl shadow-md hover:scale-105 transition-transform"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        {isUploadingBanner ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="animate-spin text-slate-700" size={24} />
+                            <span className="text-xs font-bold text-slate-600">Uploading banner...</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={!isEditing}
+                            onClick={() => bannerInputRef.current?.click()}
+                            className="flex flex-col items-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-700">
+                              <Upload size={20} />
+                            </div>
+                            <span className="text-xs font-black text-slate-800">
+                              Click to select Shop Banner image file
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-400">
+                              PNG, JPG, WEBP formats supported
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Shop Logo File Upload */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Store size={14} className="text-slate-400" />
+                    Shop Logo Image File
+                  </label>
+
+                  <input
+                    type="file"
+                    ref={logoInputRef}
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e.target.files?.[0], "logo")}
+                    className="hidden"
+                  />
+
+                  <div className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-2xl p-4 bg-slate-50 flex items-center gap-4 transition-all min-h-[100px] relative overflow-hidden group">
+                    <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative">
+                      {formData.logo ? (
+                        <img src={formData.logo} alt="Logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <Store size={28} className="text-slate-300" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      {isUploadingLogo ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="animate-spin text-slate-700" size={18} />
+                          <span className="text-xs font-bold text-slate-600">Uploading logo...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <button
+                            type="button"
+                            disabled={!isEditing}
+                            onClick={() => logoInputRef.current?.click()}
+                            className="px-3.5 py-2 bg-slate-900 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 w-fit hover:bg-black transition-colors disabled:opacity-50"
+                          >
+                            <Upload size={13} /> Select Logo File
+                          </button>
+                          {formData.logo && isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData((prev) => ({ ...prev, logo: "" }))}
+                              className="text-[11px] font-bold text-rose-600 hover:underline w-fit"
+                            >
+                              Remove Logo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Delivery Time */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Clock size={14} className="text-slate-400" />
+                    Estimated Delivery Time
+                  </label>
+                  <input
+                    type="text"
+                    name="deliveryTime"
+                    placeholder="e.g. 15-25 mins"
+                    value={formData.deliveryTime}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all disabled:opacity-70"
+                  />
+                </div>
+
+                {/* Active Offer Title */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Tag size={14} className="text-slate-400" />
+                    Active Offer Title
+                  </label>
+                  <input
+                    type="text"
+                    name="offerTitle"
+                    placeholder="e.g. 20% OFF up to ₹50"
+                    value={formData.offerTitle}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all disabled:opacity-70"
+                  />
+                </div>
+
+                {/* Active Offer Subtitle / Promo Code */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Tag size={14} className="text-slate-400" />
+                    Offer Details / Promo Code
+                  </label>
+                  <input
+                    type="text"
+                    name="offerSubtitle"
+                    placeholder="e.g. Use code WELCOME20 on orders above ₹199"
+                    value={formData.offerSubtitle}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all disabled:opacity-70"
+                  />
+                </div>
+
+                {/* Category / Store Tagline */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-slate-400" />
+                    Store Tagline / Category
+                  </label>
+                  <input
+                    type="text"
+                    name="category"
+                    placeholder="e.g. Grocery & Supermarket"
+                    value={formData.category}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all disabled:opacity-70"
+                  />
+                </div>
+
+                {/* Display Rating */}
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
+                    <Star size={14} className="text-slate-400" />
+                    Display Rating
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1.0"
+                    max="5.0"
+                    name="rating"
+                    placeholder="e.g. 4.4"
+                    value={formData.rating}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-full px-5 py-3.5 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all disabled:opacity-70"
+                  />
+                </div>
               </div>
             </div>
           </Card>

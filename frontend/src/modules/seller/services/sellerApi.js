@@ -28,6 +28,9 @@ export const sellerApi = {
     getWalletSummary: () => axiosInstance.get('/seller/wallet/summary'),
     getProfile: () => axiosInstance.get('/seller/profile'),
     updateProfile: (data) => axiosInstance.put('/seller/profile', data),
+    uploadMedia: (formData) => axiosInstance.post('/media/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
     requestBusinessTypeChange: (data) => axiosInstance.post('/seller/business-type-request', data),
 
     // Stock
