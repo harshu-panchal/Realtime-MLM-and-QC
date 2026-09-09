@@ -75,6 +75,8 @@ function otpAuditLog(event, meta) {
   );
 }
 
+import { placeInTree } from "./mlmService.js";
+
 async function dispatchCustomerOtpSms({ phone, otp }) {
   return sendSmsIndiaHubOtp({ phone, otp });
 }
@@ -132,6 +134,11 @@ export async function issueCustomerOtp({
       phone,
       isVerified: false,
     });
+    try {
+      await placeInTree({ entityId: customer._id, entityType: "User", sponsorId: referralCode });
+    } catch (e) {
+      console.error("Failed to place Customer in MLM tree:", e);
+    }
     customer = await Customer.findById(customer._id).select(
       "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
     );

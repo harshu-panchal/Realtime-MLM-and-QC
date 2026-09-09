@@ -32,6 +32,17 @@ const settingSchema = new mongoose.Schema(
             default: "Asia/Kolkata",
         },
 
+        // MLM & Commission Capping
+        userDailyCommissionCap: {
+            type: Number,
+            default: 25000,
+            min: 0,
+        },
+        mlmEnabled: {
+            type: Boolean,
+            default: true,
+        },
+
         // Branding
         logoUrl: String,
         faviconUrl: String,

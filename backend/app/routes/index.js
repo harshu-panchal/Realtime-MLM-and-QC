@@ -28,6 +28,7 @@ import translationRoute from "./translationRoutes.js";
 import legalPageRoute from "./legalPageRoutes.js";
 import festivalDealsRoute from "./festivalDealsRoutes.js";
 import shiprocketRoute from "./shiprocketRoutes.js";
+import mlmRoute from "./mlmRoutes.js";
 
 import express from "express";
 
@@ -80,6 +81,7 @@ const setupRoutes = (app) => {
     router.use("/legal", legalPageRoute);
     router.use("/festival-deals", festivalDealsRoute);
     router.use("/shiprocket", shiprocketRoute);
+    router.use("/mlm", mlmRoute);
 
     app.use("/api", router);
 }
