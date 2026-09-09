@@ -4,6 +4,7 @@ import {
   approveSellerApplicationById,
   getPendingSellerApplications,
   rejectSellerApplicationById,
+  setSellerCommission,
 } from "../../services/admin/sellerApplicationService.js";
 
 export const getPendingSellers = async (req, res) => {
@@ -31,9 +32,11 @@ export const getPendingSellers = async (req, res) => {
 export const approveSellerApplication = async (req, res) => {
   try {
     const { id } = req.params;
+    const { commissionValue } = req.body || {};
     const seller = await approveSellerApplicationById({
       sellerId: id,
       reviewedBy: req.user.id,
+      commissionValue,
     });
 
     if (!seller) {
@@ -42,7 +45,27 @@ export const approveSellerApplication = async (req, res) => {
 
     return handleResponse(res, 200, "Seller approved successfully", seller);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+export const updateSellerCommission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { commissionValue } = req.body || {};
+    const seller = await setSellerCommission({
+      sellerId: id,
+      commissionValue,
+      adminId: req.user.id,
+    });
+
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    return handleResponse(res, 200, "Seller commission updated successfully", seller);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 

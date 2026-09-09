@@ -2,11 +2,13 @@ import { jest } from "@jest/globals";
 
 const mockProductFind = jest.fn();
 const mockCategoryFind = jest.fn();
+const mockSellerFindById = jest.fn();
 const mockGetOrCreateFinanceSettings = jest.fn();
 
 function createQueryChain(result) {
   return {
     select: jest.fn().mockReturnThis(),
+    session: jest.fn().mockReturnThis(),
     lean: jest.fn().mockResolvedValue(result),
   };
 }
@@ -23,12 +25,18 @@ jest.unstable_mockModule("../app/models/category.js", () => ({
   },
 }));
 
+jest.unstable_mockModule("../app/models/seller.js", () => ({
+  default: {
+    findById: mockSellerFindById,
+  },
+}));
+
 jest.unstable_mockModule("../app/services/finance/financeSettingsService.js", () => ({
   getOrCreateFinanceSettings: mockGetOrCreateFinanceSettings,
 }));
 
 const {
-  calculateCategoryCommission,
+  calculateSellerCommission,
   calculateCustomerDeliveryFee,
   calculateHandlingFee,
   calculateProductSubtotal,
@@ -50,22 +58,18 @@ describe("finance pricing flow", () => {
     expect(subtotal).toBe(249.98);
   });
 
-  it("calculates percentage and fixed commissions correctly", () => {
-    const percentage = calculateCategoryCommission(
+  it("calculates percentage and fixed seller commissions correctly", () => {
+    const percentage = calculateSellerCommission(
       { price: 100, quantity: 2 },
-      { adminCommissionType: "percentage", adminCommissionValue: 10 },
+      { type: "percentage", value: 10 },
     );
     expect(percentage.itemSubtotal).toBe(200);
     expect(percentage.adminCommission).toBe(20);
     expect(percentage.sellerPayout).toBe(180);
 
-    const fixedPerItem = calculateCategoryCommission(
+    const fixedPerItem = calculateSellerCommission(
       { price: 50, quantity: 3 },
-      {
-        adminCommissionType: "fixed",
-        adminCommissionValue: 12,
-        adminCommissionFixedRule: "per_item",
-      },
+      { type: "fixed", value: 12, fixedRule: "per_item" },
     );
     expect(fixedPerItem.itemSubtotal).toBe(150);
     expect(fixedPerItem.adminCommission).toBe(12);
@@ -113,17 +117,7 @@ describe("finance pricing flow", () => {
     expect(sum.handlingFeeCharged).toBe(30);
   });
 
-  it("falls back to legacy header-category finance fields", () => {
-    const legacyCommission = calculateCategoryCommission(
-      { price: 100, quantity: 1 },
-      {
-        adminCommissionType: "percentage",
-        adminCommission: 20,
-        adminCommissionValue: 0,
-      },
-    );
-    expect(legacyCommission.adminCommission).toBe(20);
-
+  it("falls back to legacy header-category handling-fee fields", () => {
     const categoryById = new Map([
       [
         "cat-1",
@@ -240,12 +234,17 @@ describe("finance pricing flow", () => {
         {
           _id: "cat-1",
           name: "Fruits",
-          adminCommissionType: "percentage",
-          adminCommissionValue: 10,
           handlingFeeType: "fixed",
           handlingFeeValue: 20,
         },
       ]),
+    );
+
+    mockSellerFindById.mockReturnValue(
+      createQueryChain({
+        commissionType: "percentage",
+        commissionValue: 10,
+      }),
     );
 
     mockGetOrCreateFinanceSettings.mockResolvedValue({
@@ -257,6 +256,7 @@ describe("finance pricing flow", () => {
       deliveryPartnerRatePerKm: 5,
       fixedDeliveryFee: 30,
       handlingFeeStrategy: "highest_category_fee",
+      defaultSellerCommissionPercent: 10,
       codEnabled: true,
       onlineEnabled: true,
     });

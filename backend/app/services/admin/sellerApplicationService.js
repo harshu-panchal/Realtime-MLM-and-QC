@@ -95,7 +95,42 @@ export async function getPendingSellerApplications({
   };
 }
 
-export async function approveSellerApplicationById({ sellerId, reviewedBy }) {
+export async function approveSellerApplicationById({
+  sellerId,
+  reviewedBy,
+  commissionValue,
+}) {
+  const existing = await Seller.findById(sellerId).select("commissionValue");
+  if (!existing) {
+    return null;
+  }
+
+  const hasIncomingCommission =
+    commissionValue !== undefined && commissionValue !== null && commissionValue !== "";
+  const parsedCommission = hasIncomingCommission ? Number(commissionValue) : null;
+
+  if (hasIncomingCommission && (!Number.isFinite(parsedCommission) || parsedCommission < 0 || parsedCommission > 100)) {
+    const error = new Error("Commission rate must be a number between 0 and 100");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!hasIncomingCommission && existing.commissionValue == null) {
+    const error = new Error("Commission rate is required before approval");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const commissionSet = hasIncomingCommission
+    ? {
+        commissionType: "percentage",
+        commissionValue: parsedCommission,
+        commissionFixedRule: null,
+        commissionSetAt: new Date(),
+        commissionSetBy: reviewedBy,
+      }
+    : {};
+
   const seller = await Seller.findByIdAndUpdate(
     sellerId,
     {
@@ -106,6 +141,36 @@ export async function approveSellerApplicationById({ sellerId, reviewedBy }) {
         reviewedAt: new Date(),
         reviewedBy,
         rejectionReason: null,
+        ...commissionSet,
+      },
+    },
+    { new: true },
+  );
+
+  if (!seller) {
+    return null;
+  }
+
+  return formatSellerApplication(seller);
+}
+
+export async function setSellerCommission({ sellerId, commissionValue, adminId }) {
+  const parsedCommission = Number(commissionValue);
+  if (!Number.isFinite(parsedCommission) || parsedCommission < 0 || parsedCommission > 100) {
+    const error = new Error("Commission rate must be a number between 0 and 100");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const seller = await Seller.findByIdAndUpdate(
+    sellerId,
+    {
+      $set: {
+        commissionType: "percentage",
+        commissionValue: parsedCommission,
+        commissionFixedRule: null,
+        commissionSetAt: new Date(),
+        commissionSetBy: adminId,
       },
     },
     { new: true },

@@ -107,6 +107,42 @@ const ActiveSellers = () => {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedSeller, setSelectedSeller] = useState(null);
+  const [isEditingCommission, setIsEditingCommission] = useState(false);
+  const [commissionEditValue, setCommissionEditValue] = useState('');
+  const [isSavingCommission, setIsSavingCommission] = useState(false);
+
+  const openCommissionEditor = () => {
+    setCommissionEditValue(selectedSeller?.commissionValue != null ? String(selectedSeller.commissionValue) : '');
+    setIsEditingCommission(true);
+  };
+
+  const handleSaveCommission = async () => {
+    const parsed = parseFloat(commissionEditValue);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      toast.error('Enter a commission rate between 0 and 100');
+      return;
+    }
+
+    setIsSavingCommission(true);
+    try {
+      await adminApi.updateSellerCommission(selectedSeller.id, { commissionValue: parsed });
+      setSelectedSeller((prev) => (prev ? { ...prev, commissionType: 'percentage', commissionValue: parsed } : prev));
+      setSellers((prev) =>
+        prev.map((seller) =>
+          seller.id === selectedSeller.id
+            ? { ...seller, commissionType: 'percentage', commissionValue: parsed }
+            : seller,
+        ),
+      );
+      setIsEditingCommission(false);
+      toast.success('Commission updated');
+    } catch (error) {
+      console.error('Failed to update commission', error);
+      toast.error(error.response?.data?.message || 'Failed to update commission');
+    } finally {
+      setIsSavingCommission(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -477,7 +513,7 @@ const ActiveSellers = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setSelectedSeller(seller)}
+                          onClick={() => { setSelectedSeller(seller); setIsEditingCommission(false); }}
                           className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-bold hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2"
                         >
                           <HiOutlineEye className="h-3.5 w-3.5" />
@@ -635,6 +671,60 @@ const ActiveSellers = () => {
                           <span>Last order</span>
                           <span>{selectedSeller.lastOrderLabel || "No orders yet"}</span>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        Commission
+                      </p>
+                      <div className="p-4 bg-white rounded-2xl ring-1 ring-slate-100">
+                        {isEditingCommission ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              autoFocus
+                              value={commissionEditValue}
+                              onChange={(e) => setCommissionEditValue(e.target.value)}
+                              className="w-20 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/30"
+                            />
+                            <span className="text-xs font-bold text-slate-400">%</span>
+                            <button
+                              disabled={isSavingCommission}
+                              onClick={handleSaveCommission}
+                              className="ml-auto px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 disabled:opacity-50"
+                            >
+                              {isSavingCommission ? "SAVING..." : "SAVE"}
+                            </button>
+                            <button
+                              disabled={isSavingCommission}
+                              onClick={() => setIsEditingCommission(false)}
+                              className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-200 disabled:opacity-50"
+                            >
+                              CANCEL
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                            <span>Rate</span>
+                            <div className="flex items-center gap-3">
+                              <span className={selectedSeller.commissionValue == null ? "text-amber-600" : "text-slate-900"}>
+                                {selectedSeller.commissionValue != null
+                                  ? `${selectedSeller.commissionValue}%`
+                                  : "Using default"}
+                              </span>
+                              <button
+                                onClick={openCommissionEditor}
+                                className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

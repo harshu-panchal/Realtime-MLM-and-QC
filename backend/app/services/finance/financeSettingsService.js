@@ -12,6 +12,7 @@ const DEFAULT_FINANCE_SETTINGS = {
   incrementalKmSurcharge: 10,
   fixedDeliveryFee: 30,
   handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
+  defaultSellerCommissionPercent: 10,
   codEnabled: true,
   onlineEnabled: true,
   // --- NEW Delivery Settings ---
@@ -52,6 +53,13 @@ export function normalizeFinanceSettings(raw = {}) {
   const handlingFeeStrategy =
     raw.handlingFeeStrategy || DEFAULT_FINANCE_SETTINGS.handlingFeeStrategy;
 
+  const defaultSellerCommissionPercentRaw = Number(
+    raw.defaultSellerCommissionPercent ?? DEFAULT_FINANCE_SETTINGS.defaultSellerCommissionPercent,
+  );
+  const defaultSellerCommissionPercent = Number.isFinite(defaultSellerCommissionPercentRaw)
+    ? Math.min(Math.max(defaultSellerCommissionPercentRaw, 0), 100)
+    : DEFAULT_FINANCE_SETTINGS.defaultSellerCommissionPercent;
+
   return {
     deliveryPricingMode,
     pricingMode: deliveryPricingMode,
@@ -63,6 +71,7 @@ export function normalizeFinanceSettings(raw = {}) {
     incrementalKmSurcharge,
     fixedDeliveryFee,
     handlingFeeStrategy,
+    defaultSellerCommissionPercent,
     codEnabled: raw.codEnabled ?? DEFAULT_FINANCE_SETTINGS.codEnabled,
     onlineEnabled: raw.onlineEnabled ?? DEFAULT_FINANCE_SETTINGS.onlineEnabled,
     

@@ -91,6 +91,8 @@ export function formatSellerApplication(seller) {
       (seller.isVerified ? "approved" : "pending"),
     documents: docs,
     documentFiles,
+    commissionType: seller.commissionType ?? null,
+    commissionValue: seller.commissionValue ?? null,
     location: seller.address || "Not provided",
     description: seller.description || "No application note provided.",
     verificationScore: docs.length

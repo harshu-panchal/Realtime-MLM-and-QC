@@ -48,6 +48,8 @@ async function findOrderForUpdate(orderOrId, session) {
       order.paymentBreakdown.snapshots = {
         deliverySettings: {},
         categoryCommissionSettings: [],
+        sellerCommissionSettings: {},
+        categoryHandlingFeeSettings: [],
         handlingFeeStrategy: null,
         handlingCategoryUsed: {},
       };
@@ -96,6 +98,8 @@ function ensurePaymentBreakdownSnapshots(order) {
   order.paymentBreakdown.snapshots = {
     deliverySettings: {},
     categoryCommissionSettings: [],
+    sellerCommissionSettings: {},
+    categoryHandlingFeeSettings: [],
     handlingFeeStrategy: null,
     handlingCategoryUsed: {},
   };
@@ -109,6 +113,8 @@ export function freezeFinancialSnapshot(order, breakdown) {
     sanitized.snapshots = {
       deliverySettings: {},
       categoryCommissionSettings: [],
+      sellerCommissionSettings: {},
+      categoryHandlingFeeSettings: [],
       handlingFeeStrategy: null,
       handlingCategoryUsed: {},
     };
@@ -132,6 +138,8 @@ export function freezeFinancialSnapshot(order, breakdown) {
   order.pricingSnapshot = {
     deliverySettings: sanitized?.snapshots?.deliverySettings || {},
     categoryCommissionSettings: sanitized?.snapshots?.categoryCommissionSettings || [],
+    sellerCommissionSettings: sanitized?.snapshots?.sellerCommissionSettings || {},
+    categoryHandlingFeeSettings: sanitized?.snapshots?.categoryHandlingFeeSettings || [],
     handlingFeeStrategy: sanitized?.snapshots?.handlingFeeStrategy || null,
     handlingCategoryUsed: sanitized?.snapshots?.handlingCategoryUsed || {},
   };

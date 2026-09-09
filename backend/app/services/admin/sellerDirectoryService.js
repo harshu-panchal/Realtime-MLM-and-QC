@@ -430,6 +430,8 @@ export async function getActiveSellersData({
       phone: seller.phone || "",
       category: seller.category || "General",
       businessType: seller.businessType || "quick_commerce",
+      commissionType: seller.commissionType ?? null,
+      commissionValue: seller.commissionValue ?? null,
       status: seller.isVerified && seller.isActive ? "active" : "inactive",
       verificationStatus: seller.isVerified ? "verified" : "unverified",
       joinedAt,

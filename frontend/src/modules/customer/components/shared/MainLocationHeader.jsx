@@ -36,14 +36,6 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useTranslation } from "@core/context/LanguageContext";
 
-/** Full-width bottom stroke + tab curve; l/r are 0–100% of column where the inner bump sits. */
-function buildActiveTabPath(l, r) {
-  const y = 20;
-  const mapX = (x) => l + ((x - 1.5) / (98.5 - 1.5)) * (r - l);
-  // Softer shoulders + flatter crown for a cleaner active tab curve.
-  return `M 0 ${y} L ${l} ${y} L ${l} 12 C ${mapX(2.6)} 7 ${mapX(8.2)} 1.55 ${mapX(15)} 1.55 L ${mapX(85)} 1.55 C ${mapX(91.8)} 1.55 ${mapX(97.4)} 7 ${mapX(98.5)} 12 V ${y} L 100 ${y}`;
-}
-
 function CategoryNavColumn({
   cat,
   isActive,
@@ -93,11 +85,11 @@ function CategoryNavColumn({
       }}
       onClick={() => onCategorySelect && onCategorySelect(cat)}
       className="relative z-[2] flex min-w-[66px] shrink-0 cursor-pointer flex-col items-center gap-1 px-1 pb-0.5 pt-0.5 snap-start md:min-w-[78px]">
-      <div 
+      <div
         className={cn(
           "relative z-10 flex items-center justify-center rounded-2xl overflow-hidden transition-all duration-300 shadow-sm border border-slate-100/80",
-          isActive 
-            ? "h-16 w-16 md:h-18 md:w-18 shadow-md bg-white scale-105" 
+          isActive
+            ? "h-16 w-16 md:h-18 md:w-18 shadow-md bg-white scale-105"
             : "h-14 w-14 md:h-16 md:w-16 opacity-90 hover:opacity-100 bg-white/90"
         )}
         style={{
@@ -122,11 +114,11 @@ function CategoryNavColumn({
             }}
           />
         ) : typeof cat.icon === "string" && !cat.icon.startsWith("http") && !cat.icon.includes("/") ? (
-          <span 
-            className="transition-all duration-300 drop-shadow-sm" 
-            style={{ 
-              fontSize: isActive ? '36px' : '30px', 
-              filter: isActive ? 'none' : 'grayscale(15%) opacity(90%)' 
+          <span
+            className="transition-all duration-300 drop-shadow-sm"
+            style={{
+              fontSize: isActive ? '36px' : '30px',
+              filter: isActive ? 'none' : 'grayscale(15%) opacity(90%)'
             }}
           >
             {cat.icon}
@@ -278,7 +270,7 @@ const MainLocationHeader = ({
   const logoUrl = settings?.logoUrl;
   const navigate = useNavigate();
 
-  // Horizontal scroll for categories navigation
+  // Horizontal scroll for categories navigation (ShopAll mode only)
   const navRef = useRef(null);
   const mobileNavRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -305,7 +297,7 @@ const MainLocationHeader = ({
         clearTimeout(timer);
       };
     }
-  }, [categories]);
+  }, [categories, mode]);
 
   const handleScroll = (direction) => {
     if (navRef.current) {
@@ -416,13 +408,11 @@ const MainLocationHeader = ({
   const navHeight = useTransform(scrollY, [0, 200], ["104px", "104px"]);
   const navOpacity = useTransform(scrollY, [0, 200], [1, 1]);
   const navMargin = useTransform(scrollY, [0, 200], [2, 2]);
-  const categorySpacing = useTransform(scrollY, [0, 200], [3, 3]);
   const cartOpacity = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
   const cartScale = useTransform(scrollY, [0, 110, 150], [1, 1, 1]);
 
   // Helper to hide elements completely when collapsed to prevent clicks
   const displayContent = useTransform(scrollY, (value) => "block");
-  const displayNav = useTransform(scrollY, (value) => "flex");
   const displayCart = useTransform(scrollY, (value) => "block");
 
   const baseHeaderColor = activeCategory?.headerColor;
@@ -754,25 +744,47 @@ const MainLocationHeader = ({
             </div>
           </div>
 
-          {/* Categories Navigation Row (Shared for Desktop & Mobile) */}
-          <div className="relative w-full overflow-visible">
-            {/* Scroll arrows: desktop only */}
-            {showLeftArrow && (
-              <button
-                onClick={() => handleScroll("left")}
-                className="absolute left-0 z-30 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md border border-slate-100 hover:bg-white active:scale-90 transition-all cursor-pointer -ml-1.5"
-                style={{ top: "calc(50% - 14px)" }}
-              >
-                <ChevronLeftIcon sx={{ fontSize: 18 }} />
-              </button>
-            )}
+          {/* Categories Navigation Row (Shop All mode only — Quick mode uses the
+              category grid below the hero banner instead) */}
+          {mode === COMMERCE_MODES.SHOP_ALL && (
+            <div className="relative w-full overflow-visible">
+              {/* Scroll arrows: desktop only */}
+              {showLeftArrow && (
+                <button
+                  onClick={() => handleScroll("left")}
+                  className="absolute left-0 z-30 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md border border-slate-100 hover:bg-white active:scale-90 transition-all cursor-pointer -ml-1.5"
+                  style={{ top: "calc(50% - 14px)" }}
+                >
+                  <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                </button>
+              )}
 
-            {/* Mobile wrapper */}
-            <div className="md:hidden w-full">
+              {/* Mobile wrapper */}
+              <div className="md:hidden w-full">
+                <motion.div
+                  ref={mobileNavRef}
+                  style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
+                  className="relative z-10 flex items-end gap-1 overflow-x-auto overflow-y-visible px-2 pb-0 no-scrollbar"
+                >
+                  {categories.map((cat) => (
+                    <CategoryNavColumn
+                      key={cat.id || cat._id}
+                      cat={cat}
+                      isActive={activeCategory?.id === (cat.id || cat._id)}
+                      categoryAccent={categoryAccent}
+                      onCategorySelect={onCategorySelect}
+                      headerFontColor={headerFontColor}
+                      headerIconColor={headerIconColor}
+                    />
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* Desktop wrapper: full scrollable row */}
               <motion.div
-                ref={mobileNavRef}
+                ref={navRef}
                 style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
-                className="relative z-10 flex items-end gap-1 overflow-x-auto overflow-y-visible px-2 pb-0 no-scrollbar"
+                className="relative z-10 -mx-2 hidden md:flex items-end gap-4 overflow-x-auto overflow-y-visible px-4 pb-0 no-scrollbar"
               >
                 {categories.map((cat) => (
                   <CategoryNavColumn
@@ -786,37 +798,18 @@ const MainLocationHeader = ({
                   />
                 ))}
               </motion.div>
+
+              {showRightArrow && (
+                <button
+                  onClick={() => handleScroll("right")}
+                  className="absolute right-0 z-30 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md border border-slate-100 hover:bg-white active:scale-90 transition-all cursor-pointer -mr-1.5"
+                  style={{ top: "calc(50% - 14px)" }}
+                >
+                  <ChevronRightIcon sx={{ fontSize: 18 }} />
+                </button>
+              )}
             </div>
-
-            {/* Desktop wrapper: full scrollable row */}
-            <motion.div
-              ref={navRef}
-              style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
-              className="relative z-10 -mx-2 hidden md:flex items-end gap-4 overflow-x-auto overflow-y-visible px-4 pb-0 no-scrollbar"
-            >
-              {categories.map((cat) => (
-                <CategoryNavColumn
-                  key={cat.id || cat._id}
-                  cat={cat}
-                  isActive={activeCategory?.id === (cat.id || cat._id)}
-                  categoryAccent={categoryAccent}
-                  onCategorySelect={onCategorySelect}
-                  headerFontColor={headerFontColor}
-                  headerIconColor={headerIconColor}
-                />
-              ))}
-            </motion.div>
-
-            {showRightArrow && (
-              <button
-                onClick={() => handleScroll("right")}
-                className="absolute right-0 z-30 hidden md:flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-800 shadow-md border border-slate-100 hover:bg-white active:scale-90 transition-all cursor-pointer -mr-1.5"
-                style={{ top: "calc(50% - 14px)" }}
-              >
-                <ChevronRightIcon sx={{ fontSize: 18 }} />
-              </button>
-            )}
-          </div>
+          )}
 
           {/* Background Decorative patterns */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-[100px] -mr-40 -mt-40 pointer-events-none" />

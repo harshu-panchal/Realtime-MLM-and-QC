@@ -182,6 +182,14 @@ const settingSchema = new mongoose.Schema(
             enum: ALL_HANDLING_FEE_STRATEGIES,
             default: "highest_category_fee",
         },
+        // Fallback commission % applied when a seller has no per-seller
+        // commissionValue configured yet (see pricingService.resolveSellerCommissionConfig).
+        defaultSellerCommissionPercent: {
+            type: Number,
+            default: 10,
+            min: 0,
+            max: 100,
+        },
         codEnabled: {
             type: Boolean,
             default: true,

@@ -143,6 +143,8 @@ async function seedCoreData() {
     password: "Password@123",
     shopName: "E2E Fresh Mart",
     isVerified: true,
+    commissionType: "percentage",
+    commissionValue: 10,
     location: {
       type: "Point",
       coordinates: [77.5946, 12.9716],
@@ -165,8 +167,6 @@ async function seedCoreData() {
     name: `Header ${suffix}`,
     slug: `header-${suffix}`,
     type: "header",
-    adminCommissionType: "percentage",
-    adminCommissionValue: 10,
     handlingFeeType: "fixed",
     handlingFeeValue: 20,
     status: "active",

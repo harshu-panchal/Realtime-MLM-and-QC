@@ -2,11 +2,13 @@ import { jest } from "@jest/globals";
 
 const mockProductFind = jest.fn();
 const mockCategoryFind = jest.fn();
+const mockSellerFindById = jest.fn();
 const mockGetOrCreateFinanceSettings = jest.fn();
 
 function createQueryChain(result) {
   return {
     select: jest.fn().mockReturnThis(),
+    session: jest.fn().mockReturnThis(),
     lean: jest.fn().mockResolvedValue(result),
   };
 }
@@ -20,6 +22,12 @@ jest.unstable_mockModule("../app/models/product.js", () => ({
 jest.unstable_mockModule("../app/models/category.js", () => ({
   default: {
     find: mockCategoryFind,
+  },
+}));
+
+jest.unstable_mockModule("../app/models/seller.js", () => ({
+  default: {
+    findById: mockSellerFindById,
   },
 }));
 
@@ -98,9 +106,12 @@ describe("checkout pricing snapshot handling fee", () => {
       deliveryPartnerRatePerKm: 5,
       fixedDeliveryFee: 30,
       handlingFeeStrategy: "highest_category_fee",
+      defaultSellerCommissionPercent: 0,
       codEnabled: true,
       onlineEnabled: true,
     });
+
+    mockSellerFindById.mockReturnValue(createQueryChain(null));
 
     const snapshot = await buildCheckoutPricingSnapshot({
       orderItems: [

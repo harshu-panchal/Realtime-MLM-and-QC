@@ -40,6 +40,7 @@ import {
   ICON_COMPONENTS,
 } from "../constants/homeConstants";
 import PromoMarquee from "../components/home/PromoMarquee";
+import CategoryGrid from "../components/home/CategoryGrid";
 import QuickCategorySlider from "../components/home/QuickCategorySlider";
 import QuickCategorySellersSection from "../components/home/QuickCategorySellersSection";
 import LowestPriceSection from "../components/home/LowestPriceSection";
@@ -548,17 +549,32 @@ const Home = () => {
     return null; // Particles were already simplified out earlier
   };
 
-  // Quick tab: clicking a real header category shows the nearby-sellers list
-  // for that category inline (QuickCategorySellersSection, rendered below
-  // the hero banner) instead of navigating to a separate page — same
-  // in-place switch as ShopAll's activeCategory-driven sections.
+  // Quick mode: tapping a category tile in the grid below the hero banner
+  // navigates to a dedicated page listing the sellers for that category.
+  const handleCategoryGridSelect = (cat) => {
+    const id = cat._id || cat.id;
+    if (!id || id === "all") {
+      navigate("/category/all/sellers", { state: { categoryName: cat.name } });
+      return;
+    }
+    navigate(`/category/${id}/sellers`, { state: { categoryName: cat.name } });
+  };
+
+  // Shop All mode: clicking a header category keeps the old behavior of
+  // switching the home page in place (hero, admin sections, etc.).
   const handleHeaderCategorySelect = (cat) => {
     setActiveCategory(cat);
   };
 
+  const isQuickMode = mode === COMMERCE_MODES.QUICK;
+
   return (
-    <div className="min-h-screen pt-[190px] md:pt-[200px] bg-white">
-      <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleHeaderCategorySelect} />
+    <div className={cn("min-h-screen bg-white", isQuickMode ? "pt-[130px] md:pt-[140px]" : "pt-[190px] md:pt-[200px]")}>
+      <MainLocationHeader
+        categories={displayCategories}
+        activeCategory={activeCategory}
+        onCategorySelect={handleHeaderCategorySelect}
+      />
 
       <>
         {/* Hero Banners (displayed in both Quick and ShopAll modes) */}
@@ -589,8 +605,11 @@ const Home = () => {
         })()}
 
         {mode === COMMERCE_MODES.QUICK ? (
-          /* QUICK MODE: Hero banners & nearby category shops (Zomato style), NO extra categories slider or admin sections */
+          /* QUICK MODE: category grid (shown just below the hero banner) + nearby category shops (Zomato style), NO extra categories slider or admin sections */
           <div className="pb-12 pt-2">
+            {/* Shop by Category grid — Quick mode only; tapping a tile navigates to that category's sellers page */}
+            <CategoryGrid categories={displayCategories} onCategorySelect={handleCategoryGridSelect} />
+
             {/* Nearby Category Sellers List (Zomato Style) */}
             <QuickCategorySellersSection
               categoryId={activeCategory?._id}

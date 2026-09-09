@@ -246,6 +246,14 @@ const orderSchema = new mongoose.Schema(
         type: Array,
         default: [],
       },
+      sellerCommissionSettings: {
+        type: Object,
+        default: {},
+      },
+      categoryHandlingFeeSettings: {
+        type: Array,
+        default: [],
+      },
     },
     paymentBreakdown: {
       currency: { type: String, default: CURRENCY },
@@ -274,6 +282,8 @@ const orderSchema = new mongoose.Schema(
       snapshots: {
         deliverySettings: { type: Object, default: {} },
         categoryCommissionSettings: { type: Array, default: [] },
+        sellerCommissionSettings: { type: Object, default: {} },
+        categoryHandlingFeeSettings: { type: Array, default: [] },
         handlingFeeStrategy: { type: String, default: null },
         handlingCategoryUsed: { type: Object, default: {} },
       },

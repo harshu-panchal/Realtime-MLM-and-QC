@@ -21,6 +21,7 @@ import {
     getPendingSellers,
     approveSellerApplication,
     rejectSellerApplication,
+    updateSellerCommission,
     getSellerWithdrawals,
     getDeliveryWithdrawals,
     updateWithdrawalStatus,
@@ -161,6 +162,12 @@ router.delete(
     verifyToken,
     allowRoles("admin"),
     rejectSellerApplication
+);
+router.patch(
+    "/sellers/:id/commission",
+    verifyToken,
+    allowRoles("admin"),
+    updateSellerCommission
 );
 
 router.get(

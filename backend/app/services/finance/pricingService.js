@@ -1,5 +1,6 @@
 import Product from "../../models/product.js";
 import Category from "../../models/category.js";
+import Seller from "../../models/seller.js";
 import {
   PRODUCT_APPROVAL_STATUS,
   resolveProductApprovalStatus,
@@ -40,36 +41,38 @@ function normalizeLinePrice(value) {
   return Number.isFinite(amount) ? clampMoney(amount, 0) : 0;
 }
 
-function resolveCommissionConfig(category) {
-  if (!category) {
+// Commission is resolved from the SELLER, not the product's category. A
+// seller with no commissionValue configured yet (shouldn't normally happen —
+// approval is gated on it — but covers legacy/pre-migration sellers) falls
+// back to Setting.defaultSellerCommissionPercent so admin revenue is never
+// silently zero.
+function resolveSellerCommissionConfig(seller, fallbackPercent = 0) {
+  if (!seller) {
     return {
       type: COMMISSION_TYPE.PERCENTAGE,
-      value: 0,
+      value: Number.isFinite(fallbackPercent) ? Math.max(fallbackPercent, 0) : 0,
       fixedRule: COMMISSION_FIXED_RULE.PER_QTY,
     };
   }
 
-  const type = category.adminCommissionType || COMMISSION_TYPE.PERCENTAGE;
+  const hasConfiguredValue =
+    seller.commissionValue != null && Number.isFinite(Number(seller.commissionValue));
 
-  // Backward-compat: admin UI still writes legacy `adminCommission` while newer
-  // pricing reads `adminCommissionValue`. Because `adminCommissionValue` has a
-  // schema default of 0 and updates can bypass save hooks, we treat a zero
-  // `adminCommissionValue` as "unset" when legacy is non-zero.
-  const legacyAdminCommission = Number(category.adminCommission ?? 0);
-  const primaryAdminCommission = Number(category.adminCommissionValue);
-  const resolvedRaw =
-    category.adminCommissionValue == null ||
-    (!Number.isFinite(primaryAdminCommission) ||
-      (primaryAdminCommission === 0 && legacyAdminCommission > 0))
-      ? legacyAdminCommission
-      : primaryAdminCommission;
-  const value = Number(resolvedRaw ?? 0);
-  const fixedRule =
-    category.adminCommissionFixedRule || COMMISSION_FIXED_RULE.PER_QTY;
+  if (!hasConfiguredValue) {
+    return {
+      type: COMMISSION_TYPE.PERCENTAGE,
+      value: Number.isFinite(fallbackPercent) ? Math.max(fallbackPercent, 0) : 0,
+      fixedRule: COMMISSION_FIXED_RULE.PER_QTY,
+    };
+  }
+
+  const type = seller.commissionType || COMMISSION_TYPE.PERCENTAGE;
+  const value = Number(seller.commissionValue);
+  const fixedRule = seller.commissionFixedRule || COMMISSION_FIXED_RULE.PER_QTY;
 
   return {
     type,
-    value: Number.isFinite(value) ? Math.max(value, 0) : 0,
+    value: Math.max(value, 0),
     fixedRule,
   };
 }
@@ -114,10 +117,10 @@ export function calculateProductSubtotal(items = []) {
   );
 }
 
-export function calculateCategoryCommission(item, categoryConfig) {
+export function calculateSellerCommission(item, sellerCommissionConfig) {
   const quantity = normalizeLineQuantity(item.quantity);
   const itemSubtotal = roundCurrency(normalizeLinePrice(item.price) * quantity);
-  const { type, value, fixedRule } = resolveCommissionConfig(categoryConfig);
+  const { type, value, fixedRule } = sellerCommissionConfig;
 
   let adminCommission = 0;
   if (type === COMMISSION_TYPE.PERCENTAGE) {
@@ -359,10 +362,9 @@ export async function generateOrderPaymentBreakdown({
     new Set(normalizedItems.map((item) => item.headerCategoryId).filter(Boolean)),
   );
 
+  // Handling fee is still resolved per header-category; commission no longer is.
   const categoryQuery = Category.find({ _id: { $in: headerIds } })
-    .select(
-      "_id name adminCommission adminCommissionType adminCommissionValue adminCommissionFixedRule handlingFees handlingFeeType handlingFeeValue",
-    )
+    .select("_id name handlingFees handlingFeeType handlingFeeValue")
     .lean();
   if (session) categoryQuery.session(session);
   const categories = await categoryQuery;
@@ -373,13 +375,26 @@ export async function generateOrderPaymentBreakdown({
   const effectiveHandlingStrategy =
     handlingFeeStrategy || effectiveSettings.handlingFeeStrategy;
 
+  // Commission is resolved once for the whole order from its single seller
+  // (multi-seller checkout already throws above), falling back to the
+  // finance-wide default when that seller has no rate configured yet.
+  const sellerQuery = Seller.findById(sellerIds[0]).select(
+    "commissionType commissionValue commissionFixedRule",
+  );
+  if (session) sellerQuery.session(session);
+  const sellerDoc = await sellerQuery.lean();
+  const sellerCommissionConfig = resolveSellerCommissionConfig(
+    sellerDoc,
+    effectiveSettings.defaultSellerCommissionPercent,
+  );
+
   let productSubtotal = 0;
   let sellerPayoutTotal = 0;
   let adminProductCommissionTotal = 0;
 
   const lineItems = normalizedItems.map((item) => {
     const category = categoryById.get(String(item.headerCategoryId));
-    const commission = calculateCategoryCommission(item, category);
+    const commission = calculateSellerCommission(item, sellerCommissionConfig);
     productSubtotal = addMoney(productSubtotal, commission.itemSubtotal);
     sellerPayoutTotal = addMoney(sellerPayoutTotal, commission.sellerPayout);
     adminProductCommissionTotal = addMoney(
@@ -455,14 +470,19 @@ export async function generateOrderPaymentBreakdown({
     deliverySettings: {
       ...effectiveSettings,
     },
-    categoryCommissionSettings: categories.map((category) => ({
+    // Historical field — no longer populated now that commission is
+    // seller-based. Left as an empty array (rather than removed) so any
+    // code still reading it on old orders keeps working.
+    categoryCommissionSettings: [],
+    sellerCommissionSettings: {
+      sellerId: sellerIds[0] || null,
+      sellerCommissionType: sellerCommissionConfig.type,
+      sellerCommissionValue: sellerCommissionConfig.value,
+      sellerCommissionFixedRule: sellerCommissionConfig.fixedRule,
+    },
+    categoryHandlingFeeSettings: categories.map((category) => ({
       headerCategoryId: String(category._id),
       headerCategoryName: category.name,
-      adminCommissionType:
-        category.adminCommissionType || COMMISSION_TYPE.PERCENTAGE,
-      adminCommissionValue: resolveCommissionConfig(category).value,
-      adminCommissionFixedRule:
-        category.adminCommissionFixedRule || COMMISSION_FIXED_RULE.PER_QTY,
       handlingFeeType:
         category.handlingFeeType || HANDLING_FEE_TYPE.FIXED,
       handlingFeeValue: resolveHandlingConfig(category).value,

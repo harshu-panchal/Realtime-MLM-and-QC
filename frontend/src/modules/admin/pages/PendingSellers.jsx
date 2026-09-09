@@ -38,6 +38,17 @@ const PendingSellers = () => {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [viewingSeller, setViewingSeller] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [commissionInput, setCommissionInput] = useState('');
+
+    const openReviewModal = (seller) => {
+        setViewingSeller(seller);
+        setCommissionInput(seller?.commissionValue != null ? String(seller.commissionValue) : '');
+        setIsReviewModalOpen(true);
+    };
+
+    const commissionNumber = parseFloat(commissionInput);
+    const isCommissionValid =
+        commissionInput !== '' && Number.isFinite(commissionNumber) && commissionNumber >= 0 && commissionNumber <= 100;
 
     const fetchPendingSellers = async () => {
         setIsLoading(true);
@@ -97,12 +108,17 @@ const PendingSellers = () => {
         }));
     }, [viewingSeller]);
 
-    const handleApprove = async (id) => {
+    const handleApprove = async (id, commissionValue) => {
+        if (!Number.isFinite(commissionValue) || commissionValue < 0 || commissionValue > 100) {
+            toast.error('Enter a commission rate between 0 and 100 before approving');
+            return;
+        }
         setIsProcessing(true);
         try {
-            await adminApi.approveSeller(id);
+            await adminApi.approveSeller(id, { commissionValue });
             setIsReviewModalOpen(false);
             setViewingSeller(null);
+            setCommissionInput('');
             toast.success('Seller approved successfully');
             await fetchPendingSellers();
         } catch (error) {
@@ -244,9 +260,9 @@ const PendingSellers = () => {
                                         <div className="flex items-center justify-end gap-3 h-full">
                                             {s.documents && s.documents.length > 0 && (
                                                 <button
-                                                    onClick={() => handleApprove(s.id)}
+                                                    onClick={() => openReviewModal(s)}
                                                     className="h-8 w-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all ring-1 ring-emerald-100"
-                                                    title="Quick Approve"
+                                                    title="Approve (set commission first)"
                                                 >
                                                     <HiOutlineCheckCircle className="h-5 w-5" />
                                                 </button>
@@ -260,7 +276,7 @@ const PendingSellers = () => {
                                             </button>
                                             <div className="w-[1px] h-4 bg-slate-200 mx-1" />
                                             <button
-                                                onClick={() => { setViewingSeller(s); setIsReviewModalOpen(true); }}
+                                                onClick={() => openReviewModal(s)}
                                                 className="h-9 px-4 bg-black  text-primary-foreground rounded-xl text-[10px] font-bold hover:bg-brand-700 transition-all shadow-md shadow-brand-100 hover:-translate-y-0.5 flex items-center gap-2"
                                             >
                                                 <HiOutlineEye className="h-4 w-4" />
@@ -439,6 +455,25 @@ const PendingSellers = () => {
                                                 </div>
                                             </div>
 
+                                            <div className="bg-slate-50 rounded-xl p-6 border border-slate-100">
+                                                <label className="text-xs font-bold text-slate-900 block mb-1">
+                                                    Commission Rate (%)
+                                                </label>
+                                                <p className="text-[10px] text-slate-500 font-medium mb-3">
+                                                    Required before approval — this is the % of every sale this seller pays the platform.
+                                                </p>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    value={commissionInput}
+                                                    onChange={(e) => setCommissionInput(e.target.value)}
+                                                    placeholder="e.g. 10"
+                                                    className="w-full max-w-[160px] px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/30"
+                                                />
+                                            </div>
+
                                             {/* Action Bar */}
                                             <div className="flex items-center gap-4 pt-6">
                                                 <button
@@ -450,9 +485,10 @@ const PendingSellers = () => {
                                                 </button>
                                                 {reviewDocuments.length > 0 && (
                                                     <button
-                                                        disabled={isProcessing}
-                                                        onClick={() => handleApprove(viewingSeller.id)}
-                                                        className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold tracking-widest shadow-2xl hover:bg-slate-800 transition-all transform active:scale-[0.98] uppercase flex items-center justify-center gap-2"
+                                                        disabled={isProcessing || !isCommissionValid}
+                                                        onClick={() => handleApprove(viewingSeller.id, commissionNumber)}
+                                                        title={!isCommissionValid ? 'Enter a commission rate (0-100) to approve' : undefined}
+                                                        className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold tracking-widest shadow-2xl hover:bg-slate-800 transition-all transform active:scale-[0.98] uppercase flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
                                                     >
                                                         {isProcessing ? (
                                                             <>

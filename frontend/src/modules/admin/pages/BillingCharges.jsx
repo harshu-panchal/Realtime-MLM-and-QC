@@ -10,7 +10,8 @@ import {
     Zap,
     MapPin,
     History,
-    Bike
+    Bike,
+    Percent
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@shared/components/ui/Toast';
@@ -24,6 +25,7 @@ const BillingCharges = () => {
         platformFee: 0,
         freeDeliveryThreshold: 0,
         handlingFeeStrategy: "highest_category_fee",
+        defaultSellerCommissionPercent: 10,
         codEnabled: true,
         onlineEnabled: true,
         // Customer
@@ -50,6 +52,7 @@ const BillingCharges = () => {
                     setConfig((prev) => ({
                         ...prev,
                         handlingFeeStrategy: s.handlingFeeStrategy ?? prev.handlingFeeStrategy,
+                        defaultSellerCommissionPercent: s.defaultSellerCommissionPercent ?? prev.defaultSellerCommissionPercent,
                         codEnabled: s.codEnabled ?? prev.codEnabled,
                         onlineEnabled: s.onlineEnabled ?? prev.onlineEnabled,
                         // Customer
@@ -78,6 +81,7 @@ const BillingCharges = () => {
             setIsSaving(true);
             await adminApi.updateDeliveryFinanceSettings({
                 handlingFeeStrategy: config.handlingFeeStrategy,
+                defaultSellerCommissionPercent: config.defaultSellerCommissionPercent,
                 codEnabled: config.codEnabled,
                 onlineEnabled: config.onlineEnabled,
                 customerPricingType: config.customerPricingType,
@@ -143,7 +147,36 @@ const BillingCharges = () => {
 
             <div className="max-w-4xl mx-auto text-left">
                 <div className="space-y-8">
-                    
+
+                    {/* Default Seller Commission */}
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-[32px] overflow-hidden">
+                        <div className="p-6 border-b border-slate-50 bg-slate-50/30">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                <Percent className="h-4 w-4 text-brand-500" />
+                                Default Seller Commission
+                            </h3>
+                        </div>
+                        <div className="p-8">
+                            <div className="space-y-3 max-w-md">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fallback Rate (%)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={config.defaultSellerCommissionPercent}
+                                    onChange={(e) => handleInputChange('defaultSellerCommissionPercent', e.target.value)}
+                                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 outline-none"
+                                />
+                                <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                                    Used only for sellers who don't have their own commission rate set yet
+                                    (Sellers → set/edit commission per seller). Commission is no longer configured
+                                    per category.
+                                </p>
+                            </div>
+                        </div>
+                    </Card>
+
                     {/* Customer Delivery Fee Settings */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-[32px] overflow-hidden">
                         <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">

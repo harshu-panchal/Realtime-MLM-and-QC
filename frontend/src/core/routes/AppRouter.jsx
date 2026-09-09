@@ -28,6 +28,7 @@ import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
 const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
 const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
+const CategorySellersPage = lazy(() => import('../../modules/customer/pages/CategorySellersPage'));
 const SellerStorefrontPage = lazy(() => import('../../modules/customer/pages/SellerStorefrontPage'));
 const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
 const OffersPage = lazy(() => import('../../modules/customer/pages/OffersPage'));
@@ -178,6 +179,7 @@ const AppRouter = () => {
                         { index: true, element: <Home /> },
                         { path: 'categories', element: <CategoriesPage /> },
                         { path: 'category/:categoryName', element: <CategoryProductsPage /> },
+                        { path: 'category/:categoryId/sellers', element: <CategorySellersPage /> },
                         { path: 'quick/seller/:sellerId', element: <SellerStorefrontPage /> },
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'support', element: <TermsPage /> },

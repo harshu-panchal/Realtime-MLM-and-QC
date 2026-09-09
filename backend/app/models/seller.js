@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import { ALL_COMMISSION_FIXED_RULES, ALL_COMMISSION_TYPES } from "../constants/finance.js";
 
 const sellerSchema = new mongoose.Schema(
   {
@@ -152,6 +153,38 @@ const sellerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // Per-seller admin commission (replaces the old header-category-based
+    // commission). `default: null` is deliberate — it's how we distinguish
+    // "admin never configured a rate for this seller" (pricing falls back to
+    // Setting.defaultSellerCommissionPercent) from "explicitly set to 0%".
+    // A seller cannot be approved (see sellerApplicationService.js) without
+    // this being set.
+    commissionType: {
+      type: String,
+      enum: ALL_COMMISSION_TYPES,
+      default: null,
+    },
+    commissionValue: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    commissionFixedRule: {
+      type: String,
+      enum: ALL_COMMISSION_FIXED_RULES,
+      default: null,
+    },
+    commissionSetAt: {
+      type: Date,
+      default: null,
+    },
+    commissionSetBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+
     location: {
       type: {
         type: String,

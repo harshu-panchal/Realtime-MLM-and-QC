@@ -53,7 +53,6 @@ const HeaderCategories = () => {
     type: "header",
     parentId: null,
     iconId: "",
-    adminCommission: "",
     handlingFees: "",
     sortOrder: 0,
     headerColor: "#FF1E1E",
@@ -170,7 +169,7 @@ const HeaderCategories = () => {
       data.append("type", "header");
       Object.keys(formData).forEach((key) => {
         if (key === "type") return;
-        if (key === "adminCommission" || key === "handlingFees") {
+        if (key === "handlingFees") {
           data.append(key, formData[key] === "" ? "0" : String(formData[key]));
           return;
         }
@@ -225,7 +224,6 @@ const HeaderCategories = () => {
       type: "header",
       parentId: null,
       iconId: "",
-      adminCommission: "",
       handlingFees: "",
       headerColor: "#FF1E1E",
       headerFontColor: "#111111",
@@ -246,7 +244,6 @@ const HeaderCategories = () => {
       type: "header",
       parentId: null,
       iconId: item.iconId || "",
-      adminCommission: item.adminCommission ?? "",
       handlingFees: item.handlingFees ?? "",
       sortOrder: item.sortOrder || 0,
       headerColor: item.headerColor || "#FF1E1E",
@@ -322,9 +319,6 @@ const HeaderCategories = () => {
                   Slug
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Comm (%)
-                </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Fees (₹)
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -392,9 +386,6 @@ const HeaderCategories = () => {
                       {cat.name}
                     </td>
                     <td className="py-3 px-4 text-gray-500">{cat.slug}</td>
-                    <td className="py-3 px-4 text-gray-500 font-medium">
-                      {cat.adminCommission ?? 0}%
-                    </td>
                     <td className="py-3 px-4 text-gray-500 font-medium">
                       ₹{cat.handlingFees ?? 0}
                     </td>
@@ -705,38 +696,20 @@ const HeaderCategories = () => {
                   <p className="text-xs text-gray-500 mt-1">Lower numbers appear first</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Admin Commission (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.adminCommission}
-                      onChange={(e) =>
-                        setFormData({ ...formData, adminCommission: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                      placeholder="0"
-                      min="0"
-                      max="100"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Handling Fees (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.handlingFees}
-                      onChange={(e) =>
-                        setFormData({ ...formData, handlingFees: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                      placeholder="0"
-                      min="0"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Handling Fees (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.handlingFees}
+                    onChange={(e) =>
+                      setFormData({ ...formData, handlingFees: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                    placeholder="0"
+                    min="0"
+                  />
                 </div>
               </div>
 
