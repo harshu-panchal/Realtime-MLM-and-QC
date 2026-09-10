@@ -3,6 +3,7 @@ import {
   handleCodOrderFinance,
   settleDeliveredOrder,
 } from "./finance/orderFinanceService.js";
+import { calculateAndDistributeCommission } from "./mlmService.js";
 
 /**
  * Financial side effects when order becomes delivered (mirrors orderController).
@@ -67,6 +68,41 @@ export async function applyDeliveredSettlement(order, orderIdString) {
         },
         { upsert: true, new: true },
       );
+    }
+  }
+
+  // Trigger MLM Commission calculation for order entities
+  const totalAmount = settled.paymentBreakdown?.grandTotal || settled.pricing?.total || order.total || 0;
+  if (totalAmount > 0) {
+    const customerId = order.user || order.customer;
+    if (customerId) {
+      calculateAndDistributeCommission({
+        entityId: customerId,
+        entityType: "User",
+        amount: totalAmount,
+        orderId: order._id,
+        remarks: `Order #${order.orderId || order._id} User Commission`,
+      }).catch((e) => console.error("Error triggering User MLM commission:", e));
+    }
+
+    if (settled.seller) {
+      calculateAndDistributeCommission({
+        entityId: settled.seller,
+        entityType: "Seller",
+        amount: totalAmount,
+        orderId: order._id,
+        remarks: `Order #${order.orderId || order._id} Seller Commission`,
+      }).catch((e) => console.error("Error triggering Seller MLM commission:", e));
+    }
+
+    if (settled.deliveryBoy) {
+      calculateAndDistributeCommission({
+        entityId: settled.deliveryBoy,
+        entityType: "Delivery",
+        amount: totalAmount,
+        orderId: order._id,
+        remarks: `Order #${order.orderId || order._id} Delivery Commission`,
+      }).catch((e) => console.error("Error triggering Delivery MLM commission:", e));
     }
   }
 }

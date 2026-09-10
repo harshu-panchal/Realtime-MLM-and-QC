@@ -5,6 +5,7 @@ import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
+import { placeInTree } from "../services/mlmService.js";
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -95,6 +96,15 @@ export const signupDelivery = async (req, res) => {
 
         if (!delivery) {
             delivery = await Delivery.create(deliveryData);
+            try {
+                await placeInTree({
+                    entityId: delivery._id,
+                    entityType: "Delivery",
+                    sponsorId: req.body.sponsorId || req.body.referralCode || null,
+                });
+            } catch (e) {
+                console.error("Failed to place Delivery in MLM tree:", e);
+            }
         } else {
             Object.assign(delivery, deliveryData);
             await delivery.save();

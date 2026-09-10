@@ -10,6 +10,7 @@ import {
     verifySellerResetOtpCode,
 } from "../services/sellerVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import { placeInTree } from "../services/mlmService.js";
 
 /* ===============================
    Utils
@@ -227,6 +228,16 @@ export const signupSeller = async (req, res) => {
         }
 
         seller = await Seller.create(sellerData);
+
+        try {
+            await placeInTree({
+                entityId: seller._id,
+                entityType: "Seller",
+                sponsorId: req.body.sponsorId || req.body.referralCode || null,
+            });
+        } catch (e) {
+            console.error("Failed to place Seller in MLM tree:", e);
+        }
 
         return handleResponse(res, 201, "Seller registered successfully", {
             seller,
