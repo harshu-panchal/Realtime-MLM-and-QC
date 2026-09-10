@@ -42,7 +42,6 @@ import {
 import PromoMarquee from "../components/home/PromoMarquee";
 import CategoryGrid from "../components/home/CategoryGrid";
 import QuickCategorySlider from "../components/home/QuickCategorySlider";
-import QuickCategorySellersSection from "../components/home/QuickCategorySellersSection";
 import LowestPriceSection from "../components/home/LowestPriceSection";
 import OfferSections from "../components/home/OfferSections";
 import BestsellersSection from "../components/home/BestsellersSection";
@@ -605,16 +604,10 @@ const Home = () => {
         })()}
 
         {mode === COMMERCE_MODES.QUICK ? (
-          /* QUICK MODE: category grid (shown just below the hero banner) + nearby category shops (Zomato style), NO extra categories slider or admin sections */
+          /* QUICK MODE: category grid (shown just below the hero banner), NO seller list, extra categories slider, or admin sections */
           <div className="pb-12 pt-2">
             {/* Shop by Category grid — Quick mode only; tapping a tile navigates to that category's sellers page */}
             <CategoryGrid categories={displayCategories} onCategorySelect={handleCategoryGridSelect} />
-
-            {/* Nearby Category Sellers List (Zomato Style) */}
-            <QuickCategorySellersSection
-              categoryId={activeCategory?._id}
-              categoryName={activeCategory?.name}
-            />
           </div>
         ) : (
           /* SHOP ALL MODE: Full E-commerce view with Admin Sections, Offer Banners, Today's Deals, Bestsellers, etc. */
