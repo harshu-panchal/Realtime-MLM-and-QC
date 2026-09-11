@@ -5,7 +5,7 @@ import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
-import { placeInTree } from "../services/mlmService.js";
+import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -102,8 +102,16 @@ export const signupDelivery = async (req, res) => {
                     entityType: "Delivery",
                     sponsorId: req.body.sponsorId || req.body.referralCode || null,
                 });
+                // Source 2: Rider Registration Fee
+                const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : 500;
+                await processBinaryCommission({
+                    entityId: delivery._id,
+                    entityType: "Delivery",
+                    source: "Rider Registration Fee",
+                    amount: feeAmount
+                });
             } catch (e) {
-                console.error("Failed to place Delivery in MLM tree:", e);
+                console.error("Failed to place Delivery in MLM tree or process commission:", e);
             }
         } else {
             Object.assign(delivery, deliveryData);

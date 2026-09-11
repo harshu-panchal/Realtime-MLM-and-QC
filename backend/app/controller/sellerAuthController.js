@@ -10,7 +10,7 @@ import {
     verifySellerResetOtpCode,
 } from "../services/sellerVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
-import { placeInTree } from "../services/mlmService.js";
+import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
 
 /* ===============================
    Utils
@@ -235,8 +235,16 @@ export const signupSeller = async (req, res) => {
                 entityType: "Seller",
                 sponsorId: req.body.sponsorId || req.body.referralCode || null,
             });
+            // Source 1: Vendor Registration Fee
+            const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : 1000;
+            await processBinaryCommission({
+                entityId: seller._id,
+                entityType: "Seller",
+                source: "Vendor Registration Fee",
+                amount: feeAmount
+            });
         } catch (e) {
-            console.error("Failed to place Seller in MLM tree:", e);
+            console.error("Failed to place Seller in MLM tree or process commission:", e);
         }
 
         return handleResponse(res, 201, "Seller registered successfully", {

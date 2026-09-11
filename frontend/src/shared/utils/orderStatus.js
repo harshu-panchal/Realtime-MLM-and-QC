@@ -52,6 +52,12 @@ function legacyFromWorkflow(workflowStatus) {
  */
 export function getLegacyStatusFromOrder(order) {
   if (!order) return "pending";
+
+  // Always trust explicit delivered/cancelled status first (seller manually set it)
+  const rawStatus = String(order.status ?? "").toLowerCase();
+  if (rawStatus === "delivered") return "delivered";
+  if (rawStatus === "cancelled") return "cancelled";
+
   const v = Number(order.workflowVersion) || 0;
   if (v >= 2 && order.workflowStatus) {
     const workflowStatus = String(order.workflowStatus).toUpperCase();

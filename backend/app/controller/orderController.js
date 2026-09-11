@@ -516,7 +516,15 @@ export const updateOrderStatus = async (req, res) => {
       // - queue rider payout
       // - mark COD cash collected (system float)
       await order.save();
-      await applyDeliveredSettlement(order, canonicalOrderId);
+
+      // Invalidate caches so both customer and seller UI refresh
+      try {
+        await invalidate(buildKey("orders", "customer", `${order.customer.toString()}:*`));
+      } catch (_) { /* non-critical */ }
+
+      await applyDeliveredSettlement(order, canonicalOrderId).catch((e) =>
+        logger.warn("applyDeliveredSettlement non-fatal error", { error: e.message, orderId: canonicalOrderId })
+      );
 
       emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
         orderId: canonicalOrderId,

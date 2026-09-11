@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import React from "react";
 import { Check, Contact2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,25 +19,27 @@ import { Button } from "@/components/ui/button";
  * Internal state for the "order for someone else" form is kept here because
  * it is purely presentational; the parent only needs the saved result.
  */
-const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
-  currentAddress,
-  savedRecipient,
-  savedAddresses,
-  onSelectAddress,
-  onEditAddress,
-  onUseCurrentLocation,
-  // Extra props forwarded from CheckoutPage that the section needs
-  isFetchingLocation,
-  showRecipientForm,
-  onToggleRecipientForm,
-  recipientData,
-  onRecipientDataChange,
-  onSaveRecipient,
-  onRemoveRecipient,
-  displayName,
-  displayPhone,
-  displayAddress,
-}) {
+const CheckoutAddressSection = React.memo(function CheckoutAddressSection(
+  // eslint-disable-next-line react/prop-types
+  {
+    currentAddress,
+    savedRecipient,
+    savedAddresses,
+    onSelectAddress,
+    onEditAddress,
+    onUseCurrentLocation,
+    // Extra props forwarded from CheckoutPage that the section needs
+    isFetchingLocation,
+    showRecipientForm,
+    onToggleRecipientForm,
+    recipientData,
+    onRecipientDataChange,
+    onSaveRecipient,
+    onRemoveRecipient,
+    displayName,
+    displayPhone,
+    displayAddress,
+  }) {
   return (
     <motion.div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
       {/* "Order for someone else" toggle */}
@@ -144,11 +147,14 @@ const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
                   />
                   <div className="relative">
                     <Input
+                      type="tel"
+                      maxLength={10}
                       placeholder="Receiver's phone number*"
                       value={recipientData.phone}
-                      onChange={(e) =>
-                        onRecipientDataChange({ ...recipientData, phone: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        onRecipientDataChange({ ...recipientData, phone: val });
+                      }}
                       className="h-12 rounded-xl border-slate-200 focus:ring-primary focus:border-primary text-sm pr-10"
                     />
                     <Contact2

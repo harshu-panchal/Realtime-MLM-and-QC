@@ -49,6 +49,26 @@ const mlmTreeSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    leftBalance: {
+      type: Number,
+      default: 0,
+    },
+    rightBalance: {
+      type: Number,
+      default: 0,
+    },
+    carryForward: {
+      type: Number,
+      default: 0,
+    },
+    totalEarning: {
+      type: Number,
+      default: 0,
+    },
+    weeklyAccumulatedIncome: {
+      type: Number,
+      default: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,
