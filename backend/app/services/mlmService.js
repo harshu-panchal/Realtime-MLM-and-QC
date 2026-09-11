@@ -319,3 +319,113 @@ export const getTreeStructure = async (rootEntityId = null, depth = 4) => {
 
   return await buildSubtree(rootNode, 0);
 };
+
+/**
+ * Common MLM Binary Commission Engine
+ * Handles Vendor Registration, Delivery Registration and other sources based on the PDF.
+ */
+export const processBinaryCommission = async ({ entityId, entityType, source, amount }) => {
+  try {
+    const startNode = await MlmTree.findOne({ entityId, entityType });
+    if (!startNode) return { success: false, message: "Node not found in MLM tree" };
+
+    const setting = (await Setting.findOne().lean()) || {};
+    const PAIR_VALUE = Number(setting.mlmPairValue ?? 3.60);
+    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.002);
+    const DAILY_CAP = Number(setting.userDailyCommissionCap ?? 10000);
+
+    let currentNode = await MlmTree.findById(startNode.parentId);
+    let childNodeId = startNode._id;
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Traverse up the tree to update Left/Right balances and process pairs
+    while (currentNode) {
+      // --- DAILY CAPPING & WEEKLY ACCUMULATION LOGIC ---
+      // Check today's earnings from Transactions to enforce Daily Cap
+      const todayLogs = await Transaction.aggregate([
+        {
+          $match: {
+            user: currentNode.entityId,
+            type: "Bonus",
+            createdAt: { $gte: startOfDay }
+          }
+        },
+        { $group: { _id: null, totalCredited: { $sum: "$amount" } } }
+      ]);
+      const alreadyCreditedToday = todayLogs.length > 0 ? todayLogs[0].totalCredited : 0;
+
+      // Only credit Per-ID income if within Daily Cap
+      if (alreadyCreditedToday + PER_ID_INCOME <= DAILY_CAP) {
+        // 1. Give Per-ID Income (0.002) to currentNode
+        await Wallet.findOneAndUpdate(
+          { ownerType: currentNode.entityType.toUpperCase(), ownerId: currentNode.entityId },
+          { $inc: { availableBalance: PER_ID_INCOME, totalCredited: PER_ID_INCOME } },
+          { upsert: true, new: true }
+        );
+
+        await Transaction.create({
+          user: currentNode.entityId,
+          userModel: currentNode.entityModel,
+          type: "Bonus",
+          amount: PER_ID_INCOME,
+          status: "Settled",
+          reference: `MLM-PER-ID-${startNode._id}`,
+          meta: { source, amount, note: "Per-ID Income 0.002" },
+        });
+
+        // Weekly accumulation update
+        currentNode.weeklyAccumulatedIncome += PER_ID_INCOME;
+      }
+
+      // 2. Add volume to Left or Right based on where the child is
+      if (currentNode.leftId?.toString() === childNodeId.toString()) {
+        currentNode.leftBalance += amount;
+      } else if (currentNode.rightId?.toString() === childNodeId.toString()) {
+        currentNode.rightBalance += amount;
+      }
+
+      // 3. Process Pair Matching (1:1 example. Pair Value 3.60)
+      const matchedVolume = Math.min(currentNode.leftBalance, currentNode.rightBalance);
+      const pairs = Math.floor(matchedVolume / PAIR_VALUE);
+
+      if (pairs > 0) {
+        const pairAmount = pairs * PAIR_VALUE;
+        currentNode.leftBalance -= pairAmount;
+        currentNode.rightBalance -= pairAmount;
+        currentNode.carryForward = currentNode.leftBalance + currentNode.rightBalance;
+        currentNode.totalEarning += pairAmount;
+
+        // Admin Wallet Credit
+        // Using ownerType "ADMIN" to represent the Admin Wallet within the Wallet collection
+        await Wallet.findOneAndUpdate(
+          { ownerType: "ADMIN", ownerId: currentNode.entityId },
+          { $inc: { availableBalance: pairAmount, totalCredited: pairAmount } },
+          { upsert: true }
+        );
+
+        await MlmCommissionLog.create({
+          requestedAmount: amount,
+          creditedAmount: pairAmount,
+          cappedAmount: 0,
+          date: new Date(),
+          entityId: currentNode.entityId,
+          entityType: currentNode.entityType,
+          remarks: `Matched ${pairs} pairs (${pairAmount}) sent to Admin Wallet for source: ${source}`,
+        });
+      }
+
+      await currentNode.save();
+
+      // Move up the tree
+      childNodeId = currentNode._id;
+      currentNode = await MlmTree.findById(currentNode.parentId);
+    }
+
+    return { success: true, message: "Binary commission processed" };
+  } catch (error) {
+    console.error("Error in processBinaryCommission:", error);
+    throw error;
+  }
+};
