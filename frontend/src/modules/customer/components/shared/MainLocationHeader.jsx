@@ -234,14 +234,11 @@ const MainLocationHeader = ({
   const { t, language, setLanguage, languages } = useTranslation();
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const desktopLangDropdownRef = useRef(null);
-  const mobileLangDropdownRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       const clickedInDesktop = desktopLangDropdownRef.current && desktopLangDropdownRef.current.contains(event.target);
-      const clickedInMobile = mobileLangDropdownRef.current && mobileLangDropdownRef.current.contains(event.target);
-      
-      if (!clickedInDesktop && !clickedInMobile) {
+      if (!clickedInDesktop) {
         setIsLangDropdownOpen(false);
       }
     };
@@ -400,7 +397,7 @@ const MainLocationHeader = ({
 
   // Content animations
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const mobileTopHeight = useTransform(scrollY, [0, 80], ["84px", "0px"]);
+  const mobileTopHeight = useTransform(scrollY, [0, 80], ["36px", "0px"]);
   const mobileTopOpacity = useTransform(scrollY, [0, 80], [1, 0]);
 
   const contentHeight = useTransform(scrollY, [0, 160], ["64px", "64px"]);
@@ -625,7 +622,7 @@ const MainLocationHeader = ({
 
           {/* Mobile Header Layout (MOBILE ONLY) */}
           <div className="md:hidden pt-1 pb-0 space-y-1.5 select-none">
-            {/* Top Collapsible Area (Logo, Language, Bell, Location & Toggle) */}
+            {/* Top Collapsible Area (Location & Toggle) */}
             <motion.div
               style={{
                 height: mobileTopHeight,
@@ -634,77 +631,7 @@ const MainLocationHeader = ({
               }}
               className="flex flex-col gap-1.5"
             >
-              {/* Row 1: Logo & App Name (Left) + Language & Notification (Right) */}
-              <div className="flex items-center justify-between">
-                {/* Brand Logo & Name */}
-                <div onClick={() => navigate("/")} className="flex items-center gap-2 cursor-pointer">
-                  <img
-                    src={logoUrl || DefaultLogo}
-                    alt={`${appName} Logo`}
-                    className="h-10 w-auto object-contain shrink-0"
-                  />
-                  <div className="flex flex-col justify-center text-left">
-                    <span
-                      className="text-[17px] font-black leading-none tracking-tight"
-                      style={{ color: settings?.primaryColor || '#FF8200' }}
-                    >
-                      {appName}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right actions: Language Selector + Notification Bell Button */}
-                <div className="flex items-center gap-2">
-                  {/* Language Selector Dropdown (Mobile) */}
-                  <div className="relative" ref={mobileLangDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                      className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
-                    >
-                      <LanguageIcon sx={{ fontSize: 18 }} className="text-slate-500" />
-                    </button>
-
-                    {isLangDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-36 bg-white rounded-2xl border border-slate-100 shadow-xl py-1.5 z-[250] animate-in fade-in slide-in-from-top-1 duration-150">
-                        {languages.map((lang) => (
-                          <button
-                            key={lang.code}
-                            onClick={() => {
-                              setLanguage(lang.code);
-                              setIsLangDropdownOpen(false);
-                            }}
-                            className={cn(
-                              "w-full text-left px-3.5 py-2 text-xs font-bold transition-colors flex items-center justify-between",
-                              language === lang.code
-                                ? "bg-orange-50 text-orange-600"
-                                : "text-slate-600 hover:bg-slate-50"
-                            )}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span className="text-base">{lang.flag}</span>
-                              <span>{lang.name}</span>
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Notification Bell Button */}
-                  <button
-                    onClick={() => navigate("/notifications")}
-                    className="w-8 h-8 rounded-full bg-white border border-slate-100 flex items-center justify-center relative cursor-pointer active:scale-95 transition-all text-slate-800 shadow-3xs"
-                  >
-                    <NotificationsNoneOutlinedIcon sx={{ fontSize: 18 }} />
-                    <span className="absolute -top-0.5 -right-0.5 bg-[#FF8200] text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-white">
-                      3
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 2: Location Capsule (LEFT) & Zomato Toggle (RIGHT) in the EXACT SAME LINE */}
+              {/* Location Capsule (LEFT) & Mode Toggle (RIGHT) */}
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <div
                   onClick={() => setIsLocationOpen(true)}

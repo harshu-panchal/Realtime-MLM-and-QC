@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Heart, Plus, Minus, Check, Store } from "lucide-react";
+import { Heart, Plus, Minus, Check, Store, Bookmark, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
@@ -59,8 +59,22 @@ const ProductCard = React.memo(
       };
     }, [product]);
 
+    const isStorefront = layout === "storefront";
+    const variantsList = Array.isArray(product?.variants) ? product.variants : [];
+
+    // Storefront grid (seller storefront page): the weight/size chips let the
+    // customer pick which variant the single ADD button applies to, instead
+    // of opening the VariantSelectionSheet used by the other layouts.
+    const [selectedVariantIndex, setSelectedVariantIndex] = React.useState(0);
+    const activeVariant =
+      isStorefront && variantsList.length > 0
+        ? variantsList[selectedVariantIndex] || variantsList[0]
+        : null;
+
     const productId = product.id || product._id;
-    const variantKey = String(defaultVariant?.key || "").trim();
+    const variantKey = isStorefront
+      ? String(activeVariant?.sku || activeVariant?.name || "").trim()
+      : String(defaultVariant?.key || "").trim();
     const cartKey = `${productId}::${variantKey || ""}`;
 
     const cartItem = React.useMemo(
@@ -110,8 +124,8 @@ const ProductCard = React.memo(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
-        if (Array.isArray(product?.variants) && product.variants.length > 1) {
+
+        if (!isStorefront && Array.isArray(product?.variants) && product.variants.length > 1) {
             if (openVariantSelection) {
                 openVariantSelection(product);
             }
@@ -124,13 +138,36 @@ const ProductCard = React.memo(
             product.mainImage || product.image,
           );
         }
+
+        if (isStorefront && activeVariant) {
+          const mrp = Number(activeVariant.price || 0);
+          const sale = Number(activeVariant.salePrice || 0);
+          addToCart({
+            ...product,
+            variantSku: variantKey,
+            variantName: activeVariant?.name || "",
+            price: sale > 0 && sale < mrp ? sale : mrp,
+            originalPrice: mrp,
+          });
+          return;
+        }
+
         addToCart({
           ...product,
           variantSku: variantKey,
           variantName: defaultVariant?.name || "",
         });
       },
-      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name, openVariantSelection],
+      [
+        isStorefront,
+        activeVariant,
+        animateAddToCart,
+        product,
+        addToCart,
+        variantKey,
+        defaultVariant?.name,
+        openVariantSelection,
+      ],
     );
 
     const handleIncrement = React.useCallback(
@@ -173,6 +210,162 @@ const ProductCard = React.memo(
       }
       return null;
     }, [badge, product]);
+
+    // Storefront grid: price/discount reflect whichever variant chip is
+    // currently selected, falling back to the product's own price when it
+    // has no variants.
+    const storefrontPrice = React.useMemo(() => {
+      if (!isStorefront) return null;
+      if (!activeVariant) {
+        return { price: product.price, originalPrice: product.originalPrice };
+      }
+      const mrp = Number(activeVariant.price || 0);
+      const sale = Number(activeVariant.salePrice || 0);
+      const price = sale > 0 && sale < mrp ? sale : mrp;
+      return { price, originalPrice: mrp };
+    }, [isStorefront, activeVariant, product.price, product.originalPrice]);
+
+    const storefrontDiscountText = React.useMemo(() => {
+      if (!isStorefront || !storefrontPrice) return null;
+      if (storefrontPrice.originalPrice > storefrontPrice.price) {
+        return `${Math.round(
+          ((storefrontPrice.originalPrice - storefrontPrice.price) / storefrontPrice.originalPrice) * 100,
+        )}% OFF`;
+      }
+      return null;
+    }, [isStorefront, storefrontPrice]);
+
+    if (isStorefront) {
+      const weightLabel = activeVariant?.name || product.weight || "1 unit";
+
+      return (
+        <div
+          className={cn(
+            "relative flex flex-col bg-white rounded-2xl border border-slate-100 shadow-2xs hover:shadow-md transition-all duration-300 cursor-pointer overflow-visible",
+            className,
+          )}
+          onClick={handleProductClick}
+        >
+          {/* Image + overlapping badges/button */}
+          <div className="relative w-full aspect-square p-2">
+            <div className="relative w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">
+              {product.deliveryTime && (
+                <span className="absolute top-1.5 left-1.5 z-10 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm flex items-center gap-0.5 uppercase tracking-tight">
+                  <Clock size={9} className="stroke-[3]" />
+                  {product.deliveryTime}
+                </span>
+              )}
+              <img
+                ref={imageRef}
+                src={applyCloudinaryTransform(
+                  activeVariant?.images?.[0] || product.mainImage || product.image || "",
+                )}
+                alt={product.name}
+                loading={priority ? "eager" : "lazy"}
+                fetchPriority={priority ? "high" : "auto"}
+                className="w-full h-full object-contain mix-blend-multiply"
+              />
+            </div>
+
+            {/* Bookmark / wishlist toggle */}
+            <button
+              onClick={toggleWishlist}
+              className="absolute top-3 right-3 z-20 w-6 h-6 rounded-md bg-white/95 shadow-2xs flex items-center justify-center hover:scale-105 active:scale-90 transition-all"
+              title="Wishlist"
+            >
+              <ParticleBurst isActive={showHeartPopup} />
+              <Bookmark
+                size={13}
+                className={cn(isWishlisted ? "text-primary fill-current" : "text-slate-400")}
+              />
+            </button>
+
+            {/* ADD / stepper button, overlapping the bottom-right of the image */}
+            <div
+              className="absolute -bottom-2.5 right-3.5 z-20"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {quantity > 0 ? (
+                <div className="h-8 min-w-[64px] flex items-center justify-between rounded-lg bg-[#FF8200] text-white shadow-md px-0.5">
+                  <button
+                    onClick={handleDecrement}
+                    className="w-6 h-full flex items-center justify-center active:bg-orange-600 rounded-md transition-colors"
+                  >
+                    <Minus size={13} strokeWidth={2.5} />
+                  </button>
+                  <span className="font-bold text-[12px]">{quantity}</span>
+                  <button
+                    onClick={handleIncrement}
+                    className="w-6 h-full flex items-center justify-center active:bg-orange-600 rounded-md transition-colors"
+                  >
+                    <Plus size={13} strokeWidth={2.5} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  className="w-8 h-8 rounded-lg border border-[#FF8200] bg-white text-[#FF8200] flex items-center justify-center shadow-md hover:bg-orange-50 active:scale-90 transition-all"
+                  title="Add to Cart"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="px-2.5 pb-2.5 pt-1">
+            <h4 className="font-bold text-slate-800 text-[12.5px] leading-snug line-clamp-2 min-h-[2.2em]">
+              {product.name}
+            </h4>
+
+            {/* Weight / variant chips */}
+            {variantsList.length > 1 ? (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {variantsList.map((variant, index) => {
+                  const isSelected = index === selectedVariantIndex;
+                  return (
+                    <button
+                      key={variant?.sku || variant?.name || index}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedVariantIndex(index);
+                      }}
+                      className={cn(
+                        "px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all",
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 text-slate-500 hover:border-slate-300",
+                      )}
+                    >
+                      {variant?.name || variant?.sku}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] font-semibold text-slate-400 mt-1">{weightLabel}</p>
+            )}
+
+            {/* Price + discount */}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span className="font-black text-slate-900 text-[13px] tracking-tight leading-none">
+                ₹{storefrontPrice?.price}
+              </span>
+              {storefrontPrice?.originalPrice > storefrontPrice?.price && (
+                <span className="text-[10px] text-slate-400 line-through font-semibold leading-none">
+                  ₹{storefrontPrice.originalPrice}
+                </span>
+              )}
+            </div>
+            {storefrontDiscountText && (
+              <p className="text-[10.5px] font-black text-emerald-600 mt-0.5">{storefrontDiscountText}</p>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div

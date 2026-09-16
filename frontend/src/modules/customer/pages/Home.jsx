@@ -568,7 +568,7 @@ const Home = () => {
   const isQuickMode = mode === COMMERCE_MODES.QUICK;
 
   return (
-    <div className={cn("min-h-screen bg-white", isQuickMode ? "pt-[130px] md:pt-[140px]" : "pt-[190px] md:pt-[200px]")}>
+    <div className={cn("min-h-screen bg-white", isQuickMode ? "pt-[100px] md:pt-[110px]" : "pt-[180px] md:pt-[190px]")}>
       <MainLocationHeader
         categories={displayCategories}
         activeCategory={activeCategory}
@@ -595,8 +595,8 @@ const Home = () => {
           }
 
           return (
-            <motion.div ref={heroRef} className="will-change-transform pt-1" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
-              <div className="mx-4 mt-[65px] mb-2 relative overflow-hidden rounded-[24px] shadow-md z-20">
+            <motion.div ref={heroRef} className="will-change-transform" style={isMobile ? { opacity: 1 } : { opacity, y, scale, pointerEvents }}>
+              <div className="mx-4 mt-2 mb-2 relative overflow-hidden rounded-[24px] shadow-md z-20">
                 <ExperienceBannerCarousel section={{ title: "" }} items={combinedItems} fullWidth edgeToEdge />
               </div>
             </motion.div>

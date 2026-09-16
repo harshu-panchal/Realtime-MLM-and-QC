@@ -52,7 +52,10 @@ const SellerStorefrontPage = () => {
   const [seller, setSeller] = useState(null);
   const [categories, setCategories] = useState([]);
   const [activeCategoryId, setActiveCategoryId] = useState(initialCategoryId);
-  const [productsByCategory, setProductsByCategory] = useState({});
+  const [subcategories, setSubcategories] = useState([]);
+  const [activeSubcategoryId, setActiveSubcategoryId] = useState(null);
+  const [isLoadingSubcategories, setIsLoadingSubcategories] = useState(false);
+  const [productsByKey, setProductsByKey] = useState({});
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,9 +99,46 @@ const SellerStorefrontPage = () => {
     };
   }, [sellerId]);
 
+  // Subcategories of the active (top-tab) category — shown in the left sidebar.
+  useEffect(() => {
+    if (!activeCategoryId) {
+      setSubcategories([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingSubcategories(true);
+    setActiveSubcategoryId(null);
+    customerApi
+      .getCategories({
+        type: "subcategory",
+        parentId: activeCategoryId,
+        page: 1,
+        limit: 100,
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const result = res.data?.result;
+        const items = Array.isArray(result?.items) ? result.items : [];
+        setSubcategories(items);
+      })
+      .catch(() => {
+        if (!cancelled) setSubcategories([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSubcategories(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCategoryId]);
+
+  const productsKey = `${activeCategoryId || ""}::${activeSubcategoryId || "all"}`;
+
   useEffect(() => {
     if (!activeCategoryId) return;
-    if (productsByCategory[activeCategoryId]) return;
+    if (productsByKey[productsKey]) return;
 
     const hasValidLocation =
       Number.isFinite(currentLocation?.latitude) &&
@@ -107,26 +147,29 @@ const SellerStorefrontPage = () => {
 
     let cancelled = false;
     setIsLoadingProducts(true);
+    const params = {
+      sellerId,
+      categoryId: activeCategoryId,
+      mode: "quick",
+      lat: currentLocation.latitude,
+      lng: currentLocation.longitude,
+    };
+    if (activeSubcategoryId) params.subcategoryId = activeSubcategoryId;
+
     customerApi
-      .getProducts({
-        sellerId,
-        categoryId: activeCategoryId,
-        mode: "quick",
-        lat: currentLocation.latitude,
-        lng: currentLocation.longitude,
-      })
+      .getProducts(params)
       .then((res) => {
         if (cancelled) return;
         const result = res.data?.result;
         const items = Array.isArray(result?.items) ? result.items : [];
-        setProductsByCategory((prev) => ({
+        setProductsByKey((prev) => ({
           ...prev,
-          [activeCategoryId]: items.map(formatProduct),
+          [productsKey]: items.map(formatProduct),
         }));
       })
       .catch(() => {
         if (!cancelled) {
-          setProductsByCategory((prev) => ({ ...prev, [activeCategoryId]: [] }));
+          setProductsByKey((prev) => ({ ...prev, [productsKey]: [] }));
         }
       })
       .finally(() => {
@@ -136,9 +179,9 @@ const SellerStorefrontPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeCategoryId, sellerId, currentLocation?.latitude, currentLocation?.longitude]);
+  }, [activeCategoryId, activeSubcategoryId, productsKey, sellerId, currentLocation?.latitude, currentLocation?.longitude]);
 
-  const rawActiveProducts = productsByCategory[activeCategoryId] || [];
+  const rawActiveProducts = productsByKey[productsKey] || [];
   
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return rawActiveProducts;
@@ -335,7 +378,7 @@ const SellerStorefrontPage = () => {
             </div>
           )}
 
-          {/* Category Tabs (Zomato Category Menu Bar) */}
+          {/* Category Tabs (top-level categories) */}
           {categories.length > 0 && (
             <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/60 shadow-xs px-4 py-2.5 flex overflow-x-auto hide-scrollbar gap-2 w-full mt-4">
               {categories.map((cat) => {
@@ -361,56 +404,134 @@ const SellerStorefrontPage = () => {
             </div>
           )}
 
-          {/* Products List Section */}
-          <div className="px-4 pt-3">
-            {isLoading ? (
-              <div className="space-y-3 pt-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="h-28 rounded-3xl bg-white border border-slate-200/60 p-3 animate-pulse flex gap-3">
-                    <div className="w-20 h-20 bg-slate-100 rounded-2xl shrink-0" />
-                    <div className="flex-1 space-y-2 py-1">
-                      <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
-                      <div className="h-3 bg-slate-100 rounded-lg w-1/2" />
-                      <div className="h-4 bg-slate-100 rounded-lg w-1/4 mt-4" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="w-full py-16 px-8 flex flex-col items-center justify-center text-center">
-                <div className="w-40 h-40 mb-3">
-                  {noServiceData ? (
-                    <Lottie animationData={noServiceData} loop />
-                  ) : (
-                    <div className="w-40 h-40 bg-slate-100 rounded-full" />
+          {/* Subcategory Sidebar + Products Grid (two-pane, Blinkit style) */}
+          <div className="flex">
+            {subcategories.length > 0 && (
+              <div className="w-[76px] sm:w-24 shrink-0 sticky top-[104px] self-start max-h-[calc(100vh-104px)] overflow-y-auto bg-white border-r border-slate-100 hide-scrollbar">
+                <button
+                  onClick={() => setActiveSubcategoryId(null)}
+                  className={cn(
+                    "relative w-full flex flex-col items-center gap-1.5 px-1.5 py-3 text-center transition-colors",
+                    activeSubcategoryId === null ? "bg-slate-50" : "bg-white hover:bg-slate-50/60"
                   )}
-                </div>
-                <p className="text-slate-700 font-extrabold text-sm">
-                  {searchQuery ? `No items matching "${searchQuery}"` : "No products available in this category"}
-                </p>
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="mt-2 text-xs font-black text-primary hover:underline"
+                >
+                  {activeSubcategoryId === null && (
+                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary" />
+                  )}
+                  <div
+                    className={cn(
+                      "w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden flex items-center justify-center shrink-0 border bg-slate-50",
+                      activeSubcategoryId === null ? "border-primary/60 shadow-sm" : "border-slate-100"
+                    )}
                   >
-                    Clear search filter
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between px-1 mb-2">
-                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                    <Flame size={13} className="text-orange-500" />
-                    {categories.find((c) => c._id === activeCategoryId)?.name || "Menu Items"} ({filteredProducts.length})
+                    <span className="text-lg">🛍️</span>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] leading-tight",
+                      activeSubcategoryId === null ? "font-black text-slate-900" : "font-semibold text-slate-500"
+                    )}
+                  >
+                    All
                   </span>
-                </div>
+                </button>
 
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} layout="list" />
-                ))}
+                {subcategories.map((sub) => {
+                  const isActive = activeSubcategoryId === sub._id;
+                  return (
+                    <button
+                      key={sub._id}
+                      onClick={() => setActiveSubcategoryId(sub._id)}
+                      className={cn(
+                        "relative w-full flex flex-col items-center gap-1.5 px-1.5 py-3 text-center transition-colors",
+                        isActive ? "bg-slate-50" : "bg-white hover:bg-slate-50/60"
+                      )}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary" />
+                      )}
+                      <div
+                        className={cn(
+                          "w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden flex items-center justify-center shrink-0 border bg-slate-50",
+                          isActive ? "border-primary/60 shadow-sm" : "border-slate-100"
+                        )}
+                      >
+                        {sub.image ? (
+                          <img src={sub.image} alt={sub.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">🛒</span>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "text-[10px] leading-tight line-clamp-2",
+                          isActive ? "font-black text-slate-900" : "font-semibold text-slate-500"
+                        )}
+                      >
+                        {sub.name}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
+
+            {/* Products List Section */}
+            <div className="flex-1 min-w-0 px-3 pt-1 pb-3">
+              {isLoading ? (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="rounded-2xl bg-white border border-slate-200/60 p-2.5 animate-pulse">
+                      <div className="w-full aspect-square bg-slate-100 rounded-xl" />
+                      <div className="space-y-2 mt-2">
+                        <div className="h-3.5 bg-slate-100 rounded-lg w-3/4" />
+                        <div className="h-3 bg-slate-100 rounded-lg w-1/2" />
+                        <div className="h-3.5 bg-slate-100 rounded-lg w-1/3 mt-2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="w-full py-16 px-4 flex flex-col items-center justify-center text-center">
+                  <div className="w-40 h-40 mb-3">
+                    {noServiceData ? (
+                      <Lottie animationData={noServiceData} loop />
+                    ) : (
+                      <div className="w-40 h-40 bg-slate-100 rounded-full" />
+                    )}
+                  </div>
+                  <p className="text-slate-700 font-extrabold text-sm">
+                    {searchQuery ? `No items matching "${searchQuery}"` : "No products available in this category"}
+                  </p>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="mt-2 text-xs font-black text-primary hover:underline"
+                    >
+                      Clear search filter
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="pt-1">
+                  <div className="flex items-center justify-between px-1 mb-2">
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                      <Flame size={13} className="text-orange-500" />
+                      {(activeSubcategoryId
+                        ? subcategories.find((s) => s._id === activeSubcategoryId)?.name
+                        : categories.find((c) => c._id === activeCategoryId)?.name) || "Menu Items"}{" "}
+                      ({filteredProducts.length})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {filteredProducts.map((product) => (
+                      <ProductCard key={product.id} product={product} layout="storefront" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
