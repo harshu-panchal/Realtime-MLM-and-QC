@@ -11,6 +11,7 @@ import {
 } from "../services/sellerVerificationService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
+import Setting from "../models/setting.js";
 
 /* ===============================
    Utils
@@ -235,8 +236,11 @@ export const signupSeller = async (req, res) => {
                 entityType: "Seller",
                 sponsorId: req.body.sponsorId || req.body.referralCode || null,
             });
-            // Source 1: Vendor Registration Fee
-            const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : 1000;
+            // Source 1: Vendor Registration Fee (Dynamic from Setting)
+            const setting = await Setting.findOne().lean();
+            const defaultFee = setting?.vendorRegistrationFee ?? 1000;
+            const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : defaultFee;
+            
             await processBinaryCommission({
                 entityId: seller._id,
                 entityType: "Seller",

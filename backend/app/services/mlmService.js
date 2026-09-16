@@ -104,136 +104,6 @@ export const placeInTree = async ({ entityId, entityType, sponsorId = null }) =>
   }
 };
 
-/**
- * Calculates commission using Amount / 3.60 formula and applies dynamic daily capping (default ₹25,000) ONLY for Users.
- */
-export const calculateAndDistributeCommission = async ({
-  entityId,
-  entityType,
-  amount,
-  orderId = null,
-  remarks = "MLM Commission",
-}) => {
-  try {
-    const rawAmount = Number(amount);
-    if (!rawAmount || rawAmount <= 0 || isNaN(rawAmount)) {
-      return { success: false, message: "Invalid amount for commission" };
-    }
-
-    // 1. Calculate Base Commission: Amount / 3.60
-    const requestedAmount = Number((rawAmount / 3.60).toFixed(2));
-
-    // 2. Fetch System Settings for user daily cap
-    const setting = (await Setting.findOne().lean()) || {};
-    const userDailyCap = Number(setting.userDailyCommissionCap ?? 25000);
-
-    let creditedAmount = requestedAmount;
-    let cappedAmount = 0;
-
-    // 3. Apply Daily Commission Cap ONLY for User entity
-    if (entityType === "User") {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      // Aggregate today's total credited commissions for this User
-      const todayLogs = await MlmCommissionLog.aggregate([
-        {
-          $match: {
-            entityId: entityId._id || entityId,
-            entityType: "User",
-            date: { $gte: startOfDay, $lte: endOfDay },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalCredited: { $sum: "$creditedAmount" },
-          },
-        },
-      ]);
-
-      const alreadyCreditedToday = todayLogs.length > 0 ? todayLogs[0].totalCredited : 0;
-      const remainingCap = Math.max(0, userDailyCap - alreadyCreditedToday);
-
-      creditedAmount = Math.min(requestedAmount, remainingCap);
-      cappedAmount = Number((requestedAmount - creditedAmount).toFixed(2));
-    }
-
-    // 4. Fetch tree info for logging
-    const treeNode = await MlmTree.findOne({ entityId, entityType }).lean();
-    const treeInfo = treeNode
-      ? {
-          sponsorId: treeNode.sponsorId,
-          parentId: treeNode.parentId,
-          position: treeNode.position,
-          level: treeNode.level,
-        }
-      : {};
-
-    // 5. Save MlmCommissionLog
-    const log = await MlmCommissionLog.create({
-      requestedAmount,
-      creditedAmount,
-      cappedAmount,
-      date: new Date(),
-      entityId,
-      entityType,
-      treeInfo,
-      sourceOrderId: orderId,
-      remarks,
-    });
-
-    // 6. Credit entity's wallet if creditedAmount > 0
-    if (creditedAmount > 0) {
-      const targetId = entityId._id || entityId;
-
-      // Update or Create Wallet
-      await Wallet.findOneAndUpdate(
-        { ownerType: entityType.toUpperCase(), ownerId: targetId },
-        {
-          $inc: { availableBalance: creditedAmount, totalCredited: creditedAmount },
-        },
-        { upsert: true, new: true }
-      );
-
-      // If User entity, sync denormalized walletBalance field for compatibility
-      if (entityType === "User") {
-        await User.findByIdAndUpdate(targetId, {
-          $inc: { walletBalance: creditedAmount },
-        });
-      }
-
-      // Record Transaction
-      await Transaction.create({
-        user: targetId,
-        userModel: entityType === "User" ? "User" : entityType,
-        order: orderId,
-        type: "Bonus",
-        amount: creditedAmount,
-        status: "Settled",
-        reference: `MLM-COMM-${log._id}`,
-        meta: {
-          requestedAmount,
-          creditedAmount,
-          cappedAmount,
-          formula: "Amount / 3.60",
-        },
-      });
-    }
-
-    return {
-      success: true,
-      requestedAmount,
-      creditedAmount,
-      cappedAmount,
-      log,
-    };
-  } catch (error) {
-    console.error("Error in calculateAndDistributeCommission:", error);
-    throw error;
-  }
-};
 
 /**
  * Returns current daily commission cap usage for a User.
@@ -324,14 +194,14 @@ export const getTreeStructure = async (rootEntityId = null, depth = 4) => {
  * Common MLM Binary Commission Engine
  * Handles Vendor Registration, Delivery Registration and other sources based on the PDF.
  */
-export const processBinaryCommission = async ({ entityId, entityType, source, amount }) => {
+export const processBinaryCommission = async ({ entityId, entityType, source, amount, orderId = null, remarks = null }) => {
   try {
     const startNode = await MlmTree.findOne({ entityId, entityType });
     if (!startNode) return { success: false, message: "Node not found in MLM tree" };
 
     const setting = (await Setting.findOne().lean()) || {};
     const PAIR_VALUE = Number(setting.mlmPairValue ?? 3.60);
-    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.002);
+    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
     const DAILY_CAP = Number(setting.userDailyCommissionCap ?? 10000);
 
     let currentNode = await MlmTree.findById(startNode.parentId);
@@ -368,11 +238,12 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
         await Transaction.create({
           user: currentNode.entityId,
           userModel: currentNode.entityModel,
+          order: orderId,
           type: "Bonus",
           amount: PER_ID_INCOME,
           status: "Settled",
           reference: `MLM-PER-ID-${startNode._id}`,
-          meta: { source, amount, note: "Per-ID Income 0.002" },
+          meta: { source, amount, note: "Per-ID Income 0.0002", remarks },
         });
 
         // Weekly accumulation update
@@ -398,9 +269,9 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
         currentNode.totalEarning += pairAmount;
 
         // Admin Wallet Credit
-        // Using ownerType "ADMIN" to represent the Admin Wallet within the Wallet collection
+        // Using ownerType "ADMIN" with a centralized ownerId "SYSTEM"
         await Wallet.findOneAndUpdate(
-          { ownerType: "ADMIN", ownerId: currentNode.entityId },
+          { ownerType: "ADMIN", ownerId: "ADMIN_SYSTEM_WALLET" },
           { $inc: { availableBalance: pairAmount, totalCredited: pairAmount } },
           { upsert: true }
         );
@@ -412,7 +283,8 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
           date: new Date(),
           entityId: currentNode.entityId,
           entityType: currentNode.entityType,
-          remarks: `Matched ${pairs} pairs (${pairAmount}) sent to Admin Wallet for source: ${source}`,
+          sourceOrderId: orderId,
+          remarks: remarks || `Matched ${pairs} pairs (${pairAmount}) sent to Admin Wallet for source: ${source}`,
         });
       }
 

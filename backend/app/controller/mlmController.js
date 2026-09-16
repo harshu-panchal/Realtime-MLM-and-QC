@@ -1,7 +1,7 @@
 import handleResponse from "../utils/helper.js";
 import {
   placeInTree,
-  calculateAndDistributeCommission,
+  processBinaryCommission,
   getUserCapStatus,
   getTreeStructure,
 } from "../services/mlmService.js";
@@ -31,9 +31,10 @@ export const calculateCommission = async (req, res) => {
       return handleResponse(res, 400, "entityId, entityType, and amount are required");
     }
 
-    const result = await calculateAndDistributeCommission({
+    const result = await processBinaryCommission({
       entityId,
       entityType,
+      source: remarks || "Manual Commission",
       amount,
       orderId,
       remarks,

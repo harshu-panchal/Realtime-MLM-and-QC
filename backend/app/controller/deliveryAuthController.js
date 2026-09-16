@@ -6,6 +6,7 @@ import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
 import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
+import Setting from "../models/setting.js";
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -102,8 +103,11 @@ export const signupDelivery = async (req, res) => {
                     entityType: "Delivery",
                     sponsorId: req.body.sponsorId || req.body.referralCode || null,
                 });
-                // Source 2: Rider Registration Fee
-                const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : 500;
+                // Source 2: Rider Registration Fee (Dynamic from Setting)
+                const setting = await Setting.findOne().lean();
+                const defaultFee = setting?.riderRegistrationFee ?? 500;
+                const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : defaultFee;
+                
                 await processBinaryCommission({
                     entityId: delivery._id,
                     entityType: "Delivery",

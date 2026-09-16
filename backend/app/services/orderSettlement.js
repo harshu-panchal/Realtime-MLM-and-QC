@@ -3,7 +3,7 @@ import {
   handleCodOrderFinance,
   settleDeliveredOrder,
 } from "./finance/orderFinanceService.js";
-import { calculateAndDistributeCommission } from "./mlmService.js";
+import { processBinaryCommission } from "./mlmService.js";
 
 /**
  * Financial side effects when order becomes delivered (mirrors orderController).
@@ -76,9 +76,10 @@ export async function applyDeliveredSettlement(order, orderIdString) {
   if (totalAmount > 0) {
     const customerId = order.user || order.customer;
     if (customerId) {
-      calculateAndDistributeCommission({
+      processBinaryCommission({
         entityId: customerId,
         entityType: "User",
+        source: "User Commission",
         amount: totalAmount,
         orderId: order._id,
         remarks: `Order #${order.orderId || order._id} User Commission`,
@@ -86,9 +87,10 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     }
 
     if (settled.seller) {
-      calculateAndDistributeCommission({
+      processBinaryCommission({
         entityId: settled.seller,
         entityType: "Seller",
+        source: "Vendor Commission",
         amount: totalAmount,
         orderId: order._id,
         remarks: `Order #${order.orderId || order._id} Seller Commission`,
@@ -96,9 +98,10 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     }
 
     if (settled.deliveryBoy) {
-      calculateAndDistributeCommission({
+      processBinaryCommission({
         entityId: settled.deliveryBoy,
         entityType: "Delivery",
+        source: "Rider Commission",
         amount: totalAmount,
         orderId: order._id,
         remarks: `Order #${order.orderId || order._id} Delivery Commission`,
