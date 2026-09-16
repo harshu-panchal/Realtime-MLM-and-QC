@@ -5,7 +5,8 @@ import { sendSmsIndiaHubOtp } from "../services/smsIndiaHubService.js";
 import { generateOTP, useRealSMS } from "../utils/otp.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { clearRiderPresence } from "../services/firebaseService.js";
-import { placeInTree } from "../services/mlmService.js";
+import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
+import Setting from "../models/setting.js";
 
 const generateToken = (delivery) =>
     jwt.sign(
@@ -64,7 +65,7 @@ export const signupDelivery = async (req, res) => {
         const normalizedAadhar = String(req.body?.aadharUrl || req.body?.aadhar || "").trim();
         const normalizedPan = String(req.body?.panUrl || req.body?.pan || "").trim();
         const normalizedDl = String(
-          req.body?.drivingLicenseUrl || req.body?.dlUrl || req.body?.dl || "",
+            req.body?.drivingLicenseUrl || req.body?.dlUrl || req.body?.dl || "",
         ).trim();
         const normalizedProfileImage = String(req.body?.profileImageUrl || req.body?.profileImage || "").trim();
 
@@ -102,8 +103,20 @@ export const signupDelivery = async (req, res) => {
                     entityType: "Delivery",
                     sponsorId: req.body.sponsorId || req.body.referralCode || null,
                 });
+                // Source 2: Rider Registration Fee (Dynamic from Setting)
+                const setting = await Setting.findOne().lean();
+                const defaultFee = setting?.riderRegistrationFee ?? 500;
+                const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : defaultFee;
+
+                await processBinaryCommission({
+                    entityId: delivery._id,
+                    entityType: "Delivery",
+                    source: "Rider Registration Fee",
+                    amount: feeAmount
+                });
             } catch (e) {
-                console.error("Failed to place Delivery in MLM tree:", e);
+                console.error("Failed to place Delivery in MLM tree or process commission:", e);
+                console.error("Failed to place Delivery in MLM tree or process commission:", e);
             }
         } else {
             Object.assign(delivery, deliveryData);
@@ -246,7 +259,7 @@ export const updateDeliveryProfile = async (req, res) => {
         // Fire-and-forget — never blocks the HTTP response. A failed cleanup
         // is also safe: the scheduled sweep job will pick it up on TTL.
         if (willGoOffline) {
-            clearRiderPresence(String(delivery._id)).catch(() => {});
+            clearRiderPresence(String(delivery._id)).catch(() => { });
         }
 
         return handleResponse(res, 200, "Profile updated successfully", delivery);
@@ -266,7 +279,7 @@ export const deleteDeliveryAccount = async (req, res) => {
         }
 
         delivery.isActive = false;
-        
+
         // Ensure they go offline and are removed from maps
         const wasOnline = delivery.isOnline === true;
         delivery.isOnline = false;
@@ -274,7 +287,7 @@ export const deleteDeliveryAccount = async (req, res) => {
         await delivery.save();
 
         if (wasOnline) {
-            clearRiderPresence(String(delivery._id)).catch(() => {});
+            clearRiderPresence(String(delivery._id)).catch(() => { });
         }
 
         return handleResponse(res, 200, "Account deleted successfully");

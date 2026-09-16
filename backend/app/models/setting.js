@@ -42,6 +42,16 @@ const settingSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        vendorRegistrationFee: {
+            type: Number,
+            default: 1000,
+            min: 0,
+        },
+        riderRegistrationFee: {
+            type: Number,
+            default: 500,
+            min: 0,
+        },
 
         // Branding
         logoUrl: String,
