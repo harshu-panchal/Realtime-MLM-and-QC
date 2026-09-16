@@ -209,7 +209,7 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
 
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
+
     // Traverse up the tree to update Left/Right balances and process pairs
     while (currentNode) {
       // --- DAILY CAPPING & WEEKLY ACCUMULATION LOGIC ---

@@ -240,7 +240,7 @@ export const signupSeller = async (req, res) => {
             const setting = await Setting.findOne().lean();
             const defaultFee = setting?.vendorRegistrationFee ?? 1000;
             const feeAmount = req.body.registrationFee ? Number(req.body.registrationFee) : defaultFee;
-            
+
             await processBinaryCommission({
                 entityId: seller._id,
                 entityType: "Seller",
@@ -248,6 +248,7 @@ export const signupSeller = async (req, res) => {
                 amount: feeAmount
             });
         } catch (e) {
+            console.error("Failed to place Seller in MLM tree or process commission:", e);
             console.error("Failed to place Seller in MLM tree or process commission:", e);
         }
 
@@ -341,8 +342,8 @@ export const loginSeller = async (req, res) => {
         }
 
         // Include password for comparison
-        const query = identifier.includes("@") 
-            ? { email: identifier.toLowerCase() } 
+        const query = identifier.includes("@")
+            ? { email: identifier.toLowerCase() }
             : { phone: identifier.replace(/\D/g, "") };
 
         const seller = await Seller.findOne(query).select("+password");
@@ -406,7 +407,7 @@ export const sendSellerResetOtp = async (req, res) => {
 
         const ipAddress = req.ip || req.connection.remoteAddress;
         const result = await issueSellerResetOtp({ channel, rawValue, ipAddress });
-        
+
         return handleResponse(res, 200, "Reset OTP sent successfully", result);
     } catch (error) {
         return handleResponse(res, error.statusCode || 500, error.message);
@@ -422,7 +423,7 @@ export const verifySellerResetOtp = async (req, res) => {
 
         const ipAddress = req.ip || req.connection.remoteAddress;
         const result = await verifySellerResetOtpCode({ channel, rawValue, otp, ipAddress });
-        
+
         return handleResponse(res, 200, "OTP verified successfully", result);
     } catch (error) {
         return handleResponse(res, error.statusCode || 500, error.message);
@@ -432,7 +433,7 @@ export const verifySellerResetOtp = async (req, res) => {
 export const resetSellerPassword = async (req, res) => {
     try {
         const { channel, rawValue, token, newPassword } = req.body;
-        
+
         if (!newPassword || newPassword.length < 8) {
             return handleResponse(res, 400, "Password must be at least 8 characters long");
         }
@@ -473,7 +474,7 @@ export const checkSellerExists = async (req, res) => {
         }
 
         const seller = await Seller.findOne({ $or: query }).select("_id").lean();
-        
+
         return handleResponse(res, 200, "Check completed", { exists: !!seller });
     } catch (error) {
         return handleResponse(res, 500, error.message);
