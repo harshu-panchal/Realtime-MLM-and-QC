@@ -378,9 +378,9 @@ const SellerStorefrontPage = () => {
             </div>
           )}
 
-          {/* Category Tabs (top-level categories) */}
+          {/* Category Tabs (top-level categories) — square image card + name below */}
           {categories.length > 0 && (
-            <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/60 shadow-xs px-4 py-2.5 flex overflow-x-auto hide-scrollbar gap-2 w-full mt-4">
+            <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/60 shadow-xs px-4 py-3 flex overflow-x-auto hide-scrollbar gap-3 w-full mt-4">
               {categories.map((cat) => {
                 const isActive = activeCategoryId === cat._id;
                 return (
@@ -390,14 +390,28 @@ const SellerStorefrontPage = () => {
                       setActiveCategoryId(cat._id);
                       setSearchQuery("");
                     }}
-                    className={cn(
-                      "flex items-center px-4 py-2 rounded-2xl whitespace-nowrap font-black text-xs transition-all duration-200 shrink-0",
-                      isActive
-                        ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                        : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-100"
-                    )}
+                    className="flex flex-col items-center gap-1.5 shrink-0 w-16"
                   >
-                    {cat.name}
+                    <div
+                      className={cn(
+                        "w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center border-2 transition-all duration-200 bg-slate-50",
+                        isActive ? "border-primary shadow-md scale-[1.03]" : "border-transparent"
+                      )}
+                    >
+                      {cat.image ? (
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl">🛒</span>
+                      )}
+                    </div>
+                    <span
+                      className={cn(
+                        "text-[10.5px] leading-tight text-center line-clamp-2 whitespace-normal",
+                        isActive ? "font-black text-slate-900" : "font-semibold text-slate-500"
+                      )}
+                    >
+                      {cat.name}
+                    </span>
                   </button>
                 );
               })}
