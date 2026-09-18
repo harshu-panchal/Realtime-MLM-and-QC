@@ -159,14 +159,14 @@ function CommerceModeToggle({ mode, setMode, size = "sm", fullWidth = false, lay
   return (
     <div
       className={cn(
-        "relative inline-flex items-center bg-slate-100/90 border border-slate-200/90 rounded-full p-[2.5px] shadow-3xs select-none",
-        isSmall ? "gap-0.5" : "gap-1 p-1",
+        "relative inline-flex items-center bg-slate-100/90 border border-slate-200/90 rounded-full p-[1.5px] shadow-3xs select-none",
+        isSmall ? "gap-0.5" : "gap-0.5 p-1",
         fullWidth ? "w-full" : "shrink-0",
       )}
       role="tablist"
       aria-label="Commerce Mode Toggle"
     >
-      {/* Quick */}
+      {/* Q-Ecom */}
       <button
         type="button"
         role="tab"
@@ -174,7 +174,7 @@ function CommerceModeToggle({ mode, setMode, size = "sm", fullWidth = false, lay
         onClick={() => setMode(COMMERCE_MODES.QUICK)}
         className={cn(
           "relative flex items-center justify-center rounded-full cursor-pointer transition-colors z-10",
-          isSmall ? "px-3 py-1" : "px-4 py-1.5",
+          isSmall ? "px-2 py-0.5" : "px-3 py-1",
           fullWidth ? "flex-1" : "",
         )}
       >
@@ -182,19 +182,19 @@ function CommerceModeToggle({ mode, setMode, size = "sm", fullWidth = false, lay
           <motion.div
             layoutId={layoutId}
             transition={slideTransition}
-            className="absolute inset-0 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.15)] border border-emerald-500/30"
+            className="absolute inset-0 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.15)] border border-emerald-500/30"
           />
         )}
         <span className={cn(
-          "relative z-10 font-black uppercase tracking-wider leading-none transition-colors",
-          isSmall ? "text-[9.5px]" : "text-[11px]",
+          "relative z-10 font-black uppercase tracking-tight leading-none transition-colors",
+          isSmall ? "text-[8.5px]" : "text-[10px]",
           isQuick ? "text-emerald-700" : "text-slate-500"
         )}>
-          Quick
+          Q-Ecom
         </span>
       </button>
 
-      {/* Shop All */}
+      {/* Ecom */}
       <button
         type="button"
         role="tab"
@@ -202,7 +202,7 @@ function CommerceModeToggle({ mode, setMode, size = "sm", fullWidth = false, lay
         onClick={() => setMode(COMMERCE_MODES.SHOP_ALL)}
         className={cn(
           "relative flex items-center justify-center rounded-full cursor-pointer transition-colors z-10",
-          isSmall ? "px-3 py-1" : "px-4 py-1.5",
+          isSmall ? "px-2 py-0.5" : "px-3 py-1",
           fullWidth ? "flex-1" : "",
         )}
       >
@@ -210,15 +210,15 @@ function CommerceModeToggle({ mode, setMode, size = "sm", fullWidth = false, lay
           <motion.div
             layoutId={layoutId}
             transition={slideTransition}
-            className="absolute inset-0 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.15)] border border-orange-500/30"
+            className="absolute inset-0 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.15)] border border-orange-500/30"
           />
         )}
         <span className={cn(
-          "relative z-10 font-black uppercase tracking-wider leading-none transition-colors",
-          isSmall ? "text-[9.5px]" : "text-[11px]",
+          "relative z-10 font-black uppercase tracking-tight leading-none transition-colors",
+          isSmall ? "text-[8.5px]" : "text-[10px]",
           !isQuick ? "text-orange-700" : "text-slate-500"
         )}>
-          ShopAll
+          Ecom
         </span>
       </button>
     </div>
@@ -647,8 +647,16 @@ const MainLocationHeader = ({
                   <ChevronDownIcon sx={{ color: "#64748b", fontSize: 14 }} className="shrink-0 ml-auto" />
                 </div>
 
-                <div className="shrink-0">
+                <div className="shrink-0 flex items-center gap-1.5">
                   <CommerceModeToggle mode={mode} setMode={setMode} size="sm" layoutId="commerce-mode-pill-mobile" />
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => navigate("/notifications")}
+                    className="w-7.5 h-7.5 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-700 shadow-3xs active:bg-slate-50 cursor-pointer shrink-0"
+                    title="Notifications"
+                  >
+                    <NotificationsNoneOutlinedIcon sx={{ fontSize: 18 }} />
+                  </motion.button>
                 </div>
               </div>
             </motion.div>
