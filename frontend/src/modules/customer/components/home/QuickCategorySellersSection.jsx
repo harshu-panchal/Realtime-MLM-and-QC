@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Store, Star, Clock, Sparkles, ChevronRight, Flame } from "lucide-react";
+import { MapPin, Store, Star, Clock, Sparkles } from "lucide-react";
 import { customerApi } from "../../services/customerApi";
 import { useLocation as useAppLocation } from "../../context/LocationContext";
 
@@ -103,6 +103,7 @@ const QuickCategorySellersSection = ({ categoryId, categoryName }) => {
 
       {sellers.map((seller, index) => {
         const bannerUrl =
+          seller.bannerImages?.[0] ||
           seller.bannerImage ||
           seller.shopBanner ||
           seller.topProducts?.[0]?.image ||
@@ -175,48 +176,6 @@ const QuickCategorySellersSection = ({ categoryId, categoryName }) => {
                   <Star size={11} className="fill-white stroke-none" />
                 </div>
               </div>
-
-              {/* Bestseller Dishes / Products Preview Strip (Zomato-Style) */}
-              {seller.topProducts && seller.topProducts.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <Flame size={11} className="text-orange-500" />
-                      Popular Items
-                    </span>
-                    <span className="text-[10px] font-bold text-primary flex items-center">
-                      Explore store <ChevronRight size={12} />
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                    {seller.topProducts.map((prod) => (
-                      <div
-                        key={prod._id}
-                        className="flex-shrink-0 flex items-center gap-2 bg-slate-50 border border-slate-100/90 rounded-xl p-1.5 hover:bg-slate-100/80 transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-white overflow-hidden shrink-0 border border-slate-100">
-                          {prod.image ? (
-                            <img src={prod.image} alt={prod.name} className="w-full h-full object-contain p-0.5" />
-                          ) : (
-                            <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300 text-[10px]">
-                              Img
-                            </div>
-                          )}
-                        </div>
-                        <div className="pr-1 max-w-[90px]">
-                          <p className="text-[10.5px] font-bold text-slate-800 truncate leading-snug">
-                            {prod.name}
-                          </p>
-                          <p className="text-[10px] font-extrabold text-slate-900 mt-0.5">
-                            ₹{prod.price}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         );

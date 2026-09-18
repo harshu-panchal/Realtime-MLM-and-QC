@@ -46,7 +46,7 @@ const SellerProfile = () => {
     lng: null,
     radius: 5,
     address: "",
-    bannerImage: "",
+    bannerImages: [],
     logo: "",
     deliveryTime: "15-25 mins",
     offerTitle: "20% OFF up to ₹50",
@@ -55,15 +55,15 @@ const SellerProfile = () => {
     rating: 4.4,
   });
 
-  const bannerInputRef = React.useRef(null);
   const logoInputRef = React.useRef(null);
-  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerFileInputRef = React.useRef(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingBanners, setIsUploadingBanners] = useState(false);
+  const MAX_BANNERS = 8;
 
   const handleFileUpload = async (file, targetField) => {
     if (!file) return;
 
-    if (targetField === "bannerImage") setIsUploadingBanner(true);
     if (targetField === "logo") setIsUploadingLogo(true);
 
     try {
@@ -74,9 +74,7 @@ const SellerProfile = () => {
 
       if (uploadedUrl) {
         setFormData((prev) => ({ ...prev, [targetField]: uploadedUrl }));
-        toast.success(
-          `${targetField === "bannerImage" ? "Cover banner" : "Shop logo"} uploaded!`
-        );
+        toast.success("Shop logo uploaded!");
       } else {
         throw new Error("No URL returned");
       }
@@ -84,15 +82,51 @@ const SellerProfile = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setFormData((prev) => ({ ...prev, [targetField]: e.target.result }));
-        toast.success(
-          `${targetField === "bannerImage" ? "Cover banner" : "Shop logo"} selected!`
-        );
+        toast.success("Shop logo selected!");
       };
       reader.readAsDataURL(file);
     } finally {
-      if (targetField === "bannerImage") setIsUploadingBanner(false);
       if (targetField === "logo") setIsUploadingLogo(false);
     }
+  };
+
+  const handleBannerFilesSelected = async (fileList) => {
+    const remainingSlots = MAX_BANNERS - formData.bannerImages.length;
+    const files = Array.from(fileList || []).slice(0, Math.max(remainingSlots, 0));
+    if (files.length === 0) return;
+
+    setIsUploadingBanners(true);
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const data = new FormData();
+            data.append("file", file);
+            const res = await sellerApi.uploadMedia(data);
+            return res.data?.result?.secureUrl || res.data?.result?.url || null;
+          } catch (err) {
+            return null;
+          }
+        })
+      );
+      const urls = uploaded.filter(Boolean);
+      if (urls.length > 0) {
+        setFormData((prev) => ({ ...prev, bannerImages: [...prev.bannerImages, ...urls] }));
+        toast.success(`${urls.length} banner${urls.length > 1 ? "s" : ""} uploaded!`);
+      }
+      if (urls.length < files.length) {
+        toast.error("Some banner images failed to upload");
+      }
+    } finally {
+      setIsUploadingBanners(false);
+    }
+  };
+
+  const handleRemoveBanner = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      bannerImages: prev.bannerImages.filter((_, i) => i !== index),
+    }));
   };
 
   useEffect(() => {
@@ -113,7 +147,12 @@ const SellerProfile = () => {
         lng: data.location?.coordinates[0] || null,
         radius: data.serviceRadius || 5,
         address: data.address || "",
-        bannerImage: data.bannerImage || "",
+        bannerImages:
+          Array.isArray(data.bannerImages) && data.bannerImages.length > 0
+            ? data.bannerImages
+            : data.bannerImage
+            ? [data.bannerImage]
+            : [],
         logo: data.logo || "",
         deliveryTime: data.deliveryTime || "15-25 mins",
         offerTitle: data.offerTitle || "20% OFF up to ₹50",
@@ -522,76 +561,77 @@ const SellerProfile = () => {
 
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Cover Banner File Upload */}
+                {/* Storefront Cover Banners (Carousel) File Upload */}
                 <div className="space-y-3 md:col-span-2">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1 flex items-center gap-1.5">
                     <Image size={14} className="text-slate-400" />
-                    Shop Cover Banner Image File
+                    Storefront Cover Banners (Carousel)
                   </label>
+                  <p className="text-[11px] font-semibold text-slate-400 -mt-1 ml-1">
+                    Add up to {MAX_BANNERS} images — customers see them as a rotating carousel on your storefront page.
+                  </p>
 
                   <input
                     type="file"
-                    ref={bannerInputRef}
+                    ref={bannerFileInputRef}
                     accept="image/*"
-                    onChange={(e) => handleFileUpload(e.target.files?.[0], "bannerImage")}
+                    multiple
+                    onChange={(e) => {
+                      handleBannerFilesSelected(e.target.files);
+                      e.target.value = "";
+                    }}
                     className="hidden"
                   />
 
-                  <div className="border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-2xl p-4 bg-slate-50 flex flex-col items-center justify-center transition-all min-h-[140px] relative overflow-hidden group">
-                    {formData.bannerImage ? (
-                      <div className="w-full h-40 rounded-xl overflow-hidden relative">
-                        <img
-                          src={formData.bannerImage}
-                          alt="Cover Banner"
-                          className="w-full h-full object-cover"
-                        />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {formData.bannerImages.map((url, index) => (
+                      <div
+                        key={`${url}-${index}`}
+                        className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group"
+                      >
+                        <img src={url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
                         {isEditing && (
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => bannerInputRef.current?.click()}
-                              className="px-4 py-2 bg-white text-slate-900 font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 hover:scale-105 transition-transform"
-                            >
-                              <Upload size={14} /> Change Banner File
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFormData((prev) => ({ ...prev, bannerImage: "" }))}
-                              className="p-2 bg-rose-600 text-white rounded-xl shadow-md hover:scale-105 transition-transform"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        {isUploadingBanner ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <Loader2 className="animate-spin text-slate-700" size={24} />
-                            <span className="text-xs font-bold text-slate-600">Uploading banner...</span>
-                          </div>
-                        ) : (
                           <button
                             type="button"
-                            disabled={!isEditing}
-                            onClick={() => bannerInputRef.current?.click()}
-                            className="flex flex-col items-center gap-2 cursor-pointer disabled:opacity-50"
+                            onClick={() => handleRemoveBanner(index)}
+                            className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-600"
                           >
-                            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-slate-700">
-                              <Upload size={20} />
-                            </div>
-                            <span className="text-xs font-black text-slate-800">
-                              Click to select Shop Banner image file
-                            </span>
-                            <span className="text-[11px] font-semibold text-slate-400">
-                              PNG, JPG, WEBP formats supported
-                            </span>
+                            <Trash2 size={13} />
                           </button>
                         )}
+                        {index === 0 && (
+                          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[9px] font-black uppercase tracking-wider rounded-md">
+                            Cover
+                          </span>
+                        )}
                       </div>
+                    ))}
+
+                    {isEditing && formData.bannerImages.length < MAX_BANNERS && (
+                      <button
+                        type="button"
+                        disabled={isUploadingBanners}
+                        onClick={() => bannerFileInputRef.current?.click()}
+                        className="aspect-video rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-400 bg-slate-50 flex flex-col items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        {isUploadingBanners ? (
+                          <>
+                            <Loader2 className="animate-spin text-slate-700" size={20} />
+                            <span className="text-[10px] font-bold text-slate-600">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={18} className="text-slate-500" />
+                            <span className="text-[10px] font-black text-slate-600">Add Banner</span>
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
+
+                  {formData.bannerImages.length === 0 && !isEditing && (
+                    <p className="text-xs text-slate-400 font-medium italic ml-1">No banners added yet.</p>
+                  )}
                 </div>
 
                 {/* Shop Logo File Upload */}

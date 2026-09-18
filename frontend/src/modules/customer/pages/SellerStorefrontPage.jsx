@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   Store,
@@ -8,17 +8,11 @@ import {
   Clock,
   Search,
   Sparkles,
-  Tag,
   X,
-  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { customerApi } from "../services/customerApi";
-import { useLocation as useAppLocation } from "../context/LocationContext";
-import ProductCard from "../components/shared/ProductCard";
-import ProductDetailSheet from "../components/shared/ProductDetailSheet";
-import MiniCart from "../components/shared/MiniCart";
-import Lottie from "lottie-react";
+import SellerBannerCarousel from "../components/shared/SellerBannerCarousel";
 
 const FALLBACK_BANNERS = [
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1000&q=80",
@@ -26,48 +20,18 @@ const FALLBACK_BANNERS = [
   "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1000&q=80",
 ];
 
-const formatProduct = (p) => ({
-  ...p,
-  id: p._id,
-  image:
-    p.mainImage ||
-    p.image ||
-    "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
-  price: p.salePrice || p.price,
-  originalPrice: p.price,
-  weight: p.weight || "1 unit",
-  deliveryTime: "8-15 mins",
-});
-
-// Quick tab seller storefront: full store browse with category tabs,
-// defaulting to whichever category the customer clicked in from the
-// nearby-sellers list page.
+// Quick tab seller storefront: shows the store info and its categories as a
+// grid of cards. Tapping a category navigates to SellerCategoryProductsPage,
+// which shows that category's subcategory sidebar + product grid.
 const SellerStorefrontPage = () => {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const routerLocation = useLocation();
-  const { currentLocation } = useAppLocation();
-  const initialCategoryId = routerLocation.state?.categoryId || null;
 
   const [seller, setSeller] = useState(null);
   const [categories, setCategories] = useState([]);
-  const [activeCategoryId, setActiveCategoryId] = useState(initialCategoryId);
-  const [subcategories, setSubcategories] = useState([]);
-  const [activeSubcategoryId, setActiveSubcategoryId] = useState(null);
-  const [isLoadingSubcategories, setIsLoadingSubcategories] = useState(false);
-  const [productsByKey, setProductsByKey] = useState({});
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [noServiceData, setNoServiceData] = useState(null);
-
-  useEffect(() => {
-    import("@/assets/lottie/animation.json")
-      .then((m) => setNoServiceData(m.default))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,10 +44,6 @@ const SellerStorefrontPage = () => {
         setSeller(result.seller || null);
         const cats = Array.isArray(result.categories) ? result.categories : [];
         setCategories(cats);
-        setActiveCategoryId((prev) => {
-          if (prev && cats.some((c) => c._id === prev)) return prev;
-          return cats[0]?._id || null;
-        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -99,100 +59,17 @@ const SellerStorefrontPage = () => {
     };
   }, [sellerId]);
 
-  // Subcategories of the active (top-tab) category — shown in the left sidebar.
-  useEffect(() => {
-    if (!activeCategoryId) {
-      setSubcategories([]);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingSubcategories(true);
-    setActiveSubcategoryId(null);
-    customerApi
-      .getCategories({
-        type: "subcategory",
-        parentId: activeCategoryId,
-        page: 1,
-        limit: 100,
-      })
-      .then((res) => {
-        if (cancelled) return;
-        const result = res.data?.result;
-        const items = Array.isArray(result?.items) ? result.items : [];
-        setSubcategories(items);
-      })
-      .catch(() => {
-        if (!cancelled) setSubcategories([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingSubcategories(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeCategoryId]);
-
-  const productsKey = `${activeCategoryId || ""}::${activeSubcategoryId || "all"}`;
-
-  useEffect(() => {
-    if (!activeCategoryId) return;
-    if (productsByKey[productsKey]) return;
-
-    const hasValidLocation =
-      Number.isFinite(currentLocation?.latitude) &&
-      Number.isFinite(currentLocation?.longitude);
-    if (!hasValidLocation) return;
-
-    let cancelled = false;
-    setIsLoadingProducts(true);
-    const params = {
-      sellerId,
-      categoryId: activeCategoryId,
-      mode: "quick",
-      lat: currentLocation.latitude,
-      lng: currentLocation.longitude,
-    };
-    if (activeSubcategoryId) params.subcategoryId = activeSubcategoryId;
-
-    customerApi
-      .getProducts(params)
-      .then((res) => {
-        if (cancelled) return;
-        const result = res.data?.result;
-        const items = Array.isArray(result?.items) ? result.items : [];
-        setProductsByKey((prev) => ({
-          ...prev,
-          [productsKey]: items.map(formatProduct),
-        }));
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setProductsByKey((prev) => ({ ...prev, [productsKey]: [] }));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingProducts(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeCategoryId, activeSubcategoryId, productsKey, sellerId, currentLocation?.latitude, currentLocation?.longitude]);
-
-  const rawActiveProducts = productsByKey[productsKey] || [];
-  
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return rawActiveProducts;
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories;
     const query = searchQuery.toLowerCase();
-    return rawActiveProducts.filter((p) =>
-      p.name?.toLowerCase().includes(query) ||
-      p.description?.toLowerCase().includes(query)
-    );
-  }, [rawActiveProducts, searchQuery]);
+    return categories.filter((c) => c.name?.toLowerCase().includes(query));
+  }, [categories, searchQuery]);
 
-  const isLoading = isLoadingMeta || (isLoadingProducts && rawActiveProducts.length === 0);
+  const handleCategoryClick = (cat) => {
+    navigate(`/quick/seller/${sellerId}/category/${cat._id}`, {
+      state: { categoryName: cat.name, shopName: seller?.shopName },
+    });
+  };
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -208,10 +85,14 @@ const SellerStorefrontPage = () => {
     }
   };
 
-  const bannerUrl =
-    seller?.bannerImage ||
-    seller?.shopBanner ||
-    FALLBACK_BANNERS[0];
+  const bannerImages =
+    Array.isArray(seller?.bannerImages) && seller.bannerImages.length > 0
+      ? seller.bannerImages
+      : seller?.bannerImage
+      ? [seller.bannerImage]
+      : seller?.shopBanner
+      ? [seller.shopBanner]
+      : FALLBACK_BANNERS;
 
   const logoUrl = seller?.logo || seller?.shopLogo;
   const rating = seller?.rating || "4.3";
@@ -270,15 +151,11 @@ const SellerStorefrontPage = () => {
         </div>
       ) : (
         <div>
-          {/* Cover Banner Header */}
+          {/* Cover Banner Header (carousel when the seller has multiple) */}
           <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-slate-100">
-            <img
-              src={bannerUrl}
-              alt={seller?.shopName}
-              className="w-full h-full object-cover"
-            />
+            <SellerBannerCarousel images={bannerImages} alt={seller?.shopName} className="absolute inset-0" />
             {/* Subtle Gradient Overlay for badge contrast */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/10 pointer-events-none" />
 
             {/* Banner Top Badges */}
             <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
@@ -333,26 +210,6 @@ const SellerStorefrontPage = () => {
                 </span>
               </div>
 
-              {/* Offer Banner Strip */}
-              {(seller?.offerTitle || seller?.offerSubtitle) && (
-                <div className="mt-3 bg-orange-50/90 border border-orange-200/80 rounded-2xl p-2.5 flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0">
-                    <Tag size={14} className="stroke-[2.5]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {seller.offerTitle && (
-                      <p className="text-xs font-extrabold text-orange-950 truncate">
-                        {seller.offerTitle}
-                      </p>
-                    )}
-                    {seller.offerSubtitle && (
-                      <p className="text-[10px] font-semibold text-orange-600 truncate">
-                        {seller.offerSubtitle}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -378,194 +235,42 @@ const SellerStorefrontPage = () => {
             </div>
           )}
 
-          {/* Category Tabs (top-level categories) — square image card + name below */}
-          {categories.length > 0 && (
-            <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/60 shadow-xs px-4 py-3 flex overflow-x-auto hide-scrollbar gap-3 w-full mt-4">
-              {categories.map((cat) => {
-                const isActive = activeCategoryId === cat._id;
-                return (
+          {/* Categories Grid — tap a category to see its products */}
+          <div className="px-4 pt-4">
+            {categories.length === 0 ? (
+              !isLoadingMeta && (
+                <div className="w-full py-16 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
+                    <Store size={30} />
+                  </div>
+                  <p className="text-slate-700 font-extrabold text-sm">No categories available in this store</p>
+                </div>
+              )
+            ) : (
+              <div className="grid grid-cols-4 gap-3 pb-4">
+                {filteredCategories.map((cat) => (
                   <button
                     key={cat._id}
-                    onClick={() => {
-                      setActiveCategoryId(cat._id);
-                      setSearchQuery("");
-                    }}
-                    className="flex flex-col items-center gap-1.5 shrink-0 w-16"
+                    onClick={() => handleCategoryClick(cat)}
+                    className="flex flex-col items-center gap-1.5"
                   >
-                    <div
-                      className={cn(
-                        "w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center border-2 transition-all duration-200 bg-slate-50",
-                        isActive ? "border-primary shadow-md scale-[1.03]" : "border-transparent"
-                      )}
-                    >
+                    <div className="w-full aspect-square rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200/80 bg-slate-50 shadow-2xs hover:shadow-md transition-all duration-200">
                       {cat.image ? (
                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-2xl">🛒</span>
                       )}
                     </div>
-                    <span
-                      className={cn(
-                        "text-[10.5px] leading-tight text-center line-clamp-2 whitespace-normal",
-                        isActive ? "font-black text-slate-900" : "font-semibold text-slate-500"
-                      )}
-                    >
+                    <span className="text-[10px] font-bold text-slate-700 leading-tight text-center line-clamp-2">
                       {cat.name}
                     </span>
                   </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Subcategory Sidebar + Products Grid (two-pane, Blinkit style) */}
-          <div className="flex">
-            {subcategories.length > 0 && (
-              <div className="w-[76px] sm:w-24 shrink-0 sticky top-[104px] self-start max-h-[calc(100vh-104px)] overflow-y-auto bg-white border-r border-slate-100 hide-scrollbar">
-                <button
-                  onClick={() => setActiveSubcategoryId(null)}
-                  className={cn(
-                    "relative w-full flex flex-col items-center gap-1.5 px-1.5 py-3 text-center transition-colors",
-                    activeSubcategoryId === null ? "bg-slate-50" : "bg-white hover:bg-slate-50/60"
-                  )}
-                >
-                  {activeSubcategoryId === null && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary" />
-                  )}
-                  <div
-                    className={cn(
-                      "w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden flex items-center justify-center shrink-0 border bg-slate-50",
-                      activeSubcategoryId === null ? "border-primary/60 shadow-sm" : "border-slate-100"
-                    )}
-                  >
-                    <span className="text-lg">🛍️</span>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-[10px] leading-tight",
-                      activeSubcategoryId === null ? "font-black text-slate-900" : "font-semibold text-slate-500"
-                    )}
-                  >
-                    All
-                  </span>
-                </button>
-
-                {subcategories.map((sub) => {
-                  const isActive = activeSubcategoryId === sub._id;
-                  return (
-                    <button
-                      key={sub._id}
-                      onClick={() => setActiveSubcategoryId(sub._id)}
-                      className={cn(
-                        "relative w-full flex flex-col items-center gap-1.5 px-1.5 py-3 text-center transition-colors",
-                        isActive ? "bg-slate-50" : "bg-white hover:bg-slate-50/60"
-                      )}
-                    >
-                      {isActive && (
-                        <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary" />
-                      )}
-                      <div
-                        className={cn(
-                          "w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden flex items-center justify-center shrink-0 border bg-slate-50",
-                          isActive ? "border-primary/60 shadow-sm" : "border-slate-100"
-                        )}
-                      >
-                        {sub.image ? (
-                          <img src={sub.image} alt={sub.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg">🛒</span>
-                        )}
-                      </div>
-                      <span
-                        className={cn(
-                          "text-[10px] leading-tight line-clamp-2",
-                          isActive ? "font-black text-slate-900" : "font-semibold text-slate-500"
-                        )}
-                      >
-                        {sub.name}
-                      </span>
-                    </button>
-                  );
-                })}
+                ))}
               </div>
             )}
-
-            {/* Products List Section */}
-            <div className="flex-1 min-w-0 px-3 pt-1 pb-3">
-              {isLoading ? (
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="rounded-2xl bg-white border border-slate-200/60 p-2.5 animate-pulse">
-                      <div className="w-full aspect-square bg-slate-100 rounded-xl" />
-                      <div className="space-y-2 mt-2">
-                        <div className="h-3.5 bg-slate-100 rounded-lg w-3/4" />
-                        <div className="h-3 bg-slate-100 rounded-lg w-1/2" />
-                        <div className="h-3.5 bg-slate-100 rounded-lg w-1/3 mt-2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredProducts.length === 0 ? (
-                <div className="w-full py-16 px-4 flex flex-col items-center justify-center text-center">
-                  <div className="w-40 h-40 mb-3">
-                    {noServiceData ? (
-                      <Lottie animationData={noServiceData} loop />
-                    ) : (
-                      <div className="w-40 h-40 bg-slate-100 rounded-full" />
-                    )}
-                  </div>
-                  <p className="text-slate-700 font-extrabold text-sm">
-                    {searchQuery ? `No items matching "${searchQuery}"` : "No products available in this category"}
-                  </p>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="mt-2 text-xs font-black text-primary hover:underline"
-                    >
-                      Clear search filter
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="pt-1">
-                  <div className="flex items-center justify-between px-1 mb-2">
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                      <Flame size={13} className="text-orange-500" />
-                      {(activeSubcategoryId
-                        ? subcategories.find((s) => s._id === activeSubcategoryId)?.name
-                        : categories.find((c) => c._id === activeCategoryId)?.name) || "Menu Items"}{" "}
-                      ({filteredProducts.length})
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {filteredProducts.map((product) => (
-                      <ProductCard key={product.id} product={product} layout="storefront" />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
-
-      <MiniCart />
-      <ProductDetailSheet />
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            .hide-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-            .hide-scrollbar {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-            }
-          `,
-        }}
-      />
     </div>
   );
 };

@@ -51,6 +51,14 @@ const sellerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Multiple storefront cover banners, shown as a carousel on the
+    // customer-facing storefront page. `bannerImage` (above) is kept for
+    // backward compatibility and mirrors bannerImages[0].
+    bannerImages: {
+      type: [String],
+      default: [],
+    },
+
     logo: {
       type: String,
       trim: true,

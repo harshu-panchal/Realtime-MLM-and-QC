@@ -41,7 +41,7 @@ export const getNearbySellers = async (req, res) => {
       },
     })
       .select(
-        "shopName address locality city pincode state location serviceRadius isActive isVerified businessType bannerImage logo rating deliveryTime offerTitle offerSubtitle"
+        "shopName address locality city pincode state location serviceRadius isActive isVerified businessType bannerImage bannerImages logo rating deliveryTime offerTitle offerSubtitle"
       )
       .lean();
 
@@ -129,7 +129,7 @@ export const getSellerStorefront = async (req, res) => {
       isVerified: true,
     })
       .select(
-        "shopName address businessType bannerImage logo rating locality city serviceRadius category description deliveryTime offerTitle offerSubtitle"
+        "shopName address businessType bannerImage bannerImages logo rating locality city serviceRadius category description deliveryTime offerTitle offerSubtitle"
       )
       .lean();
 
@@ -260,6 +260,7 @@ export const updateSellerProfile = async (req, res) => {
       lng,
       radius,
       bannerImage,
+      bannerImages,
       logo,
       deliveryTime,
       offerTitle,
@@ -284,7 +285,23 @@ export const updateSellerProfile = async (req, res) => {
     if (pincode !== undefined) seller.pincode = pincode;
     if (city !== undefined) seller.city = city;
     if (state !== undefined) seller.state = state;
-    if (bannerImage !== undefined) seller.bannerImage = bannerImage;
+    if (bannerImages !== undefined) {
+      if (!Array.isArray(bannerImages)) {
+        return handleResponse(res, 400, "bannerImages must be an array of image URLs");
+      }
+      const cleanedBanners = bannerImages
+        .map((url) => String(url || "").trim())
+        .filter(Boolean);
+      if (cleanedBanners.length > 8) {
+        return handleResponse(res, 400, "A maximum of 8 banner images is allowed");
+      }
+      seller.bannerImages = cleanedBanners;
+      // Keep the legacy single-banner field in sync so any older reader
+      // (e.g. cached clients) still shows a sensible cover image.
+      seller.bannerImage = cleanedBanners[0] || "";
+    } else if (bannerImage !== undefined) {
+      seller.bannerImage = bannerImage;
+    }
     if (logo !== undefined) seller.logo = logo;
     if (deliveryTime !== undefined) seller.deliveryTime = deliveryTime;
     if (offerTitle !== undefined) seller.offerTitle = offerTitle;
