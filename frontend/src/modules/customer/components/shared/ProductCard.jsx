@@ -371,7 +371,7 @@ const ProductCard = React.memo(
       <div
         className={cn(
           "group relative flex flex-col justify-between bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-100 shadow-2xs hover:shadow-md transition-all duration-300 cursor-pointer",
-          layout === "list" ? "flex-row items-center gap-3 py-3" : "h-full",
+          layout === "list" ? "flex-row items-center gap-2.5 py-2 px-2.5" : "h-full",
           className
         )}
         onClick={handleProductClick}

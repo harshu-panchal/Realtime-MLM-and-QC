@@ -443,7 +443,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
             <div className="transition-all duration-300 pl-0 md:pl-72">
                 <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
                 <main className="p-4 md:p-6 min-h-screen pt-20 md:pt-24 pb-24 md:pb-6">
-                    <div className="w-full pb-12">
+                    <div className="w-full">
                         <SellerOrdersContext.Provider
                             value={{
                                 orders: role === 'seller' ? sellerOrders : [],

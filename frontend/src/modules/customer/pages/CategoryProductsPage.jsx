@@ -191,7 +191,7 @@ const CategoryProductsPage = () => {
                             </div>
 
                     {/* Products Grid */}
-                    <div className="px-3 pt-2 w-full">
+                    <div className="px-3 pt-2 w-full space-y-2">
                         {filteredProducts.map((product) => (
                             <ProductCard key={product.id} product={product} layout="list" />
                         ))}
