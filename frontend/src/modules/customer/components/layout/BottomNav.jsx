@@ -53,7 +53,7 @@ const BottomNav = () => {
     return (
         <div 
             className="fixed bottom-0 left-0 right-0 z-[500] bg-white border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] md:hidden pointer-events-auto"
-            style={{ paddingBottom: "calc(0.4rem + env(safe-area-inset-bottom, 0px))" }}
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
             <div className="max-w-lg mx-auto px-2 pt-1.5 pb-1 flex items-center justify-between relative">
 
