@@ -41,7 +41,6 @@ const setupRoutes = (app) => {
     app.use("/api/bestsellers", bestsellerRoute);
 
     router.use("/customer", customerRoute);
-    router.use("/user", customerRoute);
     router.use("/delivery", deliveryRoute);
     // categoryRoute is mounted twice on purpose:
     //   /admin/categories → admin category management (auth enforced inside the router)

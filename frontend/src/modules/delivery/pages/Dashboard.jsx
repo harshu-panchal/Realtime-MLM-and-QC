@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell,
+  Star,
   TrendingUp,
   Package,
   MapPin,
+  CheckCircle,
   XCircle,
+  IndianRupee,
   AlertCircle,
+  Home,
   CheckSquare,
   UserX,
   Sun,
@@ -47,6 +51,9 @@ const Dashboard = () => {
     cancelledDeliveries: 0,
     incentives: 0,
     cashCollected: 0,
+    incentiveData: {
+      tipsReceived: 0,
+    },
   });
 
   // Sync isOnline with user profile from context
@@ -147,20 +154,26 @@ const Dashboard = () => {
   }, []);
 
   const handleOfferAccept = async (orderId) => {
-    if (pendingOffer?.isReturn) {
-      await handleAcceptReturn(orderId);
-      setPendingOffer(null);
-    } else if (pendingOffer?.countdown) {
-      try {
-        const idem = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
-        await deliveryApi.acceptOrder(orderId, idem);
-        toast.success("Order accepted!");
+    try {
+      if (pendingOffer?.isReturn) {
+        await handleAcceptReturn(orderId);
         setPendingOffer(null);
-        navigate(`/delivery/order-details/${orderId}`);
-      } catch (error) {
-        console.error("Failed to accept order:", error);
-        toast.error(error.response?.data?.message || "Failed to accept order");
+      } else {
+        const res = await deliveryApi.acceptOrder(orderId);
+        if (res.data?.success) {
+          toast.success("Order accepted successfully!");
+          const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
+          const socket = getOrderSocket(getToken);
+          socket?.emit("queue:offer_response", { orderId, accepted: true });
+          setPendingOffer(null);
+          navigate(`/delivery/order-details/${orderId}`);
+        } else {
+          toast.error(res.data?.message || "Failed to accept order");
+        }
       }
+    } catch (err) {
+      console.error("Failed to accept order:", err);
+      toast.error(err.response?.data?.message || "Failed to accept order");
     }
   };
 
@@ -376,7 +389,12 @@ const Dashboard = () => {
           <div className="relative z-10 pl-2">
             <h3 className="text-orange-600 font-bold text-sm mb-1">Customer Tips</h3>
             <p className="text-[11px] text-gray-600 font-medium leading-tight max-w-[140px]">
-              You have earned an extra <br /><span className="font-bold text-gray-900">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
+              You have earned an extra{" "}
+              <br />
+              <span className="font-bold text-gray-900">
+                ₹{earnings?.incentiveData?.tipsReceived ?? 0}
+              </span>{" "}
+              in tips today
             </p>
           </div>
 

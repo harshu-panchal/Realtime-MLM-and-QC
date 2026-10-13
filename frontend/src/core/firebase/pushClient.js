@@ -193,64 +193,7 @@ export async function ensureFcmTokenRegistered({
 
     const swRegistration = await ensureServiceWorkerRegistration();
     const messaging = getMessaging(app);
-
-    const deleteDbAsync = (dbName) => {
-      return new Promise((resolve) => {
-        try {
-          const req = indexedDB.deleteDatabase(dbName);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => resolve(false);
-          req.onblocked = () => resolve(false);
-        } catch {
-          resolve(false);
-        }
-      });
-    };
-
-    const fetchTokenSafe = async () => {
-      try {
-        return await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
-      } catch (tokenErr) {
-        if (
-          tokenErr?.message?.includes("less than the existing version") ||
-          tokenErr?.message?.includes("VersionError")
-        ) {
-          console.warn("[push] Purging stale IndexedDB databases due to version conflict...");
-          
-          await deleteDbAsync("fcm_token_details_db");
-          await deleteDbAsync("firebase-messaging-database");
-          await deleteDbAsync("firebase-installations-database");
-          await deleteDbAsync("firebaseInstallations");
-
-          if (typeof indexedDB !== "undefined" && indexedDB.databases) {
-            try {
-              const dbs = await indexedDB.databases();
-              for (const db of dbs) {
-                if (
-                  db.name &&
-                  (db.name.includes("fcm") ||
-                    db.name.includes("firebase") ||
-                    db.name.includes("messaging"))
-                ) {
-                  await deleteDbAsync(db.name);
-                }
-              }
-            } catch {
-              // ignore
-            }
-          }
-
-          // Small delay so indexedDB release completes
-          await new Promise((r) => setTimeout(r, 200));
-
-          // Retry
-          return await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
-        }
-        throw tokenErr;
-      }
-    };
-
-    token = await fetchTokenSafe();
+    token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
     if (!token) {
       throw new Error("Failed to obtain FCM token");
     }

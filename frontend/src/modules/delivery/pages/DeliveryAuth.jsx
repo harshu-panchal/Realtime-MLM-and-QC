@@ -220,13 +220,6 @@ const DeliveryAuth = () => {
 
       login({ ...delivery, token, role: "delivery" });
 
-      try {
-        const { ensureFcmTokenRegistered } = await import('@core/firebase/pushClient');
-        await ensureFcmTokenRegistered({ role: "delivery", platform: "web" });
-      } catch (pushErr) {
-        console.warn("[push] Delivery FCM registration error:", pushErr?.message || pushErr);
-      }
-
       toast.success("Welcome! Redirecting to dashboard...");
       navigate("/delivery/dashboard", { replace: true });
     } catch (error) {

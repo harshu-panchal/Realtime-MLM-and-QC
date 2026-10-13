@@ -90,15 +90,6 @@ const CustomerAuth = () => {
             const response = await customerApi.verifyOtp({ phone: formData.phone, otp: formData.otp });
             const { token, customer } = response.data.result;
             login({ ...customer, token, role: 'customer' });
-
-            // Immediately register FCM token for user on web/app
-            try {
-                const { ensureFcmTokenRegistered } = await import('@core/firebase/pushClient');
-                await ensureFcmTokenRegistered({ role: 'customer', platform: 'web' });
-            } catch (pushErr) {
-                console.warn('[push] Token registration during verify OTP:', pushErr?.message || pushErr);
-            }
-
             toast.success(t('loggedInSuccess'));
             navigate('/', { replace: true });
         } catch (error) {

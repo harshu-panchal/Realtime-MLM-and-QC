@@ -75,33 +75,49 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         if (!token) return;
         let cancelled = false;
+        let cleanupDeferredRegistration = null;
 
-        // Fire-and-forget; register FCM immediately upon successful auth
+        // Fire-and-forget; never block auth/profile load.
         setTimeout(() => {
             import('@core/firebase/pushClient')
                 .then(async ({
                     ensureFcmTokenRegistered,
+                    hasRegisteredFcmToken,
                     startForegroundPushListener,
+                    scheduleFcmRegistrationOnUserGesture
                 }) => {
                     if (cancelled) return;
                     await startForegroundPushListener();
+                    if (hasRegisteredFcmToken(currentRole)) return;
 
-                    try {
+                    const permission = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+                    if (permission === 'granted') {
                         await ensureFcmTokenRegistered({
                             role: currentRole,
-                            platform: 'web',
+                            platform: 'web'
                         });
-                    } catch (pushErr) {
-                        console.warn('[push] Push token registration on auth:', pushErr?.message || pushErr);
+                        return;
                     }
+
+                    cleanupDeferredRegistration = scheduleFcmRegistrationOnUserGesture({
+                        role: currentRole,
+                        platform: 'web',
+                        onError: (error) => {
+                            console.warn('[push] Deferred registration failed:', error?.message || error);
+                        },
+                    });
                 })
                 .catch((error) => {
+                    // Permission denied / unsupported / any error: user can retry later from push-enabled actions.
                     console.warn('[push] Auto-registration skipped:', error?.message || error);
                 });
-        }, 100);
+        }, 0);
 
         return () => {
             cancelled = true;
+            if (typeof cleanupDeferredRegistration === 'function') {
+                cleanupDeferredRegistration();
+            }
         };
     }, [token, currentRole]);
 
