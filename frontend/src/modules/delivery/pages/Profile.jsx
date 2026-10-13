@@ -163,6 +163,13 @@ const Profile = () => {
                     badgeBg="bg-red-50/80 border-red-100/70 text-red-700"
                 />
                 <MenuItem
+                    icon={ClipboardCheck}
+                    label="Privacy Policy"
+                    sub="Delivery partner data & terms policy"
+                    path="/delivery/privacy"
+                    badgeBg="bg-blue-50/80 border-blue-100/70 text-blue-700"
+                />
+                <MenuItem
                     icon={Settings}
                     label="Settings"
                     sub="Notifications, Language, Theme"

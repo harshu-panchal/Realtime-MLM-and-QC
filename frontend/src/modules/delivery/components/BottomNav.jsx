@@ -13,7 +13,7 @@ const BottomNav = () => {
 
   return (
     <div 
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pt-2 pb-1 px-4 flex justify-between items-center z-40 max-w-md mx-auto"
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 pt-2 pb-1 px-4 flex justify-between items-center z-40 w-full max-w-md md:max-w-3xl lg:max-w-4xl mx-auto"
       style={{ paddingBottom: "0px" }}
     >
       {navItems.map(({ path, label, icon: Icon, hasNotification }) => (

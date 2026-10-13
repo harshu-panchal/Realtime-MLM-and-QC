@@ -773,7 +773,7 @@ const DeliveryLayout = () => {
   };
 
   return (
-    <div className="h-[100dvh] bg-gray-50 text-gray-900 font-sans max-w-md mx-auto relative shadow-2xl overflow-hidden border-x border-gray-100 flex flex-col">
+    <div className="h-[100dvh] bg-gray-50 text-gray-900 font-sans w-full max-w-md md:max-w-3xl lg:max-w-4xl mx-auto relative shadow-2xl overflow-hidden md:border-x md:border-gray-100 flex flex-col">
       {/* Full-screen order alert — portaled so it always stacks above nav/content */}
       {typeof document !== "undefined" &&
         createPortal(

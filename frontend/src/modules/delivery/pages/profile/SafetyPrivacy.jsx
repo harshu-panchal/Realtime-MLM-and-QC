@@ -383,13 +383,38 @@ const SafetyPrivacy = () => {
           </Card>
         </section>
 
-        <div className="bg-brand-50 p-4 rounded-xl flex items-start">
-          <Eye size={20} className="text-brand-600 mr-3 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-brand-800">
-            {appName} values your privacy. Your location is only shared while
-            you are on an active delivery.
-          </p>
+        <div className="bg-brand-50 p-4 rounded-xl flex items-start justify-between gap-3">
+          <div className="flex items-start">
+            <Eye size={20} className="text-brand-600 mr-3 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-brand-800">
+              {appName} values your privacy. Your location is only shared while
+              you are on an active delivery.
+            </p>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => navigate('/delivery/privacy')}
+          className="w-full bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between text-left transition-colors shadow-sm group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Shield size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">
+                Delivery Partner Privacy Policy
+              </p>
+              <p className="text-xs text-slate-500">
+                Read our complete terms and data protection policies
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-primary group-hover:underline">
+            Read Page &rarr;
+          </span>
+        </button>
       </div>
 
       {/* SOS Actions Modal */}

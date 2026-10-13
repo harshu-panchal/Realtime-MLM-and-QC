@@ -24,6 +24,7 @@ import Button from "@/shared/components/ui/Button";
 import Card from "@/shared/components/ui/Card";
 
 import { useAuth } from "@core/context/AuthContext";
+import { useSettings } from "@core/context/SettingsContext";
 import { deliveryApi } from "../services/deliveryApi";
 import DeliveryFooter from "../components/DeliveryFooter";
 import Lottie from "lottie-react";
@@ -36,6 +37,8 @@ import { STORAGE_KEYS } from "@core/utils/storageKeys";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
+  const { settings } = useSettings();
+  const appName = settings?.appName || "Realtime";
   const [isOnline, setIsOnline] = useState(user?.isOnline || false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState("delivery"); // 'delivery' or 'return'
@@ -214,7 +217,11 @@ const Dashboard = () => {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 z-30 transition-all duration-300">
         <div className="flex items-center gap-2.5">
-          <img src="/image.png" alt="Logo" className="h-8 object-contain" />
+          <img
+            src={settings?.logoUrl || "/logo.png"}
+            alt={`${appName} Logo`}
+            className="h-8 w-auto object-contain"
+          />
           <h1 className="text-lg font-bold text-gray-900 tracking-tight ml-1">{user?.name || "Delivery Partner"}</h1>
         </div>
         <div

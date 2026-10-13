@@ -80,11 +80,11 @@ import fs from "fs/promises";
 import path from "path";
 
 function getBackendPublicUrl() {
-  const configuredUrl = process.env.BACKEND_PUBLIC_URL || process.env.API_BASE_URL;
+  const configuredUrl = process.env.BACKEND_PUBLIC_URL;
   if (configuredUrl) {
     return configuredUrl.replace(/\/+$/, "");
   }
-  const port = process.env.PORT || 5000;
+  const port = process.env.PORT || 7000;
   const host = process.env.HOSTNAME || "localhost";
   return `http://${host}:${port}`;
 }

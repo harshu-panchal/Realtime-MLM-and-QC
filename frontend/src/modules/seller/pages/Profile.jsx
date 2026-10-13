@@ -825,6 +825,24 @@ const SellerProfile = () => {
                   <p className="text-sm font-bold">Pan India Reach</p>
                 </div>
               </div>
+
+              {/* Dedicated Legal & Privacy Policy Link */}
+              <div className="pt-4 border-t border-white/10">
+                <a
+                  href="/seller/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Shield size={16} className="text-amber-400" />
+                    <span className="text-xs font-bold">Seller Privacy Policy</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 group-hover:underline">
+                    View &rarr;
+                  </span>
+                </a>
+              </div>
             </div>
           </Card>
 

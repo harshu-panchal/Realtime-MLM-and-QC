@@ -26,6 +26,7 @@ import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
 import { toast } from "sonner";
 import DynamicLegalPage from "@/shared/components/DynamicLegalPage";
+import DefaultLogo from "@/assets/DefaultLogo.svg";
 
 
 // Live Standard Input Validation Helpers
@@ -284,20 +285,29 @@ const DeliveryAuth = () => {
         type="checkbox"
         checked={signupAgreed}
         onChange={(e) => setSignupAgreed(e.target.checked)}
-        disabled={!hasClickedTerms}
-        className="mt-0.5 h-4 w-4 accent-[#f97316] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-0.5 h-4 w-4 accent-[#f97316] cursor-pointer"
       />
-      <div className={`text-xs leading-relaxed ${!hasClickedTerms ? 'text-gray-400' : 'text-gray-500'}`}>
-        <label htmlFor={`signupTerms-${signupStep}`} className={`cursor-pointer ${!hasClickedTerms ? 'cursor-not-allowed' : ''}`}>I agree to the </label>
-        <span 
-          onClick={() => { setHasClickedTerms(true); navigate('/delivery/support'); }}
+      <div className="text-xs leading-relaxed text-gray-600">
+        <label htmlFor={`signupTerms-${signupStep}`} className="cursor-pointer">
+          I agree to the{" "}
+        </label>
+        <a
+          href="/delivery/support"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-[#f97316] font-bold hover:underline cursor-pointer"
-        >Terms of Service</span> &amp;{" "}
-        <span 
-          onClick={() => { setHasClickedTerms(true); navigate('/delivery/privacy'); }}
+        >
+          Terms of Service
+        </a>{" "}
+        &amp;{" "}
+        <a
+          href="/delivery/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-[#f97316] font-bold hover:underline cursor-pointer"
-        >Privacy Policy</span>.
-        {!hasClickedTerms && <span className="block text-[10px] text-rose-500 mt-1 font-semibold">* Please click on the links to read them before agreeing.</span>}
+        >
+          Privacy Policy
+        </a>.
       </div>
     </div>
   );
@@ -315,9 +325,9 @@ const DeliveryAuth = () => {
           {/* Logo */}
           <div className="flex flex-col items-center justify-center mb-6">
             <img
-              src="/image.png"
-              alt="Logo"
-              className="h-28 w-auto object-contain"
+              src={settings?.logoUrl || "/logo.png"}
+              alt={`${appName} Logo`}
+              className="h-24 sm:h-28 w-auto object-contain"
             />
           </div>
 
