@@ -190,14 +190,13 @@ export const registerPushToken = async (req, res) => {
       return handleResponse(res, 404, "User not found");
     }
 
-    // Client expects a login-like response for this endpoint.
-    // We intentionally return the same token the client used (Bearer token),
-    // and a normalized user object.
     return res.status(200).json({
       success: true,
-      message: "Login successful",
+      message: "FCM token saved successfully",
       data: {
-        token: bearerToken,
+        token,
+        platform,
+        role,
         user: normalizeLoginUser(userDoc),
       },
     });
