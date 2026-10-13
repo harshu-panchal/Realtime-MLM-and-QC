@@ -1,15 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Droplet } from "lucide-react";
+import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Droplet, Camera, Loader2 } from "lucide-react";
 import Button from "@/shared/components/ui/Button";
 import Input from "@/shared/components/ui/Input";
 import { toast } from "sonner";
 import { useAuth } from "@core/context/AuthContext";
+import axiosInstance from "@core/api/axios";
+import { deliveryApi } from "@/modules/delivery/services/deliveryApi";
 
 const PersonalDetails = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const fileInputRef = React.useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState(user?.profileImage || "");
   const [formData, setFormData] = useState({
     fullName: user?.name || "",
     phone: user?.phone || user?.mobile || "",
@@ -22,6 +27,7 @@ const PersonalDetails = () => {
   // Update if user loads later
   React.useEffect(() => {
     if (user) {
+      setProfileImagePreview(user.profileImage || user.avatar || "");
       setFormData({
         fullName: user.name || "",
         phone: user.phone || user.mobile || "",
@@ -33,9 +39,73 @@ const PersonalDetails = () => {
     }
   }, [user]);
 
-  const handleSave = () => {
-    setIsEditing(false);
-    toast.success("Personal details updated successfully!");
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image size must be less than 10MB");
+      return;
+    }
+
+    // Local preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    setProfileImagePreview(previewUrl);
+
+    try {
+      setIsUploading(true);
+      toast.loading("Uploading photo...", { id: "profile-upload" });
+
+      const uploadData = new FormData();
+      uploadData.append("file", file);
+
+      const res = await axiosInstance.post("/media/upload", uploadData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const uploadedUrl = res.data?.result?.url || res.data?.result?.secureUrl;
+      if (!uploadedUrl) {
+        throw new Error("No URL returned from upload");
+      }
+
+      setProfileImagePreview(uploadedUrl);
+
+      // Save directly to delivery profile in DB
+      await deliveryApi.updateProfile({ profileImage: uploadedUrl });
+      if (refreshUser) await refreshUser();
+
+      toast.success("Profile photo updated successfully!", { id: "profile-upload" });
+    } catch (err) {
+      console.error("Profile image upload failed:", err);
+      toast.error(err.response?.data?.message || "Failed to upload photo", { id: "profile-upload" });
+      setProfileImagePreview(user?.profileImage || "");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      toast.loading("Saving details...", { id: "save-profile" });
+      await deliveryApi.updateProfile({
+        name: formData.fullName,
+        email: formData.email,
+        address: formData.address,
+        bloodGroup: formData.bloodGroup,
+        ...(profileImagePreview ? { profileImage: profileImagePreview } : {}),
+      });
+      if (refreshUser) await refreshUser();
+      setIsEditing(false);
+      toast.success("Personal details updated successfully!", { id: "save-profile" });
+    } catch (err) {
+      console.error("Failed to update profile:", err);
+      toast.error(err.response?.data?.message || "Failed to update details", { id: "save-profile" });
+    }
   };
 
   return (
@@ -72,20 +142,49 @@ const PersonalDetails = () => {
       <div className="p-4 max-w-lg mx-auto space-y-6">
         {/* Profile Photo */}
         <div className="flex flex-col items-center justify-center py-6">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full p-1 bg-white shadow-md">
+          <div className="relative group">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              accept="image/*"
+              className="hidden"
+            />
+            <div 
+              onClick={() => isEditing && fileInputRef.current?.click()}
+              className={`w-28 h-28 rounded-full p-1 bg-white shadow-md relative overflow-hidden ${
+                isEditing ? "cursor-pointer ring-2 ring-primary ring-offset-2 hover:opacity-90 transition-all" : ""
+              }`}
+            >
               <img
-                src={user?.profileImage || user?.avatar || "/placeholder-avatar.png"}
+                src={profileImagePreview || user?.profileImage || user?.avatar || "/placeholder-avatar.png"}
                 alt="Profile"
                 className="w-full h-full rounded-full object-cover bg-gray-100"
               />
+              {isUploading && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center text-white">
+                  <Loader2 size={24} className="animate-spin mb-1" />
+                  <span className="text-[10px] font-medium">Uploading</span>
+                </div>
+              )}
             </div>
             {isEditing && (
-              <button className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-1.5 rounded-full shadow-lg hover:bg-primary/90 transition-colors">
-                <User size={14} />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                aria-label="Upload profile image"
+                className="absolute bottom-1 right-1 bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:bg-primary/90 transition-transform active:scale-95 border-2 border-white"
+              >
+                {isUploading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
               </button>
             )}
           </div>
+          {isEditing && (
+            <p className="mt-2 text-xs text-primary font-medium cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+              Tap to change photo
+            </p>
+          )}
           <p className="mt-3 text-sm text-gray-500">Delivery Partner ID: {user?.deliveryBoyId || user?._id?.slice(-6) || "N/A"}</p>
         </div>
 

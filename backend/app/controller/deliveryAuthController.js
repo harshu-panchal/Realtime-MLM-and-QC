@@ -234,7 +234,18 @@ export const getDeliveryProfile = async (req, res) => {
 ================================ */
 export const updateDeliveryProfile = async (req, res) => {
     try {
-        const { name, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
+        const {
+            name,
+            email,
+            address,
+            bloodGroup,
+            profileImage,
+            vehicleType,
+            vehicleNumber,
+            drivingLicenseNumber,
+            currentArea,
+            isOnline,
+        } = req.body;
 
         const delivery = await Delivery.findById(req.user.id);
         if (!delivery) {
@@ -242,6 +253,10 @@ export const updateDeliveryProfile = async (req, res) => {
         }
 
         if (name) delivery.name = name;
+        if (email) delivery.email = email;
+        if (address) delivery.address = address;
+        if (bloodGroup) delivery.bloodGroup = bloodGroup;
+        if (profileImage) delivery.profileImage = profileImage;
         if (vehicleType) delivery.vehicleType = vehicleType;
         if (vehicleNumber) delivery.vehicleNumber = vehicleNumber;
         if (drivingLicenseNumber) delivery.drivingLicenseNumber = drivingLicenseNumber;
