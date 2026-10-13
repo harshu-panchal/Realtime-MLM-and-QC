@@ -138,8 +138,8 @@ export const registerPushToken = async (req, res) => {
     if (!token) {
       return handleResponse(res, 400, "Push token is required");
     }
-    if (!["web", "app"].includes(platform)) {
-      return handleResponse(res, 400, "platform must be one of web, app");
+    if (!["web", "app", "ios", "android"].includes(platform)) {
+      return handleResponse(res, 400, "platform must be one of web, app, ios, android");
     }
 
     const userModel = ROLE_TO_USER_MODEL[role];
@@ -164,6 +164,23 @@ export const registerPushToken = async (req, res) => {
         setDefaultsOnInsert: true,
       },
     ).lean();
+
+    // Sync token directly onto user/seller/delivery model in MongoDB
+    try {
+      const isWeb = platform === "web";
+      const tokenUpdateField = isWeb ? { fcmTokenWeb: token } : { fcmToken: token };
+      if (userModel === "User") {
+        await User.findByIdAndUpdate(userId, { $set: tokenUpdateField });
+      } else if (userModel === "Seller") {
+        await Seller.findByIdAndUpdate(userId, { $set: tokenUpdateField });
+      } else if (userModel === "Delivery") {
+        await Delivery.findByIdAndUpdate(userId, { $set: tokenUpdateField });
+      } else if (userModel === "Admin") {
+        await Admin.findByIdAndUpdate(userId, { $set: tokenUpdateField });
+      }
+    } catch (syncErr) {
+      console.warn("Failed to update fcmToken on entity model:", syncErr.message);
+    }
 
     const bearerToken = resolveBearerToken(req);
     const userModelName = ROLE_TO_USER_MODEL[role];

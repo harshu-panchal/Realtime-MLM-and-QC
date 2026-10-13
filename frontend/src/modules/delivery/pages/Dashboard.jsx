@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
 import {
   Bell,
-  Star,
   TrendingUp,
   Package,
   MapPin,
-  CheckCircle,
   XCircle,
-  IndianRupee,
   AlertCircle,
-  Home,
   CheckSquare,
   UserX,
   Sun,
@@ -139,7 +135,7 @@ const Dashboard = () => {
         });
       }
     };
-    
+
     socket.on("queue:order_offered", handleOffer);
     socket.on("queue:order_offer_expired", handleExpired);
     socket.on("delivery:broadcast", handleBroadcast);
@@ -155,7 +151,16 @@ const Dashboard = () => {
       await handleAcceptReturn(orderId);
       setPendingOffer(null);
     } else if (pendingOffer?.countdown) {
-      acceptOrder(orderId);
+      try {
+        const idem = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+        await deliveryApi.acceptOrder(orderId, idem);
+        toast.success("Order accepted!");
+        setPendingOffer(null);
+        navigate(`/delivery/order-details/${orderId}`);
+      } catch (error) {
+        console.error("Failed to accept order:", error);
+        toast.error(error.response?.data?.message || "Failed to accept order");
+      }
     }
   };
 
@@ -248,12 +253,12 @@ const Dashboard = () => {
               {isOnline ? "You are Online" : "You are Offline"}
             </span>
           </div>
-          
-          <button 
+
+          <button
             onClick={handleOnlineToggle}
             className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${isOnline ? 'bg-[#2e7d32]' : 'bg-gray-300'}`}
           >
-            <motion.div 
+            <motion.div
               className="w-6 h-6 bg-white rounded-full shadow-sm"
               animate={{ x: isOnline ? 24 : 0 }}
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -312,7 +317,7 @@ const Dashboard = () => {
               <Flame size={12} className="mr-1 fill-[#ffb74d]" /> 5% more than yesterday
             </div>
 
-            <button 
+            <button
               onClick={() => navigate("/delivery/earnings")}
               className="text-xs font-bold text-white hover:text-green-200 transition-colors flex items-center"
             >
@@ -325,11 +330,11 @@ const Dashboard = () => {
               <TrendingUp size={12} className="mr-1 text-[#81c784]" /> +12% ⇧
             </span>
             <div className="w-[80px] h-[70px] mt-auto">
-                <img 
-                    src="/wallet iamge .png" 
-                    alt="Wallet" 
-                    className="w-full h-full object-contain drop-shadow-md opacity-90"
-                />
+              <img
+                src="/wallet iamge .png"
+                alt="Wallet"
+                className="w-full h-full object-contain drop-shadow-md opacity-90"
+              />
             </div>
           </div>
         </div>
@@ -344,7 +349,7 @@ const Dashboard = () => {
             <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.deliveries}</p>
             <p className="text-[10px] text-gray-500 font-medium">Orders</p>
           </div>
-          
+
           <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-gray-100 flex flex-col items-center justify-between">
             <p className="text-[10px] font-bold text-gray-800 mb-2">Pending</p>
             <div className="flex justify-center mb-1 text-orange-500 bg-orange-50 rounded-md p-1">
@@ -353,7 +358,7 @@ const Dashboard = () => {
             <p className="text-xl font-black text-gray-900 mb-0.5">{earnings.pendingDeliveries || 0}</p>
             <p className="text-[10px] text-gray-500 font-medium">Orders</p>
           </div>
-          
+
           <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-gray-100 flex flex-col items-center justify-between">
             <p className="text-[10px] font-bold text-gray-800 mb-2">Cancelled</p>
             <div className="flex justify-center mb-1 text-[#ff8200] bg-orange-50 rounded-md p-1">
@@ -367,14 +372,14 @@ const Dashboard = () => {
         {/* Incentive Zone (Tips) */}
         <div className="bg-gradient-to-r from-orange-50 to-amber-100 rounded-[20px] p-4 border border-orange-200/50 shadow-sm flex items-center justify-between overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/30 rounded-full -mr-16 -mt-16 blur-xl"></div>
-          
+
           <div className="relative z-10 pl-2">
             <h3 className="text-orange-600 font-bold text-sm mb-1">Customer Tips</h3>
             <p className="text-[11px] text-gray-600 font-medium leading-tight max-w-[140px]">
-              You have earned an extra <br/><span className="font-bold text-gray-900">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
+              You have earned an extra <br /><span className="font-bold text-gray-900">₹{earnings.incentiveData?.tipsReceived || 0}</span> in tips today
             </p>
           </div>
-          
+
           <div className="relative z-10 w-[100px] h-[90px] shrink-0 flex items-center justify-center -mr-2">
             <img src="/tip image.png" alt="Tips Received" className="w-full h-full object-contain drop-shadow-sm" />
           </div>
@@ -472,7 +477,7 @@ const Dashboard = () => {
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Commission</span>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 mb-5">
                       <div className="flex items-center text-xs text-gray-600">
                         <MapPin size={12} className="mr-2 text-gray-400" />
@@ -485,17 +490,17 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex gap-2">
-                       <Button 
-                        variant="primary" 
-                        size="sm" 
+                      <Button
+                        variant="primary"
+                        size="sm"
                         className="flex-1 font-black text-[10px] tracking-widest uppercase h-10 shadow-lg shadow-primary/20"
                         onClick={() => handleAcceptReturn(order.orderId)}
                       >
                         Accept Pickup
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-10"
                         onClick={() => navigate(`/delivery/order-details/${order.orderId}`)}
                       >

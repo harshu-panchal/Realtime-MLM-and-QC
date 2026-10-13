@@ -137,6 +137,16 @@ const userSchema = new mongoose.Schema(
         },
 
         lastLogin: Date,
+        fcmToken: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+        fcmTokenWeb: {
+            type: String,
+            default: null,
+            trim: true,
+        },
     },
     {
         timestamps: true,

@@ -518,5 +518,7 @@ export default async function handler(req, res) {
 if (!process.env.VERCEL) {
   main();
 }
+// Firebase push notifications and multi-platform FCM initialized
+
 // Storage Provider: local multer reload
 

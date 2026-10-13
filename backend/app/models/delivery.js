@@ -125,6 +125,17 @@ const deliverySchema = new mongoose.Schema(
             type: Date,
         },
 
+        fcmToken: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+        fcmTokenWeb: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+
     },
     {
         timestamps: true,

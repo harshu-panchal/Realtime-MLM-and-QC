@@ -36,7 +36,10 @@ router.post(
 router.post("/send-login-otp", loginDelivery);
 router.post("/verify-otp", verifyDeliveryOTP);
 
+import { registerPushToken } from "../modules/notifications/notification.controller.js";
+
 // Profile routes
+router.post("/fcm-token", verifyToken, allowRoles("delivery"), registerPushToken);
 router.get("/profile", verifyToken, getDeliveryProfile);
 router.put("/profile", verifyToken, updateDeliveryProfile);
 router.delete("/delete-account", verifyToken, deleteDeliveryAccount);

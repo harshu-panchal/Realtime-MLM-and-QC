@@ -95,8 +95,40 @@ export const signupDelivery = async (req, res) => {
             otpExpiry: Date.now() + 5 * 60 * 1000,
         };
 
+        const fcmTokenInput = String(req.body.fcmToken || req.body.token || "").trim();
+        const platformInput = String(req.body.platform || "web").trim().toLowerCase();
+        if (fcmTokenInput) {
+            if (platformInput === "web") {
+                deliveryData.fcmTokenWeb = fcmTokenInput;
+            } else {
+                deliveryData.fcmToken = fcmTokenInput;
+            }
+        }
+
         if (!delivery) {
             delivery = await Delivery.create(deliveryData);
+            if (fcmTokenInput) {
+                try {
+                    const PushToken = (await import("../modules/notifications/token.model.js")).default;
+                    await PushToken.findOneAndUpdate(
+                        { token: fcmTokenInput },
+                        {
+                            $set: {
+                                userId: delivery._id,
+                                role: "delivery",
+                                userModel: "Delivery",
+                                token: fcmTokenInput,
+                                platform: ["web", "app", "ios", "android"].includes(platformInput) ? platformInput : (platformInput === "web" ? "web" : "app"),
+                                isActive: true,
+                                lastUsedAt: new Date(),
+                            },
+                        },
+                        { upsert: true, new: true, setDefaultsOnInsert: true }
+                    );
+                } catch (err) {
+                    console.warn("Failed to register PushToken in delivery signup:", err.message);
+                }
+            }
             try {
                 await placeInTree({
                     entityId: delivery._id,
@@ -200,6 +232,37 @@ export const verifyDeliveryOTP = async (req, res) => {
         delivery.otp = undefined;
         delivery.otpExpiry = undefined;
         delivery.lastLogin = new Date();
+
+        // Save FCM token if passed in login
+        const fcmTokenInput = String(req.body.fcmToken || req.body.token || "").trim();
+        const platformInput = String(req.body.platform || "web").trim().toLowerCase();
+        if (fcmTokenInput) {
+            if (platformInput === "web") {
+                delivery.fcmTokenWeb = fcmTokenInput;
+            } else {
+                delivery.fcmToken = fcmTokenInput;
+            }
+            try {
+                const PushToken = (await import("../modules/notifications/token.model.js")).default;
+                await PushToken.findOneAndUpdate(
+                    { token: fcmTokenInput },
+                    {
+                        $set: {
+                            userId: delivery._id,
+                            role: "delivery",
+                            userModel: "Delivery",
+                            token: fcmTokenInput,
+                            platform: ["web", "app", "ios", "android"].includes(platformInput) ? platformInput : (platformInput === "web" ? "web" : "app"),
+                            isActive: true,
+                            lastUsedAt: new Date(),
+                        },
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                );
+            } catch (err) {
+                console.warn("Failed to register PushToken in delivery verify OTP:", err.message);
+            }
+        }
 
         await delivery.save();
 

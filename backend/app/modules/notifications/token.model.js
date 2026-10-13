@@ -31,8 +31,9 @@ const tokenSchema = new mongoose.Schema(
     },
     platform: {
       type: String,
-      enum: ["web", "app"],
+      enum: ["web", "app", "ios", "android"],
       required: true,
+      default: "web",
     },
     isActive: {
       type: Boolean,

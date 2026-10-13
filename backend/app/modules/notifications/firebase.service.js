@@ -43,6 +43,11 @@ function isWebLink(value = "") {
   return /^https?:\/\//i.test(link);
 }
 
+function resolveDefaultLogo() {
+  const backendUrl = process.env.BACKEND_PUBLIC_URL || "https://myrealtime.in";
+  return `${backendUrl.replace(/\/+$/, "")}/logo.png`;
+}
+
 function resolveImageUrl(payload = {}, data = {}) {
   const fromData = String(
     data.imageUrl ||
@@ -51,7 +56,8 @@ function resolveImageUrl(payload = {}, data = {}) {
       payload?.image ||
       "",
   ).trim();
-  return isWebLink(fromData) ? fromData : "";
+  if (isWebLink(fromData)) return fromData;
+  return resolveDefaultLogo();
 }
 
 export async function sendFCM(tokens = [], payload = {}) {
@@ -65,12 +71,13 @@ export async function sendFCM(tokens = [], payload = {}) {
 
   const messaging = getMessagingClient();
   const data = toStringMap(payload.data || {});
-  const link = data.link || payload?.data?.link || "";
+  const link = data.link || payload?.data?.link || "/";
   const resolvedLink = isWebLink(link) ? link : "";
-  const title = payload.title || "";
+  const title = payload.title || "Realtime Notification";
   const body = payload.body || payload.message || "";
-  const tag = data.orderId || data.eventType || "quick-commerce";
+  const tag = data.orderId || data.eventType || `rt_${Date.now()}`;
   const image = resolveImageUrl(payload, data);
+  const logoUrl = resolveDefaultLogo();
   const chunks = chunkArray(tokens, MAX_FCM_MULTICAST_TOKENS);
 
   const merged = {
@@ -87,7 +94,39 @@ export async function sendFCM(tokens = [], payload = {}) {
         body,
         ...(image ? { image } : {}),
       },
-      data,
+      data: {
+        ...data,
+        title,
+        body,
+        link: resolvedLink || link,
+        icon: logoUrl,
+        image: image || logoUrl,
+      },
+      android: {
+        priority: "high",
+        notification: {
+          title,
+          body,
+          icon: "stock_ticker_update",
+          color: "#2563eb",
+          sound: "default",
+          tag,
+          ...(image ? { imageUrl: image } : {}),
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body,
+            },
+            sound: "default",
+            badge: 1,
+          },
+        },
+        fcmOptions: image ? { imageUrl: image } : undefined,
+      },
       webpush: {
         headers: {
           Urgency: "high",
@@ -96,10 +135,12 @@ export async function sendFCM(tokens = [], payload = {}) {
         notification: {
           title,
           body,
+          icon: logoUrl,
+          badge: logoUrl,
           tag,
           requireInteraction: true,
           ...(image ? { image } : {}),
-          data: { link: resolvedLink || link },
+          data: { link: resolvedLink || link, image: image || logoUrl },
         },
         fcmOptions: resolvedLink ? { link: resolvedLink } : undefined,
       },

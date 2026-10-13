@@ -15,6 +15,8 @@ import {
     otpRouteRateLimiter,
 } from "../middleware/securityMiddlewares.js";
 
+import { registerPushToken } from "../modules/notifications/notification.controller.js";
+
 const router = express.Router();
 const smallAuthPayload = createContentLengthGuard(
     parseInt(process.env.AUTH_MAX_PAYLOAD_BYTES || "16384", 10),
@@ -23,6 +25,9 @@ const smallAuthPayload = createContentLengthGuard(
 router.post("/send-signup-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, signupCustomer);
 router.post("/send-login-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, loginCustomer);
 router.post("/verify-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, verifyCustomerOTP);
+
+// FCM push token registration
+router.post("/fcm-token", verifyToken, registerPushToken);
 
 // Profile routes
 router.get("/profile", verifyToken, getCustomerProfile);

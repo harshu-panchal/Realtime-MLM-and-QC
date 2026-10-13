@@ -53,7 +53,10 @@ router.post("/login", loginSeller);
 router.get("/nearby", getNearbySellers);
 router.get("/:sellerId/storefront-meta", getSellerStorefront);
 
+import { registerPushToken } from "../modules/notifications/notification.controller.js";
+
 // Profile routes
+router.post("/fcm-token", verifyToken, allowRoles("seller"), registerPushToken);
 router.get(
     "/profile",
     verifyToken,

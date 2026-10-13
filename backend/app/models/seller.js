@@ -245,6 +245,17 @@ const sellerSchema = new mongoose.Schema(
         trim: true,
       },
     },
+
+    fcmToken: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    fcmTokenWeb: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true },
 );

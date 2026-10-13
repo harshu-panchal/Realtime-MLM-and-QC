@@ -97,11 +97,12 @@ async function ensureServiceWorkerRegistration() {
 }
 
 async function showSystemNotification({ title, body, data } = {}) {
-  const safeTitle = String(title || "Notification");
+  const safeTitle = String(title || "Realtime Notification");
   const safeBody = String(body || "");
   const link = data?.link || "/";
-  const tag = data?.orderId || data?.eventType || "quick-commerce";
-  const image = String(data?.image || data?.imageUrl || "").trim();
+  const tag = data?.orderId || data?.eventType || `rt_${Date.now()}`;
+  const icon = "/logo.png";
+  const image = String(data?.image || data?.imageUrl || "").trim() || "/logo.png";
 
   // Prefer SW notifications so they land in the OS notification center consistently.
   try {
@@ -110,9 +111,11 @@ async function showSystemNotification({ title, body, data } = {}) {
       await reg.showNotification(safeTitle, {
         body: safeBody,
         tag,
+        icon,
+        badge: icon,
         requireInteraction: true,
         renotify: true,
-        ...(image ? { image } : {}),
+        image,
         data: {
           link,
           orderId: data?.orderId || "",
@@ -130,9 +133,11 @@ async function showSystemNotification({ title, body, data } = {}) {
     new Notification(safeTitle, {
       body: safeBody,
       tag,
+      icon,
+      badge: icon,
       requireInteraction: true,
       renotify: true,
-      ...(image ? { image } : {}),
+      image,
       data: {
         link,
         orderId: data?.orderId || "",
@@ -188,17 +193,90 @@ export async function ensureFcmTokenRegistered({
 
     const swRegistration = await ensureServiceWorkerRegistration();
     const messaging = getMessaging(app);
-    token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+
+    const deleteDbAsync = (dbName) => {
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.deleteDatabase(dbName);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+          req.onblocked = () => resolve(false);
+        } catch {
+          resolve(false);
+        }
+      });
+    };
+
+    const fetchTokenSafe = async () => {
+      try {
+        return await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+      } catch (tokenErr) {
+        if (
+          tokenErr?.message?.includes("less than the existing version") ||
+          tokenErr?.message?.includes("VersionError")
+        ) {
+          console.warn("[push] Purging stale IndexedDB databases due to version conflict...");
+          
+          await deleteDbAsync("fcm_token_details_db");
+          await deleteDbAsync("firebase-messaging-database");
+          await deleteDbAsync("firebase-installations-database");
+          await deleteDbAsync("firebaseInstallations");
+
+          if (typeof indexedDB !== "undefined" && indexedDB.databases) {
+            try {
+              const dbs = await indexedDB.databases();
+              for (const db of dbs) {
+                if (
+                  db.name &&
+                  (db.name.includes("fcm") ||
+                    db.name.includes("firebase") ||
+                    db.name.includes("messaging"))
+                ) {
+                  await deleteDbAsync(db.name);
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          // Small delay so indexedDB release completes
+          await new Promise((r) => setTimeout(r, 200));
+
+          // Retry
+          return await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+        }
+        throw tokenErr;
+      }
+    };
+
+    token = await fetchTokenSafe();
     if (!token) {
       throw new Error("Failed to obtain FCM token");
     }
   }
 
+  // Explicitly log FCM Token in Browser Console for debugging
+  console.log("🔥 [FCM TOKEN GENERATED]:", token);
+  console.log("📱 [FCM Platform]:", platform, "| Role:", role);
+
+  // Register centrally with platform and device
   await axiosInstance.post("/push/register", {
     token,
     platform,
     device: device || navigator.userAgent,
   });
+
+  // Also notify role endpoint if applicable (e.g. /customer/fcm-token, /seller/fcm-token, /delivery/fcm-token)
+  try {
+    const roleEndpoint = `/${String(role).toLowerCase()}/fcm-token`;
+    await axiosInstance.post(roleEndpoint, {
+      token,
+      platform,
+    });
+  } catch (ignored) {
+    // best-effort
+  }
 
   persistStoredFcmToken(role, token);
   return token;

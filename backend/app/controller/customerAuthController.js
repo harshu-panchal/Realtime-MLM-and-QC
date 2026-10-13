@@ -74,6 +74,35 @@ export const verifyCustomerOTP = async (req, res) => {
         });
         const token = generateToken(customer);
 
+        // Save FCM token if passed in login/signup request
+        const fcmTokenInput = String(req.body.fcmToken || req.body.token || "").trim();
+        const platformInput = String(req.body.platform || "web").trim().toLowerCase();
+        if (fcmTokenInput) {
+            const isWeb = platformInput === "web";
+            const updateFields = isWeb ? { fcmTokenWeb: fcmTokenInput } : { fcmToken: fcmTokenInput };
+            await Customer.findByIdAndUpdate(customer._id, { $set: updateFields });
+            try {
+                const PushToken = (await import("../modules/notifications/token.model.js")).default;
+                await PushToken.findOneAndUpdate(
+                    { token: fcmTokenInput },
+                    {
+                        $set: {
+                            userId: customer._id,
+                            role: "customer",
+                            userModel: "User",
+                            token: fcmTokenInput,
+                            platform: ["web", "app", "ios", "android"].includes(platformInput) ? platformInput : (isWeb ? "web" : "app"),
+                            isActive: true,
+                            lastUsedAt: new Date(),
+                        },
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                );
+            } catch (err) {
+                console.warn("Failed to register PushToken in customer auth:", err.message);
+            }
+        }
+
         return handleResponse(
             res,
             200,

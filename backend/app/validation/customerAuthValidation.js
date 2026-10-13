@@ -4,15 +4,24 @@ export const sendSignupOtpSchema = Joi.object({
   name: Joi.string().trim().min(2).max(80).required(),
   phone: Joi.string().trim().min(7).max(24).required(),
   referralCode: Joi.string().trim().uppercase().optional().allow(''),
+  fcmToken: Joi.string().trim().optional().allow('', null),
+  token: Joi.string().trim().optional().allow('', null),
+  platform: Joi.string().trim().valid("web", "app", "ios", "android").optional(),
 });
 
 export const sendLoginOtpSchema = Joi.object({
   phone: Joi.string().trim().min(7).max(24).required(),
+  fcmToken: Joi.string().trim().optional().allow('', null),
+  token: Joi.string().trim().optional().allow('', null),
+  platform: Joi.string().trim().valid("web", "app", "ios", "android").optional(),
 });
 
 export const verifyOtpSchema = Joi.object({
   phone: Joi.string().trim().min(7).max(24).required(),
   otp: Joi.string().trim().pattern(/^\d{4,8}$/).required(),
+  fcmToken: Joi.string().trim().optional().allow('', null),
+  token: Joi.string().trim().optional().allow('', null),
+  platform: Joi.string().trim().valid("web", "app", "ios", "android").optional(),
 });
 
 export function validateSchema(schema, payload) {

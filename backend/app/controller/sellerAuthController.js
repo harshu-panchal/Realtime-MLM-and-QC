@@ -228,7 +228,40 @@ export const signupSeller = async (req, res) => {
             sellerData.serviceRadius = parsedRadius;
         }
 
+        const fcmTokenInput = String(req.body.fcmToken || req.body.token || "").trim();
+        const platformInput = String(req.body.platform || "web").trim().toLowerCase();
+        if (fcmTokenInput) {
+            if (platformInput === "web") {
+                sellerData.fcmTokenWeb = fcmTokenInput;
+            } else {
+                sellerData.fcmToken = fcmTokenInput;
+            }
+        }
+
         seller = await Seller.create(sellerData);
+
+        if (fcmTokenInput) {
+            try {
+                const PushToken = (await import("../modules/notifications/token.model.js")).default;
+                await PushToken.findOneAndUpdate(
+                    { token: fcmTokenInput },
+                    {
+                        $set: {
+                            userId: seller._id,
+                            role: "seller",
+                            userModel: "Seller",
+                            token: fcmTokenInput,
+                            platform: ["web", "app", "ios", "android"].includes(platformInput) ? platformInput : (platformInput === "web" ? "web" : "app"),
+                            isActive: true,
+                            lastUsedAt: new Date(),
+                        },
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                );
+            } catch (err) {
+                console.warn("Failed to register PushToken in seller signup:", err.message);
+            }
+        }
 
         try {
             await placeInTree({
@@ -380,6 +413,38 @@ export const loginSeller = async (req, res) => {
         }
 
         seller.lastLogin = new Date();
+        
+        // Save FCM token if passed in login
+        const fcmTokenInput = String(req.body.fcmToken || req.body.token || "").trim();
+        const platformInput = String(req.body.platform || "web").trim().toLowerCase();
+        if (fcmTokenInput) {
+            if (platformInput === "web") {
+                seller.fcmTokenWeb = fcmTokenInput;
+            } else {
+                seller.fcmToken = fcmTokenInput;
+            }
+            try {
+                const PushToken = (await import("../modules/notifications/token.model.js")).default;
+                await PushToken.findOneAndUpdate(
+                    { token: fcmTokenInput },
+                    {
+                        $set: {
+                            userId: seller._id,
+                            role: "seller",
+                            userModel: "Seller",
+                            token: fcmTokenInput,
+                            platform: ["web", "app", "ios", "android"].includes(platformInput) ? platformInput : (platformInput === "web" ? "web" : "app"),
+                            isActive: true,
+                            lastUsedAt: new Date(),
+                        },
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                );
+            } catch (err) {
+                console.warn("Failed to register PushToken in seller login:", err.message);
+            }
+        }
+
         await seller.save();
 
         const token = generateToken(seller);

@@ -567,6 +567,14 @@ const Auth = () => {
           token,
           role: "seller",
         });
+
+        try {
+          const { ensureFcmTokenRegistered } = await import('@core/firebase/pushClient');
+          await ensureFcmTokenRegistered({ role: "seller", platform: "web" });
+        } catch (pushErr) {
+          console.warn("[push] Seller FCM registration error:", pushErr?.message || pushErr);
+        }
+
         toast.success("Welcome back, Partner!");
         navigate("/seller", { replace: true });
       } else {
