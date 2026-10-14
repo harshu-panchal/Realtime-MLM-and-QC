@@ -209,3 +209,36 @@ export async function rejectSellerApplicationById({
 
   return formatSellerApplication(seller);
 }
+
+export async function suspendSellerById({
+  sellerId,
+  reviewedBy,
+  reason = "",
+}) {
+  const seller = await Seller.findByIdAndUpdate(
+    sellerId,
+    {
+      $set: {
+        isVerified: false,
+        isActive: false,
+        applicationStatus: "suspended",
+        reviewedAt: new Date(),
+        reviewedBy,
+        rejectionReason: reason || "Suspended by Admin",
+      },
+    },
+    { new: true },
+  );
+
+  if (!seller) {
+    return null;
+  }
+
+  return formatSellerApplication(seller);
+}
+
+export async function deleteSellerById({ sellerId }) {
+  const seller = await Seller.findByIdAndDelete(sellerId);
+  return seller;
+}
+

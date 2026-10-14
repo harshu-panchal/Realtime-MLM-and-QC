@@ -17,7 +17,10 @@ import {
     HiOutlineClock,
     HiOutlineXMark,
     HiOutlineArrowPath,
-    HiOutlineArrowTopRightOnSquare
+    HiOutlineArrowTopRightOnSquare,
+    HiOutlineNoSymbol,
+    HiOutlineTrash,
+    HiOutlineExclamationTriangle
 } from 'react-icons/hi2';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -148,6 +151,50 @@ const PendingSellers = () => {
         }
     };
 
+    const handleSuspend = async (seller) => {
+        const confirmSuspend = window.confirm(`Are you sure you want to SUSPEND seller "${seller.shopName || seller.ownerName}"? This will deactivate the seller from the platform.`);
+        if (!confirmSuspend) return;
+
+        setIsProcessing(true);
+        try {
+            const reason = window.prompt('Enter reason for suspension (optional):', 'Suspended by admin') || 'Suspended by admin';
+            await adminApi.suspendSeller(seller.id, { reason });
+            if (viewingSeller?.id === seller.id) {
+                setIsReviewModalOpen(false);
+                setViewingSeller(null);
+            }
+            toast.success(`Seller "${seller.shopName || seller.ownerName}" suspended successfully`);
+            await fetchPendingSellers();
+        } catch (error) {
+            console.error('Failed to suspend seller', error);
+            toast.error(error.response?.data?.message || 'Failed to suspend seller');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const [deleteModalData, setDeleteModalData] = useState(null);
+
+    const confirmDeleteSeller = async () => {
+        if (!deleteModalData) return;
+        setIsProcessing(true);
+        try {
+            await adminApi.deleteSeller(deleteModalData.id);
+            toast.success(`Seller "${deleteModalData.shopName || deleteModalData.ownerName}" permanently deleted from database`);
+            setDeleteModalData(null);
+            if (viewingSeller?.id === deleteModalData.id) {
+                setIsReviewModalOpen(false);
+                setViewingSeller(null);
+            }
+            await fetchPendingSellers();
+        } catch (error) {
+            console.error('Failed to delete seller', error);
+            toast.error(error.response?.data?.message || 'Failed to delete seller');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     return (
         <div className="ds-section-spacing animate-in fade-in slide-in-from-bottom-2 duration-700 pb-16">
             {/* Page Header */}
@@ -274,10 +321,24 @@ const PendingSellers = () => {
                                             >
                                                 <HiOutlineXCircle className="h-5 w-5" />
                                             </button>
+                                            <button
+                                                onClick={() => handleSuspend(s)}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all ring-1 ring-amber-100"
+                                                title="Suspend Seller"
+                                            >
+                                                <HiOutlineNoSymbol className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => setDeleteModalData(s)}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all ring-1 ring-red-100"
+                                                title="Delete Seller"
+                                            >
+                                                <HiOutlineTrash className="h-5 w-5" />
+                                            </button>
                                             <div className="w-[1px] h-4 bg-slate-200 mx-1" />
                                             <button
                                                 onClick={() => openReviewModal(s)}
-                                                className="h-9 px-4 bg-black  text-primary-foreground rounded-xl text-[10px] font-bold hover:bg-brand-700 transition-all shadow-md shadow-brand-100 hover:-translate-y-0.5 flex items-center gap-2"
+                                                className="h-9 px-4 bg-black text-primary-foreground rounded-xl text-[10px] font-bold hover:bg-brand-700 transition-all shadow-md shadow-brand-100 hover:-translate-y-0.5 flex items-center gap-2"
                                             >
                                                 <HiOutlineEye className="h-4 w-4" />
                                                 REVIEW
@@ -475,20 +536,40 @@ const PendingSellers = () => {
                                             </div>
 
                                             {/* Action Bar */}
-                                            <div className="flex items-center gap-4 pt-6">
+                                            <div className="flex flex-wrap items-center gap-3 pt-6">
                                                 <button
+                                                    type="button"
+                                                    disabled={isProcessing}
+                                                    onClick={() => handleSuspend(viewingSeller)}
+                                                    className="px-4 py-3.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-2xl text-[10px] font-bold tracking-widest transition-all uppercase flex items-center gap-1.5 ring-1 ring-amber-200"
+                                                >
+                                                    <HiOutlineNoSymbol className="h-4 w-4" />
+                                                    <span>SUSPEND</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={isProcessing}
+                                                    onClick={() => setDeleteModalData(viewingSeller)}
+                                                    className="px-4 py-3.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-2xl text-[10px] font-bold tracking-widest transition-all uppercase flex items-center gap-1.5 ring-1 ring-red-200"
+                                                >
+                                                    <HiOutlineTrash className="h-4 w-4" />
+                                                    <span>DELETE</span>
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     disabled={isProcessing}
                                                     onClick={() => handleReject(viewingSeller.id)}
-                                                    className="flex-1 py-4 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl text-[10px] font-bold tracking-widest transition-all uppercase"
+                                                    className="flex-1 py-3.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl text-[10px] font-bold tracking-widest transition-all uppercase"
                                                 >
-                                                    REJECT APPLICATION
+                                                    REJECT
                                                 </button>
                                                 {reviewDocuments.length > 0 && (
                                                     <button
+                                                        type="button"
                                                         disabled={isProcessing || !isCommissionValid}
                                                         onClick={() => handleApprove(viewingSeller.id, commissionNumber)}
                                                         title={!isCommissionValid ? 'Enter a commission rate (0-100) to approve' : undefined}
-                                                        className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold tracking-widest shadow-2xl hover:bg-slate-800 transition-all transform active:scale-[0.98] uppercase flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900"
+                                                        className="flex-[2] py-3.5 bg-slate-900 text-white rounded-2xl text-[10px] font-bold tracking-widest shadow-2xl hover:bg-slate-800 transition-all transform active:scale-[0.98] uppercase flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900 min-w-[150px]"
                                                     >
                                                         {isProcessing ? (
                                                             <>
@@ -509,6 +590,78 @@ const PendingSellers = () => {
                                 </div>
                             </motion.div>
                         </div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Delete Confirmation Modal Popup */}
+            <AnimatePresence>
+                {deleteModalData && (
+                    <div className="fixed inset-0 z-[110] overflow-y-auto flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm"
+                            onClick={() => !isProcessing && setDeleteModalData(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100 overflow-hidden"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                                    <HiOutlineExclamationTriangle className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900">Delete Seller Permanently</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">This action cannot be undone.</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                <p className="text-xs font-semibold text-slate-700">
+                                    Store: <span className="font-bold text-slate-900">{deleteModalData.shopName}</span>
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Owner: <span className="font-medium text-slate-700">{deleteModalData.ownerName}</span> ({deleteModalData.email || deleteModalData.phone})
+                                </p>
+                                <p className="text-[11px] text-red-600 font-medium mt-2">
+                                    Are you sure you want to delete this seller?
+                                </p>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    disabled={isProcessing}
+                                    onClick={() => setDeleteModalData(null)}
+                                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isProcessing}
+                                    onClick={confirmDeleteSeller}
+                                    className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isProcessing ? (
+                                         <>
+                                             <HiOutlineArrowPath className="h-4 w-4 animate-spin" />
+                                             <span>Deleting...</span>
+                                         </>
+                                    ) : (
+                                         <>
+                                             <HiOutlineTrash className="h-4 w-4" />
+                                             <span>Delete</span>
+                                         </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
                 )}
             </AnimatePresence>

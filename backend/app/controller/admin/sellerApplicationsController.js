@@ -5,6 +5,8 @@ import {
   getPendingSellerApplications,
   rejectSellerApplicationById,
   setSellerCommission,
+  suspendSellerById,
+  deleteSellerById,
 } from "../../services/admin/sellerApplicationService.js";
 
 export const getPendingSellers = async (req, res) => {
@@ -88,3 +90,39 @@ export const rejectSellerApplication = async (req, res) => {
     return handleResponse(res, 500, error.message);
   }
 };
+
+export const suspendSeller = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const seller = await suspendSellerById({
+      sellerId: id,
+      reviewedBy: req.user.id,
+      reason,
+    });
+
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    return handleResponse(res, 200, "Seller suspended successfully", seller);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+export const deleteSeller = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const seller = await deleteSellerById({ sellerId: id });
+
+    if (!seller) {
+      return handleResponse(res, 404, "Seller not found");
+    }
+
+    return handleResponse(res, 200, "Seller deleted successfully from database", { id });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+

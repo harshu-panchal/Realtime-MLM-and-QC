@@ -21,6 +21,8 @@ import {
     getPendingSellers,
     approveSellerApplication,
     rejectSellerApplication,
+    suspendSeller,
+    deleteSeller,
     updateSellerCommission,
     getSellerWithdrawals,
     getDeliveryWithdrawals,
@@ -162,6 +164,18 @@ router.delete(
     verifyToken,
     allowRoles("admin"),
     rejectSellerApplication
+);
+router.patch(
+    "/sellers/:id/suspend",
+    verifyToken,
+    allowRoles("admin"),
+    suspendSeller
+);
+router.delete(
+    "/sellers/:id",
+    verifyToken,
+    allowRoles("admin"),
+    deleteSeller
 );
 router.patch(
     "/sellers/:id/commission",
