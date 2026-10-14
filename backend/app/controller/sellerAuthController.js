@@ -399,10 +399,12 @@ export const loginSeller = async (req, res) => {
             applicationStatus === "approved";
 
         if (!isApproved) {
-            const approvalMessage =
-                applicationStatus === "rejected"
-                    ? "Your seller application was rejected. Please contact support."
-                    : "Your seller account is pending admin approval.";
+            let approvalMessage = "Your seller account is pending admin approval.";
+            if (applicationStatus === "suspended") {
+                approvalMessage = `Your seller account has been suspended by Admin. Reason: ${seller.rejectionReason || "Policy violation"}`;
+            } else if (applicationStatus === "rejected") {
+                approvalMessage = "Your seller application was rejected. Please contact support.";
+            }
 
             return handleResponse(res, 403, approvalMessage, {
                 applicationStatus,

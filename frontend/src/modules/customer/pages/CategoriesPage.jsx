@@ -4,18 +4,21 @@ import { ChevronLeft, Search, ChevronRight } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 import { useSettings } from '@core/context/SettingsContext';
+import { useCommerceMode } from '../context/CommerceModeContext';
 
 const CategoriesPage = () => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
     const { settings } = useSettings();
+    const { isShopAll } = useCommerceMode();
+    const currentBusinessType = isShopAll ? "ecommerce" : "quick_commerce";
 
     const fetchCategories = async () => {
         setIsLoading(true);
         try {
             // Try tree first for better organization
-            const res = await customerApi.getCategories({ tree: true });
+            const res = await customerApi.getCategories({ tree: true, businessType: currentBusinessType });
             if (res.data.success) {
                 const tree = res.data.results || res.data.result || [];
                 const flatCats = [];
@@ -48,7 +51,7 @@ const CategoriesPage = () => {
             }
 
             // Fallback: use flat list
-            const flatRes = await customerApi.getCategories();
+            const flatRes = await customerApi.getCategories({ businessType: currentBusinessType });
             if (flatRes.data.success) {
                 const all = flatRes.data.results || flatRes.data.result || [];
                 const cats = all.filter(c => c.type === 'category');
@@ -80,7 +83,7 @@ const CategoriesPage = () => {
 
     useEffect(() => {
         fetchCategories();
-    }, []);
+    }, [currentBusinessType]);
 
     const banner = settings?.categoriesBanner || {
         image: '',

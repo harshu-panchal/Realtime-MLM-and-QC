@@ -13,10 +13,16 @@ import ParticleBurst from "./ParticleBurst";
 import { useVariantSelection } from "../../context/VariantSelectionContext";
 
 /**
- * @param {{ product: any, badge?: any, className?: string, compact?: boolean, neutralBg?: boolean, layout?: string, priority?: boolean }} props
+ * @param {Object} props
+ * @param {any} props.product
+ * @param {any} [props.badge]
+ * @param {string} [props.className]
+ * @param {boolean} [props.compact]
+ * @param {boolean} [props.neutralBg]
+ * @param {string} [props.layout]
+ * @param {boolean} [props.priority]
  */
-const ProductCard = React.memo(
-  ({ product, badge, className, compact = false, neutralBg = false, layout = "grid", priority = false }) => {
+function ProductCardComponent({ product, badge, className, compact = false, neutralBg = false, layout = "grid", priority = false }) {
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } =
       useWishlist();
     const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
@@ -507,7 +513,8 @@ const ProductCard = React.memo(
         </div>
       </div>
     );
-  }
-);
+}
+
+const ProductCard = React.memo(ProductCardComponent);
 
 export default ProductCard;

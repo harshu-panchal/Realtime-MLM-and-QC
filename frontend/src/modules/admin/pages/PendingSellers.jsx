@@ -265,7 +265,7 @@ const PendingSellers = () => {
                         <tbody className="divide-y divide-slate-50">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-20 text-center">
+                                    <td colSpan={4} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <HiOutlineArrowPath className="h-8 w-8 text-slate-300 animate-spin" />
                                             <p className="text-slate-500 font-bold text-sm">Loading seller applications...</p>
@@ -348,7 +348,7 @@ const PendingSellers = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-20 text-center">
+                                    <td colSpan={4} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                                                 <HiOutlineCheckCircle className="h-8 w-8 text-slate-200" />
@@ -457,8 +457,8 @@ const PendingSellers = () => {
                                                     <div
                                                         key={doc.key}
                                                         className={`p-4 rounded-2xl border-2 transition-all group ${doc.isViewable
-                                                                ? 'border-slate-50 bg-slate-50/50 hover:bg-white hover:border-brand-100'
-                                                                : 'border-slate-100 bg-slate-50/70'
+                                                            ? 'border-slate-50 bg-slate-50/50 hover:bg-white hover:border-brand-100'
+                                                            : 'border-slate-100 bg-slate-50/70'
                                                             }`}
                                                     >
                                                         <div className="flex items-center justify-between gap-4">
@@ -649,15 +649,15 @@ const PendingSellers = () => {
                                     className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-lg shadow-red-200 transition-all flex items-center gap-2 disabled:opacity-50"
                                 >
                                     {isProcessing ? (
-                                         <>
-                                             <HiOutlineArrowPath className="h-4 w-4 animate-spin" />
-                                             <span>Deleting...</span>
-                                         </>
+                                        <>
+                                            <HiOutlineArrowPath className="h-4 w-4 animate-spin" />
+                                            <span>Deleting...</span>
+                                        </>
                                     ) : (
-                                         <>
-                                             <HiOutlineTrash className="h-4 w-4" />
-                                             <span>Delete</span>
-                                         </>
+                                        <>
+                                            <HiOutlineTrash className="h-4 w-4" />
+                                            <span>Delete</span>
+                                        </>
                                     )}
                                 </button>
                             </div>

@@ -148,9 +148,9 @@ const AddProduct = () => {
       return;
     }
 
-    // Validate all three category levels are selected
-    if (!formData.header || !formData.category || !formData.subcategory) {
-      toast.error("Please select all three category levels: Main Group, Specific Category, and Sub-Category");
+    // Validate category: Main Group (header) is required, category and subcategory are optional or can be selected if available
+    if (!formData.header) {
+      toast.error("Please select at least the Main Category Group");
       return;
     }
 
@@ -699,7 +699,7 @@ const AddProduct = () => {
                 </div>
                 <div className="space-y-1.5 flex flex-col">
                   <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                    Specific Category <span className="text-rose-500">*</span>
+                    Specific Category <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
                   <select
                     value={formData.category}
@@ -708,7 +708,7 @@ const AddProduct = () => {
                     }
                     disabled={!formData.header}
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    <option value="">Select Category</option>
+                    <option value="">Select Category (Optional)</option>
                     {categories
                       .find((h) => (h._id || h.id) === formData.header)
                       ?.children?.map((c) => (
@@ -722,7 +722,7 @@ const AddProduct = () => {
               <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-1.5 flex flex-col">
                   <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                    Sub-Category <span className="text-rose-500">*</span>
+                    Sub-Category <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
                   <select
                     value={formData.subcategory}
@@ -731,7 +731,7 @@ const AddProduct = () => {
                     }
                     disabled={!formData.category}
                     className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-md text-sm font-bold outline-none cursor-pointer focus:ring-2 focus:ring-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    <option value="">Select Sub-Category</option>
+                    <option value="">Select Sub-Category (Optional)</option>
                     {categories
                       .find((h) => (h._id || h.id) === formData.header)
                       ?.children?.find((c) => (c._id || c.id) === formData.category)

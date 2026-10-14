@@ -57,22 +57,38 @@ async function validateParentForType(type, parentId) {
  ================================ */
 export const getCategories = async (req, res) => {
   try {
-    const { flat, tree, type } = req.query;
+    const { flat, tree, type, businessType } = req.query;
 
     if (tree === "true") {
-      const cacheKey = categoryCacheKey({ tree: true, type: "header" });
+      const headerQuery = { type: "header" };
+      if (businessType === "quick_commerce" || businessType === "ecommerce") {
+        headerQuery.businessType = { $in: [businessType, "both"] };
+      }
+
+      const cacheKey = categoryCacheKey({
+        tree: true,
+        type: "header",
+        businessType: businessType || "all",
+      });
+
       const categories = await getOrSet(
         cacheKey,
         async () => {
-          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder";
-          const rawCategories = await Category.find({ type: "header" })
+          const selectFields = "name slug image iconId type parentId headerColor headerFontColor headerIconColor sortOrder businessType";
+          const childMatch = (businessType === "quick_commerce" || businessType === "ecommerce")
+            ? { businessType: { $in: [businessType, "both"] } }
+            : {};
+
+          const rawCategories = await Category.find(headerQuery)
             .select(selectFields)
             .populate({
               path: "children",
+              match: childMatch,
               select: selectFields,
               options: { sort: { sortOrder: 1, name: 1 } },
               populate: {
                 path: "children",
+                match: childMatch,
                 select: selectFields,
                 options: { sort: { sortOrder: 1, name: 1 } },
               },
@@ -117,6 +133,9 @@ export const getCategories = async (req, res) => {
       const query = {};
       if (type === "header" || type === "category" || type === "subcategory") {
         query.type = type;
+      }
+      if (businessType === "quick_commerce" || businessType === "ecommerce") {
+        query.businessType = { $in: [businessType, "both"] };
       }
       const search = (req.query.search || "").trim();
       const parentId = req.query.parentId || req.query.parentId; // Support both naming variants
@@ -163,7 +182,6 @@ export const getCategories = async (req, res) => {
       });
     }
 
-    const { businessType } = req.query;
     const query = {};
     if (type === "header" || type === "category" || type === "subcategory") {
       query.type = type;

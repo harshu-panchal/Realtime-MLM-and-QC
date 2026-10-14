@@ -861,6 +861,17 @@ export const createProduct = async (req, res) => {
 
     applyMediaFields(productData);
 
+    // Clean empty string or invalid category references so MongoDB accepts null when omitted
+    if (!productData.headerId || productData.headerId === "null" || productData.headerId === "undefined") {
+      delete productData.headerId;
+    }
+    if (!productData.categoryId || productData.categoryId === "null" || productData.categoryId === "undefined") {
+      productData.categoryId = null;
+    }
+    if (!productData.subcategoryId || productData.subcategoryId === "null" || productData.subcategoryId === "undefined") {
+      productData.subcategoryId = null;
+    }
+
     // Handle tags if string
     if (typeof productData.tags === "string") {
       productData.tags = productData.tags.split(",").map((tag) => tag.trim());
@@ -1085,6 +1096,16 @@ export const updateProduct = async (req, res) => {
     }
 
     applyMediaFields(productData);
+
+    if (productData.headerId !== undefined && (!productData.headerId || productData.headerId === "null" || productData.headerId === "undefined")) {
+      delete productData.headerId;
+    }
+    if (productData.categoryId !== undefined && (!productData.categoryId || productData.categoryId === "null" || productData.categoryId === "undefined")) {
+      productData.categoryId = null;
+    }
+    if (productData.subcategoryId !== undefined && (!productData.subcategoryId || productData.subcategoryId === "null" || productData.subcategoryId === "undefined")) {
+      productData.subcategoryId = null;
+    }
 
     if (typeof productData.tags === "string") {
       productData.tags = productData.tags.split(",").map((tag) => tag.trim());

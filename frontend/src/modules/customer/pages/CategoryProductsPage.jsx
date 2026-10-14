@@ -16,6 +16,7 @@ import MiniCart from '../components/shared/MiniCart';
 import SectionRenderer from "../components/experience/SectionRenderer";
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import { useSettings } from '@core/context/SettingsContext';
+import { useCommerceMode } from '../context/CommerceModeContext';
 import Lottie from 'lottie-react';
 
 const CategoryProductsPage = () => {
@@ -24,6 +25,8 @@ const CategoryProductsPage = () => {
     const location = useLocation();
     const { currentLocation } = useAppLocation();
     const { settings } = useSettings();
+    const { isShopAll } = useCommerceMode();
+    const currentBusinessType = isShopAll ? "ecommerce" : "quick_commerce";
     const initialSubcategoryId = location.state?.activeSubcategoryId || 'all';
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubcategoryId);
@@ -47,16 +50,21 @@ const CategoryProductsPage = () => {
                 Number.isFinite(currentLocation?.latitude) &&
                 Number.isFinite(currentLocation?.longitude);
 
+            const shouldFetchProducts = isShopAll || hasValidLocation;
+
             // Fetch products and categories in parallel instead of sequentially
             const [prodRes, catRes] = await Promise.all([
-                hasValidLocation
+                shouldFetchProducts
                     ? customerApi.getProducts({
                         categoryId: catId,
-                        lat: currentLocation.latitude,
-                        lng: currentLocation.longitude,
+                        ...(hasValidLocation ? {
+                            lat: currentLocation.latitude,
+                            lng: currentLocation.longitude,
+                        } : {}),
+                        mode: isShopAll ? "shopAll" : "quick",
                     })
                     : Promise.resolve({ data: { success: true, result: { items: [] } } }),
-                customerApi.getCategories({ tree: true }),
+                customerApi.getCategories({ tree: true, businessType: currentBusinessType }),
             ]);
 
             if (prodRes.data.success) {
@@ -117,7 +125,7 @@ const CategoryProductsPage = () => {
     useEffect(() => {
         fetchData();
         setSelectedSubCategory(location.state?.activeSubcategoryId || 'all');
-    }, [catId, location.state?.activeSubcategoryId, currentLocation?.latitude, currentLocation?.longitude]);
+    }, [catId, location.state?.activeSubcategoryId, currentLocation?.latitude, currentLocation?.longitude, currentBusinessType]);
 
     const safeProducts = Array.isArray(products) ? products : [];
 
@@ -192,8 +200,12 @@ const CategoryProductsPage = () => {
 
                     {/* Products Grid */}
                     <div className="px-3 pt-2 w-full space-y-2">
-                        {filteredProducts.map((product) => (
-                            <ProductCard key={product.id} product={product} layout="list" />
+                        {filteredProducts.map((item) => (
+                            <ProductCard 
+                                key={item.id || item._id} 
+                                product={/** @type {any} */ (item)} 
+                                layout="list" 
+                            />
                         ))}
                     </div>
                 </div>
