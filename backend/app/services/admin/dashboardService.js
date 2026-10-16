@@ -15,7 +15,7 @@ export async function getAdminDashboardStats() {
       Order.countDocuments(),
     ]);
 
-  const totalUsers = totalCustomers + totalSellers + totalRiders;
+  const totalUsers = totalCustomers;
   const activeSellers = await Seller.countDocuments({ isVerified: true });
 
   const revenueData = await Order.aggregate([
