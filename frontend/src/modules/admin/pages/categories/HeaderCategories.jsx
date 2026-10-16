@@ -58,6 +58,7 @@ const HeaderCategories = () => {
     headerColor: "#FF1E1E",
     headerFontColor: "#111111",
     headerIconColor: "#111111",
+    businessType: "quick_commerce",
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -228,6 +229,7 @@ const HeaderCategories = () => {
       headerColor: "#FF1E1E",
       headerFontColor: "#111111",
       headerIconColor: "#111111",
+      businessType: "quick_commerce",
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -249,6 +251,7 @@ const HeaderCategories = () => {
       headerColor: item.headerColor || "#FF1E1E",
       headerFontColor: item.headerFontColor || "#FFFFFF",
       headerIconColor: item.headerIconColor || "#111111",
+      businessType: item.businessType === "ecommerce" ? "ecommerce" : "quick_commerce",
     });
     setPreviewUrl(item.image || null);
     setIsAddModalOpen(true);
@@ -325,6 +328,9 @@ const HeaderCategories = () => {
                   Sort Order
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -335,13 +341,13 @@ const HeaderCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-500">
+                  <td colSpan="9" className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-gray-500">
+                  <td colSpan="9" className="text-center py-8 text-gray-500">
                     No header categories found
                   </td>
                 </tr>
@@ -391,6 +397,22 @@ const HeaderCategories = () => {
                     </td>
                     <td className="py-3 px-4 text-gray-500 font-medium">
                       {cat.sortOrder || 0}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={cn(
+                        "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize",
+                        cat.businessType === "ecommerce"
+                          ? "bg-purple-50 text-purple-700 border border-purple-200"
+                          : cat.businessType === "quick_commerce"
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-blue-50 text-blue-700 border border-blue-200"
+                      )}>
+                        {cat.businessType === "ecommerce"
+                          ? "E-Commerce"
+                          : cat.businessType === "quick_commerce"
+                          ? "Quick Commerce"
+                          : "Both"}
+                      </span>
                     </td>
                     <td className="py-3 px-4">
                       <Badge
@@ -678,6 +700,21 @@ const HeaderCategories = () => {
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Storefront / Business Type
+                  </label>
+                  <select
+                    value={formData.businessType || "quick_commerce"}
+                    onChange={(e) =>
+                      setFormData({ ...formData, businessType: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                    <option value="quick_commerce">Quick Commerce</option>
+                    <option value="ecommerce">E-commerce</option>
                   </select>
                 </div>
 

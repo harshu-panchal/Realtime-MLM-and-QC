@@ -54,6 +54,8 @@ const ALLOWED_KEYS = [
   "productApproval",
   "categoriesBanner",
   "homeVideoBanner",
+  "vendorRegistrationFee",
+  "userWeeklySubscriptionFee",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -145,6 +147,8 @@ const updateSettingsSchema = Joi.object({
     videoUrl: Joi.string().allow("").max(2000),
     isVisible: Joi.boolean(),
   }).unknown(false),
+  vendorRegistrationFee: Joi.number().min(0),
+  userWeeklySubscriptionFee: Joi.number().min(0),
 }).unknown(false);
 
 /**
@@ -165,7 +169,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner vendorRegistrationFee userWeeklySubscriptionFee createdAt",
           )
           .lean();
         return existing || null;

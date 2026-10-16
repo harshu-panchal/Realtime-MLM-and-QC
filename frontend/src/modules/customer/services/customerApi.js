@@ -6,6 +6,12 @@ export const customerApi = {
   sendSignupOtp: (data) =>
     axiosInstance.post("/customer/send-signup-otp", data),
   verifyOtp: (data) => axiosInstance.post("/customer/verify-otp", data),
+  createSubscriptionOrder: (data) =>
+    axiosInstance.post("/customer/subscription/create-order", data),
+  verifySubscriptionPayment: (data) =>
+    axiosInstance.post("/customer/subscription/verify-payment", data),
+  getSubscriptionStatus: () =>
+    axiosInstance.get("/customer/subscription/status"),
   getProfile: () => getWithDedupe("/customer/profile", {}, { ttl: 5000 }), // Short cache for profile
   updateProfile: (data) => axiosInstance.put("/customer/profile", data),
   deleteAccount: () => axiosInstance.delete("/customer/delete-account"),

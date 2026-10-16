@@ -52,6 +52,11 @@ const settingSchema = new mongoose.Schema(
             default: 500,
             min: 0,
         },
+        userWeeklySubscriptionFee: {
+            type: Number,
+            default: 50,
+            min: 0,
+        },
 
         // Branding
         logoUrl: String,

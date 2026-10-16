@@ -25,6 +25,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import Lottie from "lottie-react";
@@ -40,6 +41,20 @@ const isValidPassword = (val) => (val || "").trim().length >= 6;
 const isValidName = (val) => (val || "").trim().length >= 2;
 const isValidShopName = (val) => (val || "").trim().length >= 3;
 const isValidPincode = (val) => /^\d{6}$/.test((val || "").trim());
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 const createInitialVerificationState = () => ({
   status: "idle",
@@ -140,6 +155,11 @@ const Auth = () => {
     return saved !== null ? JSON.parse(saved) : 1;
   });
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [paymentToken, setPaymentToken] = useState(() => {
+    return sessionStorage.getItem("seller_paymentToken") || "";
+  });
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState(null);
   const [verifications, setVerifications] = useState(() => {
     const saved = sessionStorage.getItem("seller_verifications");
     if (saved) {
@@ -178,6 +198,107 @@ const Auth = () => {
     isVerifying: false,
     isResetting: false,
   });
+
+  const handlePayOnboardingFee = async () => {
+    const fee = Number(settings?.vendorRegistrationFee ?? 1000);
+    if (fee <= 0) {
+      toast.success("Onboarding fee is free!");
+      setPaymentToken("exempt");
+      sessionStorage.setItem("seller_paymentToken", "exempt");
+      return;
+    }
+
+    try {
+      setIsPaying(true);
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        toast.error("Razorpay SDK failed to load. Please check your internet connection.");
+        setIsPaying(false);
+        return;
+      }
+
+      const res = await sellerApi.createOnboardingOrder({
+        email: formData.email,
+        phone: formData.phone,
+      });
+
+      if (res.data?.result?.exempt) {
+        setPaymentToken("exempt");
+        sessionStorage.setItem("seller_paymentToken", "exempt");
+        toast.success("Onboarding fee is waived!");
+        setIsPaying(false);
+        return;
+      }
+
+      const { razorpayOrderId, amount, currency, keyId } = res.data?.result || {};
+
+      if (!razorpayOrderId) {
+        throw new Error("Order ID not received from payment gateway");
+      }
+
+      const options = {
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
+        amount: Math.round(amount * 100),
+        currency: currency || "INR",
+        name: appName || "Realtime",
+        description: "Seller Onboarding Registration Fee",
+        image: logoUrl || "",
+        order_id: razorpayOrderId,
+        prefill: {
+          name: formData.name || "",
+          email: formData.email || "",
+          contact: formData.phone || "",
+        },
+        theme: {
+          color: "#0f172a",
+        },
+        handler: async (response) => {
+          try {
+            const verifyRes = await sellerApi.verifyOnboardingPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            if (verifyRes.data?.result?.paymentToken) {
+              const token = verifyRes.data.result.paymentToken;
+              setPaymentToken(token);
+              sessionStorage.setItem("seller_paymentToken", token);
+              setPaymentDetails({
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
+              });
+              toast.success("Payment successful! You can now proceed to the next step.");
+            } else {
+              toast.error("Payment verification failed. Please contact support.");
+            }
+          } catch (err) {
+            console.error("Verification error:", err);
+            toast.error(err.response?.data?.message || "Payment verification failed.");
+          } finally {
+            setIsPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaying(false);
+            toast.info("Payment was cancelled. Onboarding fee payment is required to proceed.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        setIsPaying(false);
+        toast.error(`Payment failed: ${response.error?.description || "Transaction declined"}`);
+      });
+      rzp.open();
+    } catch (error) {
+      console.error("Payment init error:", error);
+      setIsPaying(false);
+      toast.error(error.response?.data?.message || error.message || "Failed to start payment");
+    }
+  };
 
   const handleLocationSelect = (location) => {
     setFormData((prev) => ({
@@ -276,6 +397,10 @@ const Auth = () => {
           toast.error(`A seller with this ${name} already exists.`);
         } else {
           updateVerificationState(name, { exists: false });
+        }
+
+        if (res.data?.result && res.data.result.userExists === false) {
+          toast.warning("Please create a customer account first. Only registered users can register as a seller.");
         }
       } catch (err) {
         // ignore errors on blur
@@ -494,9 +619,17 @@ const Auth = () => {
         return;
       }
 
-      if (!isLogin && signupStep === 2 && !formData.businessType) {
-        toast.error("Please select a business type to continue.");
-        return;
+      if (!isLogin && signupStep === 2) {
+        if (!formData.businessType) {
+          toast.error("Please select a business type to continue.");
+          return;
+        }
+
+        const fee = Number(settings?.vendorRegistrationFee ?? 1000);
+        if (fee > 0 && !paymentToken) {
+          toast.error("Please pay the Platform Onboarding Fee with Razorpay to proceed.");
+          return;
+        }
       }
 
       if (!isLogin && signupStep < TOTAL_SIGNUP_STEPS) {
@@ -545,6 +678,7 @@ const Auth = () => {
             radius: formData.radius,
             emailVerificationToken: verifications.email.token,
             phoneVerificationToken: verifications.phone.token,
+            paymentToken: paymentToken || "",
           }).forEach(([key, value]) => {
             if (value !== null && value !== undefined && value !== "") {
               signupPayload.append(key, value);
@@ -1158,6 +1292,70 @@ const Auth = () => {
                         );
                       })}
                     </div>
+
+                    {/* Dynamic Onboarding Fee Notice & Razorpay Pay Button */}
+                    <div className="mt-4 p-4 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50/70 to-orange-50/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full inline-block">
+                            Platform Onboarding Fee
+                          </span>
+                          <p className="text-xs text-slate-600 font-medium pt-1">
+                            {paymentToken ? "Payment verified successfully" : "Mandatory registration fee to proceed"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xl font-black text-slate-900">
+                            ₹{settings?.vendorRegistrationFee ?? 1000}
+                          </span>
+                          <p className="text-[10px] text-slate-500 font-medium">One-time registration</p>
+                        </div>
+                      </div>
+
+                      {/* Payment Action / Status */}
+                      <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                        {paymentToken ? (
+                          <div className="w-full flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                            <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                              <CheckCircle size={16} className="text-emerald-600" />
+                              Payment Completed (Razorpay Verified)
+                            </span>
+                            <span className="text-[10px] uppercase font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                              PAID
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-full flex items-center justify-between gap-3">
+                            <p className="text-[11px] text-amber-800 font-semibold">
+                              Complete payment to unlock next step
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!formData.businessType) {
+                                  setFormData((prev) => ({ ...prev, businessType: "quick_commerce" }));
+                                }
+                                handlePayOnboardingFee();
+                              }}
+                              disabled={isPaying}
+                              className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+                            >
+                              {isPaying ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>Opening Razorpay...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                                  <span>Pay with Razorpay</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1365,8 +1563,14 @@ const Auth = () => {
                   )}
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} bg-slate-900 text-white rounded-lg py-4 text-sm font-black tracking-[2px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 group`}>
+                    disabled={
+                      isLoading ||
+                      (!isLogin &&
+                        signupStep === 2 &&
+                        Number(settings?.vendorRegistrationFee ?? 1000) > 0 &&
+                        !paymentToken)
+                    }
+                    className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} bg-slate-900 text-white rounded-lg py-4 text-sm font-black tracking-[2px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 group`}>
                     {isLoading
                       ? "WORKING..."
                       : isLogin

@@ -91,6 +91,41 @@ const ProfilePage = () => {
                     </Link>
                 </div>
 
+                {/* Weekly Subscription Status Card */}
+                {Boolean(settings?.userWeeklySubscriptionFee > 0 || user?.weeklySubscription?.status) && (
+                    <div className="bg-gradient-to-r from-orange-50/80 via-white to-amber-50/80 rounded-2xl p-4 border border-orange-200/70 shadow-sm space-y-2.5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-5 w-5 text-orange-500" />
+                                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Weekly Access Plan</span>
+                            </div>
+                            <span className={cn(
+                                "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                                user?.weeklySubscription?.status === 'active'
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-amber-50 text-amber-700 border-amber-200"
+                            )}>
+                                {user?.weeklySubscription?.status === 'active' ? 'Active / Paid' : 'Due / Pending'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-orange-100">
+                            <span>Amount: <b>₹{user?.weeklySubscription?.amount || settings?.userWeeklySubscriptionFee || 50} / week</b></span>
+                            <span>Cutoff: <b>Sat 12:00 PM</b></span>
+                        </div>
+                        {user?.weeklySubscription?.expiresAt && (
+                            <p className="text-[10px] text-slate-400">
+                                Valid until: {new Date(user.weeklySubscription.expiresAt).toLocaleString('en-IN', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Quick Action Badges (Circular Highlight Icon Style) */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
                     <div className="grid grid-cols-4 gap-2">

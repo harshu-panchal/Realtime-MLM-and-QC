@@ -1,4 +1,5 @@
 import Customer from "../models/customer.js";
+import Setting from "../models/setting.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
@@ -224,3 +225,184 @@ export const deleteCustomerAccount = async (req, res) => {
         return handleResponse(res, 500, error.message);
     }
 };
+
+/* ===============================
+   WEEKLY SUBSCRIPTION (Saturday-to-Saturday)
+================================ */
+
+/**
+ * Calculates next Saturday 12:00 PM cutoff.
+ * If today is Saturday before 12:00 PM, next cutoff is today 12:00 PM.
+ * If today is Saturday after 12:00 PM, cutoff is next Saturday 12:00 PM.
+ */
+export const calculateNextSaturdayNoon = () => {
+    const now = new Date();
+    const result = new Date(now);
+    const day = now.getDay(); // 0 is Sunday, 6 is Saturday
+    let daysUntilSat = (6 - day + 7) % 7;
+
+    // If today is Saturday
+    if (day === 6) {
+        // If past 12:00 PM noon, set to next Saturday (7 days)
+        if (now.getHours() >= 12) {
+            daysUntilSat = 7;
+        }
+    }
+    result.setDate(now.getDate() + daysUntilSat);
+    result.setHours(12, 0, 0, 0);
+    return result;
+};
+
+export const createCustomerSubscriptionOrder = async (req, res) => {
+    try {
+        const { phone } = req.body;
+        const targetPhone = phone || req.user?.phone;
+
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.userWeeklySubscriptionFee ?? 50);
+
+        if (feeAmount <= 0) {
+            return handleResponse(res, 200, "Subscription fee is 0, payment not required", {
+                exempt: true,
+                amount: 0,
+            });
+        }
+
+        const { RazorpayAdapter } = await import("../services/payment/providers/razorpay.adapter.js");
+        const adapter = new RazorpayAdapter();
+        const merchantOrderId = `CSUB_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+        const result = await adapter.initiatePayment({
+            merchantOrderId,
+            amountPaise: Math.round(feeAmount * 100),
+            redirectUrl: "",
+        });
+
+        return handleResponse(res, 200, "Subscription order created", {
+            razorpayOrderId: result.gatewayResponse?.razorpayOrderId,
+            amount: feeAmount,
+            currency: "INR",
+            keyId: process.env.RAZORPAY_KEY_ID,
+            merchantOrderId,
+            targetPhone,
+            nextSaturdayCutoff: calculateNextSaturdayNoon(),
+        });
+    } catch (error) {
+        console.error("Failed to create customer subscription order:", error);
+        return handleResponse(res, 500, error.message || "Failed to initialize payment");
+    }
+};
+
+export const verifyCustomerSubscriptionPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, phone, customerId } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return handleResponse(res, 400, "Payment verification parameters missing");
+        }
+
+        const crypto = (await import("crypto")).default;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+        if (!keySecret) {
+            return handleResponse(res, 500, "Payment gateway secret not configured");
+        }
+
+        const expectedSignature = crypto
+            .createHmac("sha256", keySecret)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest("hex");
+
+        if (expectedSignature !== razorpay_signature) {
+            return handleResponse(res, 400, "Invalid payment signature");
+        }
+
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.userWeeklySubscriptionFee ?? 50);
+        const expiresAt = calculateNextSaturdayNoon();
+
+        // Update customer in database if customerId or phone is provided or authenticated
+        const resolvedId = customerId || req.user?.id;
+        let customer = null;
+        if (resolvedId) {
+            customer = await Customer.findById(resolvedId);
+        } else if (phone) {
+            const { normalizePhoneNumber } = await import("../utils/phone.js");
+            const cleanPhone = normalizePhoneNumber(phone);
+            customer = await Customer.findOne({
+                $or: [
+                    { phone: cleanPhone },
+                    { phone: `+91${cleanPhone.replace(/^\+91/, '')}` },
+                    { phone: cleanPhone.replace(/^\+91/, '') }
+                ]
+            });
+        }
+
+        if (customer) {
+            customer.weeklySubscription = {
+                status: "active",
+                amount: feeAmount,
+                paidAt: new Date(),
+                expiresAt,
+                razorpayOrderId: razorpay_order_id,
+                razorpayPaymentId: razorpay_payment_id,
+                lastNotificationSentAt: null,
+            };
+            await customer.save();
+        }
+
+        const paymentToken = jwt.sign(
+            {
+                paid: true,
+                razorpayOrderId: razorpay_order_id,
+                razorpayPaymentId: razorpay_payment_id,
+                amount: feeAmount,
+                expiresAt,
+                type: "customer_weekly_subscription",
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        return handleResponse(res, 200, "Weekly subscription verified successfully", {
+            verified: true,
+            paymentToken,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            expiresAt,
+            amount: feeAmount,
+            customer: customer ? sanitizeCustomer(customer) : null,
+        });
+    } catch (error) {
+        console.error("Subscription payment verification failed:", error);
+        return handleResponse(res, 500, error.message || "Payment verification failed");
+    }
+};
+
+export const getCustomerSubscriptionStatus = async (req, res) => {
+    try {
+        const customer = await Customer.findById(req.user.id);
+        if (!customer) {
+            return handleResponse(res, 404, "Customer not found");
+        }
+
+        const setting = await Setting.findOne().lean();
+        const currentFee = Number(setting?.userWeeklySubscriptionFee ?? 50);
+
+        const now = new Date();
+        const sub = customer.weeklySubscription || { status: "none" };
+        const isExpired = sub.expiresAt && new Date(sub.expiresAt) < now;
+
+        return handleResponse(res, 200, "Subscription status fetched", {
+            status: isExpired ? "expired" : (sub.status || "none"),
+            amount: sub.amount || currentFee,
+            currentFee,
+            expiresAt: sub.expiresAt,
+            paidAt: sub.paidAt,
+            nextSaturdayCutoff: calculateNextSaturdayNoon(),
+        });
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+

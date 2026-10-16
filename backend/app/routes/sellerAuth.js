@@ -9,6 +9,8 @@ import {
     resetSellerPassword,
     checkSellerExists,
     requestBusinessTypeChange,
+    createSellerOnboardingOrder,
+    verifySellerOnboardingPayment,
 } from "../controller/sellerAuthController.js";
 import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers, getSellerStorefront } from "../controller/sellerController.js";
 import { getSellerStats, getSellerEarnings } from "../controller/sellerStatsController.js";
@@ -48,6 +50,8 @@ router.post(
     upload.any(),
     signupSeller
 );
+router.post("/onboarding/create-order", createSellerOnboardingOrder);
+router.post("/onboarding/verify-payment", verifySellerOnboardingPayment);
 router.post("/check-exists", checkSellerExists);
 router.post("/login", loginSeller);
 router.get("/nearby", getNearbySellers);

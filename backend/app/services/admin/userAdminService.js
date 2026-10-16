@@ -32,6 +32,8 @@ export async function getUsersData({ page, limit, skip }) {
             { $ifNull: ["$name", "Customer"] },
           ],
         },
+        walletBalance: { $ifNull: ["$walletBalance", 0] },
+        weeklySubscription: 1,
       },
     },
     { $sort: { totalOrders: -1 } },
@@ -95,6 +97,8 @@ export async function getUserByIdData(id) {
           ],
         },
         addresses: { $ifNull: ["$addresses", []] },
+        walletBalance: { $ifNull: ["$walletBalance", 0] },
+        weeklySubscription: 1,
       },
     },
   ]);

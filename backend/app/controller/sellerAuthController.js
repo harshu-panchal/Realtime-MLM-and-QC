@@ -1,4 +1,5 @@
 import Seller from "../models/seller.js";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { submitBusinessTypeChangeRequest } from "../services/admin/sellerBusinessTypeService.js";
@@ -12,6 +13,7 @@ import {
 import { uploadToCloudinary } from "../services/mediaService.js";
 import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
 import Setting from "../models/setting.js";
+import User from "../models/customer.js";
 
 /* ===============================
    Utils
@@ -172,10 +174,65 @@ export const signupSeller = async (req, res) => {
             return handleResponse(res, 400, "Radius must be between 1 and 100 km");
         }
 
+        const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : "";
+        const cleanEmail = email ? email.toLowerCase().trim() : "";
+
+        // Must be an existing User to become a Seller (handle with/without +91)
+        const phoneVariants = cleanPhone ? [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`] : [];
+        const existingUser = await User.findOne({
+            $or: [
+                ...(phoneVariants.length > 0 ? [{ phone: { $in: phoneVariants } }] : []),
+                ...(cleanEmail ? [{ email: cleanEmail }] : []),
+            ],
+        }).lean();
+
+        if (!existingUser) {
+            return handleResponse(
+                res,
+                400,
+                "Please register as a customer first. Only registered users are eligible to apply as a seller.",
+                { requiresUserSignup: true }
+            );
+        }
+
         let seller = await Seller.findOne({ $or: [{ email }, { phone }] });
 
         if (seller) {
             return handleResponse(res, 400, "Seller with this email or phone already exists");
+        }
+
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.vendorRegistrationFee ?? 1000);
+        let paymentInfo = { status: "exempt", amount: 0 };
+
+        if (feeAmount > 0) {
+            const { paymentToken } = req.body;
+            if (!paymentToken) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Onboarding fee payment is mandatory. Please complete payment through Razorpay."
+                );
+            }
+            try {
+                const decoded = jwt.verify(paymentToken, process.env.JWT_SECRET);
+                if (!decoded.paid || decoded.type !== "onboarding_fee") {
+                    throw new Error("Invalid payment token payload");
+                }
+                paymentInfo = {
+                    status: "completed",
+                    amount: feeAmount,
+                    razorpayOrderId: decoded.razorpayOrderId,
+                    razorpayPaymentId: decoded.razorpayPaymentId,
+                    paidAt: new Date(),
+                };
+            } catch (err) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Payment verification failed or expired. Please complete payment again."
+                );
+            }
         }
 
         const parsedDocuments = parseDocumentsPayload(documents);
@@ -210,6 +267,7 @@ export const signupSeller = async (req, res) => {
             city,
             state,
             documents: sellerDocuments,
+            onboardingPayment: paymentInfo,
             applicationStatus: "pending",
             isVerified: false,
             emailVerified: true,
@@ -385,7 +443,21 @@ export const loginSeller = async (req, res) => {
             return handleResponse(res, 404, "Seller not found");
         }
 
-        const isMatch = await seller.comparePassword(password);
+        let isMatch = await seller.comparePassword(password);
+
+        if (!isMatch) {
+            // Check if user has updated password in User account
+            const user = await User.findOne(query).select("+password");
+            if (user && user.password) {
+                const userMatch = await bcrypt.compare(password, user.password);
+                if (userMatch) {
+                    isMatch = true;
+                    // Sync seller password with user password
+                    seller.password = password;
+                    await seller.save();
+                }
+            }
+        }
 
         if (!isMatch) {
             return handleResponse(res, 401, "Invalid credentials");
@@ -542,8 +614,109 @@ export const checkSellerExists = async (req, res) => {
 
         const seller = await Seller.findOne({ $or: query }).select("_id").lean();
 
-        return handleResponse(res, 200, "Check completed", { exists: !!seller });
+        const userQuery = [];
+        if (email) userQuery.push({ email: email.toLowerCase() });
+        if (phone) {
+            const clean = phone.replace(/\D/g, "").slice(-10);
+            userQuery.push({ phone: { $in: [clean, `+91${clean}`, `91${clean}`] } });
+        }
+        const user = await User.findOne({ $or: userQuery }).select("_id").lean();
+
+        return handleResponse(res, 200, "Check completed", {
+            exists: !!seller,
+            userExists: !!user,
+        });
     } catch (error) {
         return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   SELLER ONBOARDING PAYMENT (Razorpay)
+================================ */
+export const createSellerOnboardingOrder = async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+        if (!email && !phone) {
+            return handleResponse(res, 400, "Email or phone is required");
+        }
+
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.vendorRegistrationFee ?? 1000);
+
+        if (feeAmount <= 0) {
+            return handleResponse(res, 200, "Onboarding fee is 0, payment not required", {
+                exempt: true,
+                amount: 0,
+            });
+        }
+
+        const { RazorpayAdapter } = await import("../services/payment/providers/razorpay.adapter.js");
+        const adapter = new RazorpayAdapter();
+        const merchantOrderId = `ONB_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+        const result = await adapter.initiatePayment({
+            merchantOrderId,
+            amountPaise: Math.round(feeAmount * 100),
+            redirectUrl: "",
+        });
+
+        return handleResponse(res, 200, "Onboarding order created", {
+            razorpayOrderId: result.gatewayResponse?.razorpayOrderId,
+            amount: feeAmount,
+            currency: "INR",
+            keyId: process.env.RAZORPAY_KEY_ID,
+            merchantOrderId,
+        });
+    } catch (error) {
+        console.error("Failed to create seller onboarding order:", error);
+        return handleResponse(res, 500, error.message || "Failed to initialize payment");
+    }
+};
+
+export const verifySellerOnboardingPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return handleResponse(res, 400, "Payment verification parameters missing");
+        }
+
+        const crypto = (await import("crypto")).default;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+        if (!keySecret) {
+            return handleResponse(res, 500, "Payment gateway secret not configured");
+        }
+
+        const expectedSignature = crypto
+            .createHmac("sha256", keySecret)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest("hex");
+
+        if (expectedSignature !== razorpay_signature) {
+            return handleResponse(res, 400, "Invalid payment signature");
+        }
+
+        const token = jwt.sign(
+            {
+                paid: true,
+                razorpayOrderId: razorpay_order_id,
+                razorpayPaymentId: razorpay_payment_id,
+                type: "onboarding_fee",
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "2h" }
+        );
+
+        return handleResponse(res, 200, "Payment verified successfully", {
+            verified: true,
+            paymentToken: token,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+        });
+    } catch (error) {
+        console.error("Payment verification failed:", error);
+        return handleResponse(res, 500, error.message || "Payment verification failed");
     }
 };

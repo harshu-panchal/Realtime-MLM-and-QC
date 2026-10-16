@@ -7,6 +7,9 @@ import {
     updateCustomerProfile,
     getCustomerTransactions,
     deleteCustomerAccount,
+    createCustomerSubscriptionOrder,
+    verifyCustomerSubscriptionPayment,
+    getCustomerSubscriptionStatus,
 } from "../controller/customerAuthController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import {
@@ -25,6 +28,11 @@ const smallAuthPayload = createContentLengthGuard(
 router.post("/send-signup-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, signupCustomer);
 router.post("/send-login-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, loginCustomer);
 router.post("/verify-otp", authRouteRateLimiter, otpRouteRateLimiter, smallAuthPayload, verifyCustomerOTP);
+
+// Weekly Subscription routes (Razorpay)
+router.post("/subscription/create-order", createCustomerSubscriptionOrder);
+router.post("/subscription/verify-payment", verifyCustomerSubscriptionPayment);
+router.get("/subscription/status", verifyToken, getCustomerSubscriptionStatus);
 
 // FCM push token registration
 router.post("/fcm-token", verifyToken, registerPushToken);

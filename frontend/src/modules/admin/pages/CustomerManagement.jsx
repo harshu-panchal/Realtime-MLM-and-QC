@@ -219,6 +219,8 @@ const CustomerManagement = () => {
                                 <th className="ds-table-header-cell">Customer</th>
                                 <th className="ds-table-header-cell">Activity</th>
                                 <th className="ds-table-header-cell">Total Spend</th>
+                                <th className="ds-table-header-cell">MLM Wallet</th>
+                                <th className="ds-table-header-cell">Subscription</th>
                                 <th className="ds-table-header-cell">Status</th>
                                 <th className="ds-table-header-cell text-right">Actions</th>
                             </tr>
@@ -226,7 +228,7 @@ const CustomerManagement = () => {
                         <tbody>
                             {!loading && filteredCustomers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-20 text-center">
+                                    <td colSpan="7" className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <div className="p-4 bg-gray-50 rounded-full">
                                                 <Users className="h-8 w-8 text-gray-300" />
@@ -271,6 +273,19 @@ const CustomerManagement = () => {
                                         </td>
                                         <td className="ds-table-cell ds-h4">
                                             ₹{(cust.totalSpent || 0).toLocaleString()}
+                                        </td>
+                                        <td className="ds-table-cell font-black text-emerald-600">
+                                            ₹{(cust.walletBalance || 0).toLocaleString()}
+                                        </td>
+                                        <td className="ds-table-cell">
+                                            <span className={cn(
+                                                "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                                                cust.weeklySubscription?.status === 'active'
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-amber-50 text-amber-700 border-amber-200"
+                                            )}>
+                                                {cust.weeklySubscription?.status === 'active' ? 'Active / Paid' : (cust.weeklySubscription?.status || 'None / Due')}
+                                            </span>
                                         </td>
                                         <td className="ds-table-cell">
                                             <Badge

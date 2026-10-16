@@ -78,6 +78,8 @@ const AdminSettings = () => {
         metaKeywords: '',
         keywords: [],
         returnDeliveryCommission: 0,
+        vendorRegistrationFee: 1000,
+        userWeeklySubscriptionFee: 50,
         lowStockAlertsEnabled: true,
         productApproval: {
             sellerCreateRequiresApproval: false,
@@ -478,6 +480,26 @@ const AdminSettings = () => {
                                         type="text"
                                         value={settings.currencySymbol}
                                         onChange={(e) => handleInputChange('currencySymbol', e.target.value)}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seller Onboarding / Registration Fee (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={settings.vendorRegistrationFee ?? 1000}
+                                        onChange={(e) => handleInputChange('vendorRegistrationFee', Number(e.target.value))}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Weekly Subscription Fee (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={settings.userWeeklySubscriptionFee ?? 50}
+                                        onChange={(e) => handleInputChange('userWeeklySubscriptionFee', Number(e.target.value))}
                                         className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
                                     />
                                 </div>

@@ -45,6 +45,11 @@ import {
   getFirebaseTrackingCleanupJobInterval,
   isFirebaseTrackingCleanupJobEnabled,
 } from "./app/jobs/firebaseTrackingCleanupJob.js";
+import {
+  getCustomerWeeklySubscriptionJobHandler,
+  getCustomerWeeklySubscriptionJobInterval,
+  isCustomerWeeklySubscriptionJobEnabled,
+} from "./app/jobs/customerWeeklySubscriptionJob.js";
 import logger from "./app/services/logger.js";
 import { stopScheduledJobs } from "./app/services/distributedScheduler.js";
 
@@ -366,6 +371,15 @@ async function startScheduler() {
       'firebaseTrackingCleanupJob',
       getFirebaseTrackingCleanupJobInterval(),
       getFirebaseTrackingCleanupJobHandler()
+    );
+  }
+
+  // Register customer weekly subscription check job (Saturday-to-Saturday cycle)
+  if (isCustomerWeeklySubscriptionJobEnabled()) {
+    registerScheduledJob(
+      'customerWeeklySubscriptionJob',
+      getCustomerWeeklySubscriptionJobInterval(),
+      getCustomerWeeklySubscriptionJobHandler()
     );
   }
 

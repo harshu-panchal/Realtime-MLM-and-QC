@@ -147,6 +147,22 @@ const userSchema = new mongoose.Schema(
             default: null,
             trim: true,
         },
+        weeklySubscription: {
+            status: {
+                type: String,
+                enum: ["none", "active", "due", "expired"],
+                default: "none",
+            },
+            amount: {
+                type: Number,
+                default: 0,
+            },
+            paidAt: Date,
+            expiresAt: Date, // Next Saturday 12:00 PM
+            razorpayOrderId: String,
+            razorpayPaymentId: String,
+            lastNotificationSentAt: Date,
+        },
     },
     {
         timestamps: true,

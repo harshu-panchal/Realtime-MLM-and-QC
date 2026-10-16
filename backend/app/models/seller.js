@@ -256,6 +256,26 @@ const sellerSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    onboardingPayment: {
+      status: {
+        type: String,
+        enum: ["pending", "completed", "exempt"],
+        default: "pending",
+      },
+      amount: {
+        type: Number,
+        default: 0,
+      },
+      razorpayOrderId: {
+        type: String,
+        trim: true,
+      },
+      razorpayPaymentId: {
+        type: String,
+        trim: true,
+      },
+      paidAt: Date,
+    },
   },
   { timestamps: true },
 );

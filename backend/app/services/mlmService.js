@@ -229,11 +229,18 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
       // Only credit Per-ID income if within Daily Cap
       if (alreadyCreditedToday + PER_ID_INCOME <= DAILY_CAP) {
         // 1. Give Per-ID Income (0.002) to currentNode
+        const normalizedOwnerType = currentNode.entityType === "User" ? "CUSTOMER" : (currentNode.entityType === "Delivery" ? "DELIVERY_PARTNER" : currentNode.entityType.toUpperCase());
         await Wallet.findOneAndUpdate(
-          { ownerType: currentNode.entityType.toUpperCase(), ownerId: currentNode.entityId },
+          { ownerType: normalizedOwnerType, ownerId: currentNode.entityId },
           { $inc: { availableBalance: PER_ID_INCOME, totalCredited: PER_ID_INCOME } },
           { upsert: true, new: true }
         );
+
+        if (currentNode.entityType === "User") {
+          await User.findByIdAndUpdate(currentNode.entityId, {
+            $inc: { walletBalance: PER_ID_INCOME }
+          }).catch(() => null);
+        }
 
         await Transaction.create({
           user: currentNode.entityId,

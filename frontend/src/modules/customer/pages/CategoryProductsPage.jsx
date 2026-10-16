@@ -40,7 +40,7 @@ const CategoryProductsPage = () => {
     useEffect(() => {
         import('@/assets/lottie/animation.json')
             .then((m) => setNoServiceData(m.default))
-            .catch(() => {});
+            .catch(() => { });
     }, []);
 
     const fetchData = async () => {
@@ -72,18 +72,18 @@ const CategoryProductsPage = () => {
                 const dbProds = Array.isArray(prodRes.data.results)
                     ? prodRes.data.results
                     : Array.isArray(rawResult?.items)
-                    ? rawResult.items
-                    : Array.isArray(rawResult)
-                    ? rawResult
-                    : [];
+                        ? rawResult.items
+                        : Array.isArray(rawResult)
+                            ? rawResult
+                            : [];
 
                 const formattedProds = dbProds.map(p => ({
                     ...p,
                     id: p._id,
                     image:
-                      p.mainImage ||
-                      p.image ||
-                      "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
+                        p.mainImage ||
+                        p.image ||
+                        "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
                     price: p.salePrice || p.price,
                     originalPrice: p.price,
                     weight: p.weight || "1 unit",
@@ -157,54 +157,54 @@ const CategoryProductsPage = () => {
             </header>
 
             {(safeProducts.length === 0 && !isLoading) ? (
-                    <div className="w-full flex-1 py-20 px-8 flex flex-col items-center justify-center text-center">
-                        <div className="w-64 h-64 mb-6">
-                            {noServiceData ? (
-                                <Lottie animationData={noServiceData} loop={true} />
-                            ) : (
-                                <div className="w-64 h-64" />
-                            )}
-                        </div>
-                        <h3 className="text-3xl font-[1000] text-slate-800 tracking-tighter mb-4 uppercase">
-                            Service <span className="text-primary">Unavailable</span>
-                        </h3>
-                        <p className="text-slate-500 font-bold text-sm max-w-[280px] mb-8 leading-relaxed">
-                            {settings?.appName || 'Our service'} is not available in your area yet. We're expanding fast!
-                        </p>
-                        <button 
-                            onClick={fetchData}
-                            className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-black/10"
-                        >
-                            Try Refreshing
-                        </button>
+                <div className="w-full flex-1 py-20 px-8 flex flex-col items-center justify-center text-center">
+                    <div className="w-64 h-64 mb-6">
+                        {noServiceData ? (
+                            <Lottie animationData={noServiceData} loop={true} />
+                        ) : (
+                            <div className="w-64 h-64" />
+                        )}
                     </div>
+                    <h3 className="text-3xl font-[1000] text-slate-800 tracking-tighter mb-4 uppercase">
+                        Service <span className="text-primary">Unavailable</span>
+                    </h3>
+                    <p className="text-slate-500 font-bold text-sm max-w-[280px] mb-8 leading-relaxed">
+                        {settings?.appName || 'Our service'} is not available in your area yet. We're expanding fast!
+                    </p>
+                    <button
+                        onClick={fetchData}
+                        className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-black/10"
+                    >
+                        Try Refreshing
+                    </button>
+                </div>
             ) : (
                 <div>
                     {/* Horizontal Tabs */}
                     <div className="sticky top-14 z-40 bg-white border-b border-gray-100 shadow-sm px-4 py-2.5 flex overflow-x-auto hide-scrollbar gap-3 w-full">
-                                {subCategories.map((cat) => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedSubCategory(cat.id)}
-                                        className={cn(
-                                            "flex items-center px-5 py-2 rounded-xl whitespace-nowrap font-bold text-sm transition-all duration-200",
-                                            selectedSubCategory === cat.id
-                                                ? "bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]"
-                                                : "bg-gray-100/80 text-gray-600 hover:bg-gray-200"
-                                        )}
-                                    >
-                                        {cat.name}
-                                    </button>
-                                ))}
-                            </div>
+                        {subCategories.map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setSelectedSubCategory(cat.id)}
+                                className={cn(
+                                    "flex items-center px-5 py-2 rounded-xl whitespace-nowrap font-bold text-sm transition-all duration-200",
+                                    selectedSubCategory === cat.id
+                                        ? "bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]"
+                                        : "bg-gray-100/80 text-gray-600 hover:bg-gray-200"
+                                )}
+                            >
+                                {cat.name}
+                            </button>
+                        ))}
+                    </div>
 
                     {/* Products Grid */}
                     <div className="px-3 pt-2 w-full space-y-2">
                         {filteredProducts.map((item) => (
-                            <ProductCard 
-                                key={item.id || item._id} 
-                                product={/** @type {any} */ (item)} 
-                                layout="list" 
+                            <ProductCard
+                                key={item.id || item._id}
+                                product={/** @type {any} */ (item)}
+                                layout="list"
                             />
                         ))}
                     </div>

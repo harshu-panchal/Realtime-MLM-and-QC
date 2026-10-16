@@ -254,6 +254,40 @@ const CustomerDetail = () => {
                     </Card>
 
                     <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Wallet & MLM Balance</p>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="text-2xl font-black text-emerald-600">₹{(customer.walletBalance || 0).toLocaleString()}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 mt-0.5">Available for shopping/withdrawal</p>
+                            </div>
+                            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                                <IndianRupee className="h-5 w-5" />
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Weekly Subscription</p>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <span className={cn(
+                                    "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
+                                    customer.weeklySubscription?.status === 'active'
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                )}>
+                                    {customer.weeklySubscription?.status === 'active' ? 'Active / Paid' : (customer.weeklySubscription?.status || 'None / Due')}
+                                </span>
+                                {customer.weeklySubscription?.expiresAt && (
+                                    <p className="text-[10px] font-semibold text-slate-400 mt-2">
+                                        Expires: {new Date(customer.weeklySubscription.expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Recent Activity</p>
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-amber-50 rounded-xl text-amber-500">

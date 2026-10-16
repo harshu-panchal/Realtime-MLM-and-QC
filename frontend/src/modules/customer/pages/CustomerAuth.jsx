@@ -3,15 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
-import { ChevronLeft, Globe, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Globe, ChevronDown, CheckCircle2, ShieldCheck, Calendar, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import DefaultLogo from '@/assets/DefaultLogo.svg';
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if (window.Razorpay) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 
 const CustomerAuth = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
+    const pendingSubData = (() => {
+        try {
+            const raw = sessionStorage.getItem('customer_pending_subscription');
+            return raw ? JSON.parse(raw) : null;
+        } catch {
+            return null;
+        }
+    })();
+
+    const [showSubscriptionStep, setShowSubscriptionStep] = useState(Boolean(pendingSubData));
+    const [authPayload, setAuthPayload] = useState(pendingSubData?.authPayload || null);
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+    const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
     const [timer, setTimer] = useState(0);
     const { login } = useAuth();
     const { settings } = useSettings();
@@ -21,10 +49,12 @@ const CustomerAuth = () => {
     const appName = settings?.appName || 'App';
     const navigate = useNavigate();
 
+    const weeklyFee = Number(settings?.userWeeklySubscriptionFee ?? 50);
+
     const [formData, setFormData] = useState({
-        phone: '',
+        phone: pendingSubData?.phone || '',
         otp: '',
-        name: '',
+        name: pendingSubData?.name || '',
         referralCode: new URLSearchParams(window.location.search).get('ref') || ''
     });
 
@@ -89,6 +119,23 @@ const CustomerAuth = () => {
         try {
             const response = await customerApi.verifyOtp({ phone: formData.phone, otp: formData.otp });
             const { token, customer } = response.data.result;
+
+            const sub = customer?.weeklySubscription || {};
+            const isSubActive = sub.status === 'active' && sub.expiresAt && new Date(sub.expiresAt) > new Date();
+
+            // Check if user needs subscription (if weekly fee > 0 and user has no active subscription)
+            if (weeklyFee > 0 && !isSubActive) {
+                setAuthPayload({ token, customer });
+                setShowSubscriptionStep(true);
+                sessionStorage.setItem('customer_pending_subscription', JSON.stringify({
+                    authPayload: { token, customer },
+                    phone: formData.phone,
+                    name: formData.name || customer?.name,
+                }));
+                toast.info('Please complete your weekly subscription to continue.');
+                return;
+            }
+
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
             navigate('/', { replace: true });
@@ -97,6 +144,101 @@ const CustomerAuth = () => {
             toast.error(apiMessage || t('invalidOtp'));
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleInitiateSubscriptionPayment = async () => {
+        setIsProcessingPayment(true);
+        try {
+            const isLoaded = await loadRazorpayScript();
+            if (!isLoaded) {
+                toast.error("Razorpay SDK failed to load. Please check your internet connection.");
+                return;
+            }
+
+            const res = await customerApi.createSubscriptionOrder({
+                phone: formData.phone,
+            });
+
+            if (res.data?.result?.exempt) {
+                finalizeSubscriptionSuccess(authPayload?.customer);
+                return;
+            }
+
+            const { razorpayOrderId, amount, currency, keyId } = res.data?.result || {};
+            if (!razorpayOrderId) {
+                throw new Error("Unable to create subscription order");
+            }
+
+            const options = {
+                key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
+                amount: Math.round(amount * 100),
+                currency: currency || "INR",
+                name: appName,
+                description: "Weekly Customer Subscription (Saturday-to-Saturday)",
+                order_id: razorpayOrderId,
+                prefill: {
+                    name: authPayload?.customer?.name || formData.name || "Customer",
+                    contact: formData.phone,
+                },
+                theme: {
+                    color: "#f97316",
+                },
+                handler: async (paymentResponse) => {
+                    try {
+                        const verifyRes = await customerApi.verifySubscriptionPayment({
+                            razorpay_order_id: paymentResponse.razorpay_order_id,
+                            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                            razorpay_signature: paymentResponse.razorpay_signature,
+                            phone: formData.phone,
+                            customerId: authPayload?.customer?._id,
+                        });
+
+                        const updatedCust = verifyRes.data?.result?.customer || authPayload?.customer;
+                        setIsPaymentCompleted(true);
+                        toast.success("Weekly subscription activated successfully!");
+                        setTimeout(() => {
+                            finalizeSubscriptionSuccess(updatedCust);
+                        }, 1200);
+                    } catch (verifyErr) {
+                        toast.error(verifyErr?.response?.data?.message || "Payment verification failed.");
+                    }
+                },
+                modal: {
+                    ondismiss: () => {
+                        setIsProcessingPayment(false);
+                    },
+                },
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.on("payment.failed", (response) => {
+                toast.error(response?.error?.description || "Payment failed");
+                setIsProcessingPayment(false);
+            });
+            rzp.open();
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message || "Failed to initiate payment");
+        } finally {
+            setIsProcessingPayment(false);
+        }
+    };
+
+    const finalizeSubscriptionSuccess = (updatedCustomer) => {
+        sessionStorage.removeItem('customer_pending_subscription');
+        if (authPayload) {
+            login({
+                ...authPayload.customer,
+                ...updatedCustomer,
+                weeklySubscription: {
+                    status: 'active',
+                    amount: weeklyFee,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                },
+                token: authPayload.token,
+                role: 'customer',
+            });
+            navigate('/', { replace: true });
         }
     };
 
@@ -175,7 +317,83 @@ const CustomerAuth = () => {
                     </div>
                 </div>
                 
-                {!showOtp ? (
+                {showSubscriptionStep ? (
+                    <>
+                        <div className="text-left mb-6">
+                            <div className="flex items-center gap-2 mb-1">
+                                <ShieldCheck className="text-[#f97316] h-6 w-6" />
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Step 2: Weekly Subscription
+                                </h2>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Saturday-to-Saturday cycle. Mandatory for account activation.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="p-4 bg-orange-50/60 border border-orange-200/80 rounded-2xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-gray-600">Weekly Access Fee</span>
+                                    <span className="text-lg font-black text-orange-600">₹{weeklyFee}</span>
+                                </div>
+                                <div className="text-[11px] text-gray-600 space-y-1.5 pt-2 border-t border-orange-200/60">
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                                        <span>Cycle: <b>Saturday to Saturday</b></span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                        <span>Cutoff: <b>Saturday 12:00 PM (Noon)</b></span>
+                                    </div>
+                                    <div className="text-[10px] text-gray-400 mt-1">
+                                        * Realtime notifications will alert you prior to expiry.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {isPaymentCompleted ? (
+                                <div className="py-4 text-center space-y-2 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto animate-bounce" />
+                                    <p className="text-xs font-bold text-emerald-700">Payment Verified! Redirecting...</p>
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    disabled={isProcessingPayment}
+                                    onClick={handleInitiateSubscriptionPayment}
+                                    className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-all shadow-md shadow-orange-500/20 active:scale-[0.98] disabled:opacity-70"
+                                >
+                                    {isProcessingPayment ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Opening Razorpay...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Pay ₹{weeklyFee} with Razorpay</span>
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
+                                    )}
+                                </button>
+                            )}
+
+                            <div className="text-center pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        sessionStorage.removeItem('customer_pending_subscription');
+                                        setShowSubscriptionStep(false);
+                                        setShowOtp(false);
+                                    }}
+                                    className="text-xs text-gray-400 hover:text-gray-600 underline"
+                                >
+                                    Cancel & back to login
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                ) : !showOtp ? (
                     <>
                         <div className="text-left mb-6">
                             <h2 className="text-xl font-bold text-gray-900">
@@ -324,7 +542,7 @@ const CustomerAuth = () => {
                 )}
 
                 {/* Legal Agreement Footer */}
-                {!showOtp && (
+                {!showOtp && !showSubscriptionStep && (
                     <div className="pt-8 flex flex-col items-center gap-1.5">
                         <p className="text-[11px] text-gray-400 text-center font-medium">
                             {t('agreeText')}
