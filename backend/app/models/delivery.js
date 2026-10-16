@@ -136,6 +136,18 @@ const deliverySchema = new mongoose.Schema(
             trim: true,
         },
 
+        onboardingPayment: {
+            status: {
+                type: String,
+                enum: ["pending", "completed", "exempt"],
+                default: "pending",
+            },
+            amount: { type: Number, default: 0 },
+            razorpayOrderId: { type: String, trim: true },
+            razorpayPaymentId: { type: String, trim: true },
+            paidAt: { type: Date },
+        },
+
     },
     {
         timestamps: true,

@@ -1,6 +1,10 @@
 import axiosInstance from "@core/api/axios";
 
 export const deliveryApi = {
+  createOnboardingOrder: (data) =>
+    axiosInstance.post("/delivery/onboarding/create-order", data),
+  verifyOnboardingPayment: (data) =>
+    axiosInstance.post("/delivery/onboarding/verify-payment", data),
   sendLoginOtp: (data) => axiosInstance.post("/delivery/send-login-otp", data),
   sendSignupOtp: (data) =>
     axiosInstance.post("/delivery/send-signup-otp", data),

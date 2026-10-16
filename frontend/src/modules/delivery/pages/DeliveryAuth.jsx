@@ -17,6 +17,8 @@ import {
   X,
   Camera,
   XCircle,
+  CreditCard,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Lottie from "lottie-react";
@@ -27,6 +29,20 @@ import { useSettings } from "@core/context/SettingsContext";
 import { toast } from "sonner";
 import DynamicLegalPage from "@/shared/components/DynamicLegalPage";
 import DefaultLogo from "@/assets/DefaultLogo.svg";
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 
 // Live Standard Input Validation Helpers
@@ -113,6 +129,8 @@ const DeliveryAuth = () => {
   const [hasClickedTerms, setHasClickedTerms] = useState(() => getSaved("hasClickedTerms", false));
   const [signupAgreed, setSignupAgreed] = useState(() => getSaved("signupAgreed", false));
   const [agreed, setAgreed] = useState(() => getSaved("agreed", false));
+  const [paymentToken, setPaymentToken] = useState(() => getSaved("paymentToken", ""));
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem("delivery_mode", JSON.stringify(mode));
@@ -134,10 +152,12 @@ const DeliveryAuth = () => {
     sessionStorage.setItem("delivery_hasClickedTerms", JSON.stringify(hasClickedTerms));
     sessionStorage.setItem("delivery_signupAgreed", JSON.stringify(signupAgreed));
     sessionStorage.setItem("delivery_agreed", JSON.stringify(agreed));
+    sessionStorage.setItem("delivery_paymentToken", JSON.stringify(paymentToken));
   }, [
     mode, step, loginPhone, signupStep, signupName, signupPhone, signupEmail, signupAddress,
     signupVehicle, signupVehicleNumber, signupDLNumber, signupPanNumber, signupAadharNumber,
-    signupAccountNumber, signupIfsc, signupAccountHolder, hasClickedTerms, signupAgreed, agreed
+    signupAccountNumber, signupIfsc, signupAccountHolder, hasClickedTerms, signupAgreed, agreed,
+    paymentToken
   ]);
   const [showVehicleDropdown, setShowVehicleDropdown] = useState(false);
   const [profileImageFile, setProfileImageFile] = useState(null);
@@ -153,7 +173,104 @@ const DeliveryAuth = () => {
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
 
-  // OCR States
+  // Handle Razorpay Payment for Delivery Partner Onboarding Fee
+  const handlePayOnboardingFee = async () => {
+    const fee = Number(settings?.riderRegistrationFee ?? 500);
+    if (fee <= 0) {
+      toast.success("Onboarding fee is free!");
+      setPaymentToken("exempt");
+      sessionStorage.setItem("delivery_paymentToken", JSON.stringify("exempt"));
+      return;
+    }
+
+    try {
+      setIsPaying(true);
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        toast.error("Razorpay SDK failed to load. Please check your internet connection.");
+        setIsPaying(false);
+        return;
+      }
+
+      const res = await deliveryApi.createOnboardingOrder({
+        phone: signupPhone,
+        name: signupName,
+        email: signupEmail,
+      });
+
+      if (res.data?.result?.exempt) {
+        setPaymentToken("exempt");
+        sessionStorage.setItem("delivery_paymentToken", JSON.stringify("exempt"));
+        toast.success("Onboarding fee is waived!");
+        setIsPaying(false);
+        return;
+      }
+
+      const { razorpayOrderId, amount, currency, keyId } = res.data?.result || {};
+
+      if (!razorpayOrderId) {
+        throw new Error("Order ID not received from payment gateway");
+      }
+
+      const options = {
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_b0PSRa7kNhbHj3",
+        amount: Math.round(amount * 100),
+        currency: currency || "INR",
+        name: appName || "Realtime",
+        description: "Delivery Partner Onboarding Registration Fee",
+        image: logoUrl || "",
+        order_id: razorpayOrderId,
+        prefill: {
+          name: signupName || "",
+          email: signupEmail || "",
+          contact: signupPhone || "",
+        },
+        theme: {
+          color: "#f97316",
+        },
+        handler: async (response) => {
+          try {
+            const verifyRes = await deliveryApi.verifyOnboardingPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            if (verifyRes.data?.result?.paymentToken) {
+              const token = verifyRes.data.result.paymentToken;
+              setPaymentToken(token);
+              sessionStorage.setItem("delivery_paymentToken", JSON.stringify(token));
+              toast.success("Payment successful! You can now proceed to register.");
+            } else {
+              toast.error("Payment verification failed. Please contact support.");
+            }
+          } catch (err) {
+            console.error("Verification error:", err);
+            toast.error(err.response?.data?.message || "Payment verification failed.");
+          } finally {
+            setIsPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaying(false);
+            toast.info("Payment was cancelled. Onboarding fee payment is required to proceed.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        setIsPaying(false);
+        toast.error(`Payment failed: ${response.error?.description || "Transaction declined"}`);
+      });
+      rzp.open();
+    } catch (err) {
+      console.error("Payment initialization error:", err);
+      toast.error(err.response?.data?.message || err.message || "Failed to start payment.");
+      setIsPaying(false);
+    }
+  };
 
   useEffect(() => {
     let interval;
@@ -174,6 +291,12 @@ const DeliveryAuth = () => {
         const res = await deliveryApi.sendLoginOtp({ phone: loginPhone });
         toast.success(res.data?.message || "OTP sent!");
       } else {
+        const fee = Number(settings?.riderRegistrationFee ?? 500);
+        if (fee > 0 && !paymentToken) {
+          toast.error("Please complete the Onboarding Fee payment through Razorpay to proceed.");
+          return;
+        }
+
         if (!signupName.trim()) { toast.error("Please enter your name"); return; }
         if (!signupPhone || signupPhone.length < 10) { toast.error("Please enter a valid 10-digit phone number"); return; }
         if (!profileImageFile) { toast.error("Please upload your profile photo"); return; }
@@ -189,6 +312,7 @@ const DeliveryAuth = () => {
         formData.append("accountHolder", signupAccountHolder);
         formData.append("accountNumber", signupAccountNumber);
         formData.append("ifsc", signupIfsc);
+        if (paymentToken) formData.append("paymentToken", paymentToken);
 
         if (profileImageFile) formData.append("profileImage", profileImageFile);
         if (aadharFile) formData.append("aadhar", aadharFile);
@@ -270,6 +394,8 @@ const DeliveryAuth = () => {
     setHasClickedTerms(false);
     setProfileImageFile(null);
     setProfileImagePreview("");
+    setPaymentToken("");
+    sessionStorage.removeItem("delivery_paymentToken");
   };
 
   const slideVariants = {
@@ -999,6 +1125,65 @@ const DeliveryAuth = () => {
                           </p>
                         </div>
 
+                        {/* Dynamic Onboarding Fee Notice & Razorpay Pay Button */}
+                        <div className="p-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50/80 to-orange-50/60 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100/90 px-2 py-0.5 rounded-full inline-block">
+                                Partner Onboarding Fee
+                              </span>
+                              <p className="text-xs text-gray-600 font-semibold pt-1">
+                                {paymentToken ? "Payment verified successfully" : "Mandatory registration fee to proceed"}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xl font-black text-gray-900">
+                                ₹{settings?.riderRegistrationFee ?? 500}
+                              </span>
+                              <p className="text-[10px] text-gray-500 font-medium">One-time registration</p>
+                            </div>
+                          </div>
+
+                          {/* Payment Action / Status */}
+                          <div className="pt-2 border-t border-amber-200/60">
+                            {paymentToken ? (
+                              <div className="w-full flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+                                <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                                  <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                                  Payment Completed (Razorpay)
+                                </span>
+                                <span className="text-[10px] uppercase font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                                  PAID
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                                <p className="text-[11px] text-amber-800 font-bold">
+                                  Complete payment to enable registration
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handlePayOnboardingFee}
+                                  disabled={isPaying}
+                                  className="px-4 py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                                >
+                                  {isPaying ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      <span>Opening Razorpay...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CreditCard className="w-4 h-4 text-emerald-400" />
+                                      <span>Pay ₹{settings?.riderRegistrationFee ?? 500}</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         <div className="flex gap-3">
                           <button
                             onClick={() => setSignupStep(3)}
@@ -1008,7 +1193,13 @@ const DeliveryAuth = () => {
                           </button>
                           <button
                             onClick={handleSendOtp}
-                            disabled={loading || (signupVehicle !== "cycle" && !dlFile) || !panFile || !aadharFile}
+                            disabled={
+                              loading ||
+                              (signupVehicle !== "cycle" && !dlFile) ||
+                              !panFile ||
+                              !aadharFile ||
+                              (Number(settings?.riderRegistrationFee ?? 500) > 0 && !paymentToken)
+                            }
                             className="flex-[2] mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {loading ? (

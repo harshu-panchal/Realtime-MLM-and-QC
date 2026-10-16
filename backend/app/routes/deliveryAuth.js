@@ -6,6 +6,8 @@ import {
   getDeliveryProfile,
   updateDeliveryProfile,
   deleteDeliveryAccount,
+  createDeliveryOnboardingOrder,
+  verifyDeliveryOnboardingPayment,
 } from "../controller/deliveryAuthController.js";
 import {
   getDeliveryStats,
@@ -27,6 +29,10 @@ import multer from "multer";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Onboarding Fee Payment Routes
+router.post("/onboarding/create-order", createDeliveryOnboardingOrder);
+router.post("/onboarding/verify-payment", verifyDeliveryOnboardingPayment);
 
 router.post(
   "/send-signup-otp",

@@ -503,6 +503,16 @@ const AdminSettings = () => {
                                         className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
                                     />
                                 </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rider / Delivery Boy Onboarding Fee (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={settings.riderRegistrationFee ?? 500}
+                                        onChange={(e) => handleInputChange('riderRegistrationFee', Number(e.target.value))}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
                                 <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
                                     <div>
                                         <p className="text-sm font-black text-slate-900">Auto Low Stock Alerts</p>

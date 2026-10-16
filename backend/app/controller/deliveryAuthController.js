@@ -74,6 +74,41 @@ export const signupDelivery = async (req, res) => {
         if (/^https?:\/\//i.test(normalizedDl)) dlUrl = normalizedDl;
         if (/^https?:\/\//i.test(normalizedProfileImage)) profileImageUrl = normalizedProfileImage;
 
+        // Dynamic Rider Onboarding Registration Fee Enforcement
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.riderRegistrationFee ?? 500);
+        let onboardingPaymentInfo = { status: "exempt", amount: 0 };
+
+        if (feeAmount > 0) {
+            const { paymentToken } = req.body;
+            if (!paymentToken) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Rider onboarding fee payment is mandatory. Please complete payment through Razorpay."
+                );
+            }
+            try {
+                const decoded = jwt.verify(paymentToken, process.env.JWT_SECRET);
+                if (!decoded.paid || decoded.type !== "delivery_onboarding_fee") {
+                    throw new Error("Invalid payment token payload");
+                }
+                onboardingPaymentInfo = {
+                    status: "completed",
+                    amount: feeAmount,
+                    razorpayOrderId: decoded.razorpayOrderId,
+                    razorpayPaymentId: decoded.razorpayPaymentId,
+                    paidAt: new Date(),
+                };
+            } catch (err) {
+                return handleResponse(
+                    res,
+                    400,
+                    "Payment verification failed or expired. Please complete payment again."
+                );
+            }
+        }
+
         const deliveryData = {
             name,
             phone,
@@ -91,6 +126,7 @@ export const signupDelivery = async (req, res) => {
                 pan: panUrl,
                 drivingLicense: dlUrl,
             },
+            onboardingPayment: onboardingPaymentInfo,
             otp,
             otpExpiry: Date.now() + 5 * 60 * 1000,
         };
@@ -371,6 +407,96 @@ export const deleteDeliveryAccount = async (req, res) => {
         return handleResponse(res, 200, "Account deleted successfully");
     } catch (error) {
         return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   DELIVERY ONBOARDING PAYMENT (Razorpay)
+================================ */
+export const createDeliveryOnboardingOrder = async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) {
+            return handleResponse(res, 400, "Phone number is required");
+        }
+
+        const setting = await Setting.findOne().lean();
+        const feeAmount = Number(setting?.riderRegistrationFee ?? 500);
+
+        if (feeAmount <= 0) {
+            return handleResponse(res, 200, "Onboarding fee is 0, payment not required", {
+                exempt: true,
+                amount: 0,
+            });
+        }
+
+        const { RazorpayAdapter } = await import("../services/payment/providers/razorpay.adapter.js");
+        const adapter = new RazorpayAdapter();
+        const merchantOrderId = `RDR_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+        const result = await adapter.initiatePayment({
+            merchantOrderId,
+            amountPaise: Math.round(feeAmount * 100),
+            redirectUrl: "",
+        });
+
+        return handleResponse(res, 200, "Onboarding order created", {
+            razorpayOrderId: result.gatewayResponse?.razorpayOrderId,
+            amount: feeAmount,
+            currency: "INR",
+            keyId: process.env.RAZORPAY_KEY_ID,
+            merchantOrderId,
+        });
+    } catch (error) {
+        console.error("Failed to create delivery onboarding order:", error);
+        return handleResponse(res, 500, error.message || "Failed to initialize payment");
+    }
+};
+
+export const verifyDeliveryOnboardingPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return handleResponse(res, 400, "Payment verification parameters missing");
+        }
+
+        const crypto = (await import("crypto")).default;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+        if (!keySecret) {
+            return handleResponse(res, 500, "Payment gateway secret not configured");
+        }
+
+        const expectedSignature = crypto
+            .createHmac("sha256", keySecret)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+            .digest("hex");
+
+        if (expectedSignature !== razorpay_signature) {
+            return handleResponse(res, 400, "Invalid payment signature");
+        }
+
+        const token = jwt.sign(
+            {
+                paid: true,
+                razorpayOrderId: razorpay_order_id,
+                razorpayPaymentId: razorpay_payment_id,
+                type: "delivery_onboarding_fee",
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "2h" }
+        );
+
+        return handleResponse(res, 200, "Payment verified successfully", {
+            verified: true,
+            paymentToken: token,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+        });
+    } catch (error) {
+        console.error("Payment verification failed:", error);
+        return handleResponse(res, 500, error.message || "Payment verification failed");
     }
 };
 
