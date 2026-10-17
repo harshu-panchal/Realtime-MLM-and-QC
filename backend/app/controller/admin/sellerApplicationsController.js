@@ -34,11 +34,12 @@ export const getPendingSellers = async (req, res) => {
 export const approveSellerApplication = async (req, res) => {
   try {
     const { id } = req.params;
-    const { commissionValue } = req.body || {};
+    const { commissionValue, dailySubscriptionFee } = req.body || {};
     const seller = await approveSellerApplicationById({
       sellerId: id,
       reviewedBy: req.user.id,
       commissionValue,
+      dailySubscriptionFee,
     });
 
     if (!seller) {

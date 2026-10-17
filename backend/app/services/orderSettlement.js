@@ -1,4 +1,5 @@
 import Transaction from "../models/transaction.js";
+import Seller from "../models/seller.js";
 import {
   handleCodOrderFinance,
   settleDeliveredOrder,
@@ -87,6 +88,7 @@ export async function applyDeliveredSettlement(order, orderIdString) {
     }
 
     if (settled.seller) {
+      // 1. Process Order MLM Commission
       processBinaryCommission({
         entityId: settled.seller,
         entityType: "Seller",
@@ -95,6 +97,47 @@ export async function applyDeliveredSettlement(order, orderIdString) {
         orderId: order._id,
         remarks: `Order #${order.orderId || order._id} Seller Commission`,
       }).catch((e) => console.error("Error triggering Seller MLM commission:", e));
+
+      // 2. Check and Apply Seller Daily Subscription Fee on Order Arrival (Only if order comes and fee > 0)
+      (async () => {
+        try {
+          const sellerDoc = await Seller.findById(settled.seller).select("dailySubscriptionFee name shopName");
+          const dailyFee = Number(sellerDoc?.dailySubscriptionFee || 0);
+          if (dailyFee > 0) {
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const alreadyDeducted = await Transaction.findOne({
+              user: settled.seller,
+              userModel: "Seller",
+              type: "Seller Daily Subscription",
+              createdAt: { $gte: startOfDay },
+            });
+
+            if (!alreadyDeducted) {
+              await Transaction.create({
+                user: settled.seller,
+                userModel: "Seller",
+                type: "Seller Daily Subscription",
+                amount: dailyFee,
+                status: "Settled",
+                reference: `SLR-SUB-${settled.seller}-${startOfDay.toISOString().split("T")[0]}`,
+                meta: { note: "Daily subscription applied on first order of the day", orderId: order._id },
+              });
+
+              await processBinaryCommission({
+                entityId: settled.seller,
+                entityType: "Seller",
+                source: "Vendor Subscription Fee",
+                amount: dailyFee,
+                orderId: order._id,
+                remarks: `Seller ${sellerDoc.shopName || sellerDoc.name} Daily Subscription Fee ₹${dailyFee} on Order arrival`,
+              });
+            }
+          }
+        } catch (subErr) {
+          console.error("Error applying seller daily subscription fee:", subErr);
+        }
+      })();
     }
 
     if (settled.deliveryBoy) {

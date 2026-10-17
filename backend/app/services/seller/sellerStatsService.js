@@ -25,6 +25,7 @@ import mongoose from "mongoose";
 
 import Order from "../../models/order.js";
 import Product from "../../models/product.js";
+import Seller from "../../models/seller.js";
 import { buildKey, getOrSet, getTTL } from "../cacheService.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -327,6 +328,8 @@ async function computeSellerStats(sellerOid, range) {
   const devicePerc =
     totalOrders > 0 ? Math.round((topDeviceCount / totalOrders) * 100) : 0;
 
+  const sellerDoc = await Seller.findById(sellerOid).select("commissionValue dailySubscriptionFee").lean();
+
   return {
     overview: {
       totalSales: `₹${totalSales.toLocaleString()}`,
@@ -335,6 +338,8 @@ async function computeSellerStats(sellerOid, range) {
       conversionRate: totalOrders > 0 ? "4.2%" : "0%",
       salesTrend: `${salesTrendPerc > 0 ? "+" : ""}${salesTrendPerc}%`,
       ordersTrend: `${ordersTrendPerc > 0 ? "+" : ""}${ordersTrendPerc}%`,
+      commissionRate: sellerDoc?.commissionValue != null ? `${sellerDoc.commissionValue}%` : "0%",
+      dailySubscriptionFee: sellerDoc?.dailySubscriptionFee != null ? `₹${sellerDoc.dailySubscriptionFee}` : "₹0",
     },
     salesTrend: chartData,
     categoryMix: categoryData,

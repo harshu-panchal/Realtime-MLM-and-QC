@@ -99,8 +99,9 @@ export async function approveSellerApplicationById({
   sellerId,
   reviewedBy,
   commissionValue,
+  dailySubscriptionFee,
 }) {
-  const existing = await Seller.findById(sellerId).select("commissionValue");
+  const existing = await Seller.findById(sellerId).select("commissionValue dailySubscriptionFee");
   if (!existing) {
     return null;
   }
@@ -120,6 +121,10 @@ export async function approveSellerApplicationById({
     error.statusCode = 400;
     throw error;
   }
+
+  const parsedDailyFee = dailySubscriptionFee !== undefined && dailySubscriptionFee !== null && dailySubscriptionFee !== ""
+    ? Math.max(0, Number(dailySubscriptionFee) || 0)
+    : (existing.dailySubscriptionFee || 0);
 
   const commissionSet = hasIncomingCommission
     ? {
@@ -141,6 +146,7 @@ export async function approveSellerApplicationById({
         reviewedAt: new Date(),
         reviewedBy,
         rejectionReason: null,
+        dailySubscriptionFee: parsedDailyFee,
         ...commissionSet,
       },
     },

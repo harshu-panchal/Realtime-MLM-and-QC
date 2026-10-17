@@ -345,7 +345,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     const customerSubs = await Customer.find({
       $or: [
         { "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay } },
-        { 
+        {
           "weeklySubscription.status": "active",
           updatedAt: { $gte: startOfDay, $lte: endOfDay }
         }

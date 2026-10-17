@@ -93,6 +93,7 @@ export function formatSellerApplication(seller) {
     documentFiles,
     commissionType: seller.commissionType ?? null,
     commissionValue: seller.commissionValue ?? null,
+    dailySubscriptionFee: seller.dailySubscriptionFee ?? 0,
     location: seller.address || "Not provided",
     description: seller.description || "No application note provided.",
     verificationScore: docs.length

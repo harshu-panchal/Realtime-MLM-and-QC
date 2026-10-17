@@ -193,6 +193,13 @@ const sellerSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Daily subscription fee set individually by admin during review/approval
+    dailySubscriptionFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     location: {
       type: {
         type: String,

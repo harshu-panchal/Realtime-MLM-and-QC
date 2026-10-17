@@ -42,10 +42,12 @@ const PendingSellers = () => {
     const [viewingSeller, setViewingSeller] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [commissionInput, setCommissionInput] = useState('');
+    const [dailySubscriptionInput, setDailySubscriptionInput] = useState('');
 
     const openReviewModal = (seller) => {
         setViewingSeller(seller);
         setCommissionInput(seller?.commissionValue != null ? String(seller.commissionValue) : '');
+        setDailySubscriptionInput(seller?.dailySubscriptionFee != null ? String(seller.dailySubscriptionFee) : '0');
         setIsReviewModalOpen(true);
     };
 
@@ -116,12 +118,14 @@ const PendingSellers = () => {
             toast.error('Enter a commission rate between 0 and 100 before approving');
             return;
         }
+        const dailySubscriptionFee = Math.max(0, parseFloat(dailySubscriptionInput) || 0);
         setIsProcessing(true);
         try {
-            await adminApi.approveSeller(id, { commissionValue });
+            await adminApi.approveSeller(id, { commissionValue, dailySubscriptionFee });
             setIsReviewModalOpen(false);
             setViewingSeller(null);
             setCommissionInput('');
+            setDailySubscriptionInput('');
             toast.success('Seller approved successfully');
             await fetchPendingSellers();
         } catch (error) {
@@ -516,23 +520,46 @@ const PendingSellers = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="bg-slate-50 rounded-xl p-6 border border-slate-100">
-                                                <label className="text-xs font-bold text-slate-900 block mb-1">
-                                                    Commission Rate (%)
-                                                </label>
-                                                <p className="text-[10px] text-slate-500 font-medium mb-3">
-                                                    Required before approval — this is the % of every sale this seller pays the platform.
-                                                </p>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.1"
-                                                    value={commissionInput}
-                                                    onChange={(e) => setCommissionInput(e.target.value)}
-                                                    placeholder="e.g. 10"
-                                                    className="w-full max-w-[160px] px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/30"
-                                                />
+                                            <div className="bg-slate-50 rounded-xl p-6 border border-slate-100 space-y-4">
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-900 block mb-1">
+                                                        Commission Rate (%)
+                                                    </label>
+                                                    <p className="text-[10px] text-slate-500 font-medium mb-2">
+                                                        Required before approval — this is the % of every sale this seller pays the platform.
+                                                    </p>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.1"
+                                                        value={commissionInput}
+                                                        onChange={(e) => setCommissionInput(e.target.value)}
+                                                        placeholder="e.g. 10"
+                                                        className="w-full max-w-[180px] px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/30 bg-white"
+                                                    />
+                                                </div>
+
+                                                <div className="pt-3 border-t border-slate-200">
+                                                    <label className="text-xs font-bold text-slate-900 block mb-1">
+                                                        Seller Daily Subscription Fee (₹)
+                                                    </label>
+                                                    <p className="text-[10px] text-slate-500 font-medium mb-2">
+                                                        Seller-specific daily charge. Applied only on days when seller receives orders (deducted on first order of the day). Set 0 for free.
+                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-bold text-slate-600">₹</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            value={dailySubscriptionInput}
+                                                            onChange={(e) => setDailySubscriptionInput(e.target.value)}
+                                                            placeholder="e.g. 20"
+                                                            className="w-full max-w-[180px] px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/30 bg-white"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             {/* Action Bar */}

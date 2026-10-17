@@ -326,8 +326,14 @@ const Dashboard = () => {
               </span>
             </div>
 
-            <div className="flex items-center text-[10px] font-bold text-[#ffb74d] mb-6">
-              <Flame size={12} className="mr-1 fill-[#ffb74d]" /> 5% more than yesterday
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="flex items-center text-[10px] font-bold text-[#ffb74d]">
+                <Flame size={12} className="mr-1 fill-[#ffb74d]" /> 5% more than yesterday
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-[10px] font-bold text-white">
+                <span className="opacity-80">Daily Plan:</span>
+                <span className="text-emerald-300 font-extrabold">₹{Number(settings?.riderDailySubscriptionFee ?? 0)}/day</span>
+              </div>
             </div>
 
             <button
