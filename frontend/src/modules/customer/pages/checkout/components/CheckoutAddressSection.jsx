@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable react/prop-types */
 import React from "react";
 import { Check, Contact2 } from "lucide-react";

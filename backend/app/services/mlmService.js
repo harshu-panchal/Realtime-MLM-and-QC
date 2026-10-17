@@ -2,6 +2,7 @@ import MlmTree from "../models/mlmTree.js";
 import MlmCommissionLog from "../models/mlmCommissionLog.js";
 import Setting from "../models/setting.js";
 import User from "../models/customer.js";
+const Customer = User;
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import Wallet from "../models/wallet.js";
@@ -291,6 +292,10 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
           entityId: currentNode.entityId,
           entityType: currentNode.entityType,
           sourceOrderId: orderId,
+          source: source || "General",
+          section: "B",
+          generatedIds: pairs,
+          unitValue: PAIR_VALUE,
           remarks: remarks || `Matched ${pairs} pairs (${pairAmount}) sent to Admin Wallet for source: ${source}`,
         });
       }
@@ -308,3 +313,157 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
     throw error;
   }
 };
+
+/**
+ * Calculates MLM Daily Inflow Pool (User subscriptions + Vendor Onboarding + Rider Subscriptions)
+ * and returns:
+ * - Total Inflow Collection
+ * - Divisor (3.60 pair value)
+ * - Total Generated IDs (e.g. 413 / 3.60 = 114.72)
+ * - Section B: Generated IDs (Entities whose pairs were generated)
+ * - Section A: Pending IDs (Entities whose pairs are still waiting / unmatched balance)
+ */
+export const getPoolAndSectionsOverview = async (queryDate = null) => {
+  try {
+    const setting = (await Setting.findOne().lean()) || {};
+    const PAIR_VALUE = Number(setting.mlmPairValue ?? 3.60);
+
+    const now = queryDate ? new Date(queryDate) : new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    // 1. Calculate Collections from Transaction and Subscription logs for the day
+    // A: Customer Weekly Subscriptions
+    const customerSubs = await Customer.find({
+      "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay },
+    }).select("name phone weeklySubscription");
+    const totalCustomerSubAmount = customerSubs.reduce(
+      (sum, c) => sum + (Number(c.weeklySubscription?.amount) || 0),
+      0
+    );
+
+    // B: Vendor Onboarding Fees
+    const vendorLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      source: "Vendor Registration Fee",
+    });
+    const totalVendorFeeAmount = vendorLogs.reduce(
+      (sum, v) => sum + (Number(v.requestedAmount) || 0),
+      0
+    );
+
+    // C: Rider Subscriptions / Fees
+    const riderLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      source: "Rider Registration Fee",
+    });
+    const totalRiderFeeAmount = riderLogs.reduce(
+      (sum, r) => sum + (Number(r.requestedAmount) || 0),
+      0
+    );
+
+    // D: Order Commissions & other sources
+    const orderLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      source: { $nin: ["Vendor Registration Fee", "Rider Registration Fee"] },
+    });
+    const totalOrderCommissionAmount = orderLogs.reduce(
+      (sum, o) => sum + (Number(o.requestedAmount) || 0),
+      0
+    );
+
+    const grandTotalInflow =
+      totalCustomerSubAmount +
+      totalVendorFeeAmount +
+      totalRiderFeeAmount +
+      totalOrderCommissionAmount;
+
+    // Formula: Total Inflow / 3.60 = Total Generated IDs
+    const totalGeneratedPoolIds = grandTotalInflow > 0
+      ? Number((grandTotalInflow / PAIR_VALUE).toFixed(2))
+      : 0;
+
+    // 2. Fetch Section B: Nodes with Generated IDs / Completed Pairs
+    const completedCommissionLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      section: "B",
+    })
+      .populate("entityId", "name phone shopName vehicleType")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const sectionB = completedCommissionLogs.map((log) => ({
+      id: log._id,
+      entityId: log.entityId?._id || log.entityId,
+      name: log.entityId?.name || log.entityId?.shopName || "Participant",
+      phone: log.entityId?.phone || "-",
+      entityType: log.entityType,
+      source: log.source,
+      requestedAmount: log.requestedAmount,
+      creditedAmount: log.creditedAmount,
+      generatedIds: log.generatedIds || (log.creditedAmount > 0 ? Math.floor(log.creditedAmount / PAIR_VALUE) : 0),
+      unitValue: log.unitValue || PAIR_VALUE,
+      status: "ID Generated (Section B)",
+      date: log.date,
+      remarks: log.remarks,
+    }));
+
+    // 3. Fetch Section A: Nodes with Pending Balance (ID not generated yet)
+    // Left/Right balance waiting for pair completion
+    const pendingNodes = await MlmTree.find({
+      $or: [
+        { leftBalance: { $gt: 0 } },
+        { rightBalance: { $gt: 0 } },
+      ],
+    })
+      .populate("entityId", "name phone shopName vehicleType")
+      .lean();
+
+    const sectionA = pendingNodes.map((node) => {
+      const pendingVolume = Math.abs(node.leftBalance - node.rightBalance);
+      const matchedPotential = Math.min(node.leftBalance, node.rightBalance);
+      return {
+        id: node._id,
+        entityId: node.entityId?._id || node.entityId,
+        name: node.entityId?.name || node.entityId?.shopName || "Tree Participant",
+        phone: node.entityId?.phone || "-",
+        entityType: node.entityType,
+        leftBalance: node.leftBalance,
+        rightBalance: node.rightBalance,
+        unmatchedBalance: pendingVolume,
+        potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
+        status: "Pending Match (Section A)",
+        level: node.level,
+        position: node.position,
+      };
+    });
+
+    return {
+      poolSummary: {
+        date: startOfDay.toISOString().split("T")[0],
+        totalCustomerSubAmount,
+        totalVendorFeeAmount,
+        totalRiderFeeAmount,
+        totalOrderCommissionAmount,
+        grandTotalInflow,
+        pairValue: PAIR_VALUE,
+        totalGeneratedPoolIds,
+        integerIds: Math.floor(totalGeneratedPoolIds),
+      },
+      sectionA: {
+        title: "Section A - Pending (ID Not Generated / Waiting Balance)",
+        count: sectionA.length,
+        items: sectionA,
+      },
+      sectionB: {
+        title: "Section B - Completed (ID Generated & Credited)",
+        count: sectionB.length,
+        items: sectionB,
+      },
+    };
+  } catch (error) {
+    console.error("Error in getPoolAndSectionsOverview:", error);
+    throw error;
+  }
+};
+

@@ -4,6 +4,7 @@ import {
   processBinaryCommission,
   getUserCapStatus,
   getTreeStructure,
+  getPoolAndSectionsOverview,
 } from "../services/mlmService.js";
 import MlmCommissionLog from "../models/mlmCommissionLog.js";
 import Setting from "../models/setting.js";
@@ -108,6 +109,20 @@ export const updateDailyCapSetting = async (req, res) => {
 
     const setting = await Setting.findOneAndUpdate({}, { $set: update }, { new: true, upsert: true });
     return handleResponse(res, 200, "MLM Commission settings updated successfully", setting);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   GET MLM POOL & SECTIONS (A & B) OVERVIEW
+   Total Inflow / 3.60 = Generated IDs
+================================ */
+export const getMlmOverview = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const overview = await getPoolAndSectionsOverview(date);
+    return handleResponse(res, 200, "MLM Pool and Sections overview fetched successfully", overview);
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

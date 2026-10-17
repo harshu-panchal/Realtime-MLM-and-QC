@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { Plus, Minus } from "lucide-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";

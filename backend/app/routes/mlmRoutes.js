@@ -5,9 +5,13 @@ import {
   getCapStatus,
   getCommissionLogs,
   updateDailyCapSetting,
+  getMlmOverview,
 } from "../controller/mlmController.js";
 
 const router = express.Router();
+
+// Get Daily MLM Inflow Pool & Section A / Section B Breakdown
+router.get("/overview", getMlmOverview);
 
 // Get Binary Tree structure (Root or by entityId)
 router.get("/tree", getTree);

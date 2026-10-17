@@ -44,6 +44,23 @@ const mlmCommissionLogSchema = new mongoose.Schema(
       ref: "Order",
       default: null,
     },
+    source: {
+      type: String,
+      default: "General",
+    },
+    section: {
+      type: String,
+      enum: ["A", "B"],
+      default: "B",
+    },
+    generatedIds: {
+      type: Number,
+      default: 0,
+    },
+    unitValue: {
+      type: Number,
+      default: 3.60,
+    },
     remarks: {
       type: String,
       default: "",

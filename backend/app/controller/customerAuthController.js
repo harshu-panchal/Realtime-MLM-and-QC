@@ -3,6 +3,7 @@ import Setting from "../models/setting.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
+import { placeInTree, processBinaryCommission } from "../services/mlmService.js";
 import {
     issueCustomerOtp,
     sanitizeCustomer,
@@ -127,7 +128,24 @@ export const getCustomerProfile = async (req, res) => {
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
-        return handleResponse(res, 200, "Profile fetched successfully", customer);
+
+        const mlmNode = await (await import("../models/mlmTree.js")).default.findOne({
+            entityId: customer._id,
+            entityType: "User",
+        }).lean();
+
+        const profileData = customer.toObject();
+        profileData.mlmInfo = {
+            totalEarning: mlmNode?.totalEarning || 0,
+            weeklyAccumulatedIncome: mlmNode?.weeklyAccumulatedIncome || 0,
+            leftBalance: mlmNode?.leftBalance || 0,
+            rightBalance: mlmNode?.rightBalance || 0,
+            position: mlmNode?.position || "none",
+            level: mlmNode?.level || 0,
+            hasTreeId: Boolean(mlmNode),
+        };
+
+        return handleResponse(res, 200, "Profile fetched successfully", profileData);
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }
@@ -349,6 +367,24 @@ export const verifyCustomerSubscriptionPayment = async (req, res) => {
                 lastNotificationSentAt: null,
             };
             await customer.save();
+
+            // Trigger MLM Placement & Commission for Customer Weekly Subscription
+            try {
+                await placeInTree({
+                    entityId: customer._id,
+                    entityType: "User",
+                    sponsorId: customer.referralCode || null,
+                });
+                await processBinaryCommission({
+                    entityId: customer._id,
+                    entityType: "User",
+                    source: "User Weekly Subscription",
+                    amount: feeAmount,
+                    remarks: `Customer ${customer.phone} Weekly Subscription Payment ₹${feeAmount}`,
+                });
+            } catch (mlmErr) {
+                console.error("Failed to process MLM for customer subscription:", mlmErr);
+            }
         }
 
         const paymentToken = jwt.sign(

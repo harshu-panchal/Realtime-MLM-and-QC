@@ -20,6 +20,7 @@ const WalletPage = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
     const [balance, setBalance] = useState(0);
+    const [mlmInfo, setMlmInfo] = useState({ totalEarning: 0, weeklyAccumulatedIncome: 0, hasTreeId: false });
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -35,6 +36,9 @@ const WalletPage = () => {
                 const rawOrders = ordersRes.data?.results ?? ordersRes.data?.result ?? [];
                 const orders = Array.isArray(rawOrders) ? rawOrders : [];
                 setBalance(profile?.walletBalance ?? 0);
+                if (profile?.mlmInfo) {
+                    setMlmInfo(profile.mlmInfo);
+                }
                 // Only orders purchased using wallet
                 const walletOrders = orders.filter(
                     (o) => (o.payment?.method || '').toLowerCase() === 'wallet'
@@ -79,7 +83,7 @@ const WalletPage = () => {
                         <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-1.5 leading-none tracking-tight">
                             {loading ? '...' : `₹${(balance || 0).toFixed(2)}`}
                         </h2>
-                        <p className="text-xs font-bold text-slate-400 mt-1.5 leading-none">Wallet Balance</p>
+                        <p className="text-xs font-bold text-slate-400 mt-1.5 leading-none">Available Payable Balance</p>
                         
                         <button 
                             onClick={() => showToast("Add Money feature coming soon!", "info")}
@@ -97,6 +101,32 @@ const WalletPage = () => {
                             alt="Wallet Illustration" 
                             className="w-full h-full object-contain"
                         />
+                    </div>
+                </div>
+
+                {/* MLM Earnings Breakdown Card */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 rounded-3xl border border-amber-100 p-5 shadow-xs">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">🌿</span>
+                            <h3 className="font-bold text-slate-800 text-sm">MLM Income & Tree Status</h3>
+                        </div>
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${mlmInfo.hasTreeId ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                            {mlmInfo.hasTreeId ? 'Active Member' : 'Pending Placement'}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-amber-100/80">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">MLM Total Earnings</p>
+                            <p className="text-lg font-black text-slate-900 mt-0.5">₹{(mlmInfo.totalEarning || 0).toFixed(2)}</p>
+                            <p className="text-[9px] text-slate-400 font-medium">From binary pairs & tree</p>
+                        </div>
+                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-amber-100/80">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">Weekly Income</p>
+                            <p className="text-lg font-black text-amber-700 mt-0.5">₹{(mlmInfo.weeklyAccumulatedIncome || 0).toFixed(2)}</p>
+                            <p className="text-[9px] text-slate-400 font-medium">Accumulated this week</p>
+                        </div>
                     </div>
                 </div>
 

@@ -10,6 +10,7 @@ import {
   Building2,
   Truck,
   Wallet,
+  Coins,
   Banknote,
   Receipt,
   CircleDollarSign,
@@ -101,6 +102,7 @@ const SOSAlerts = React.lazy(() => import("../pages/SOSAlerts"));
 const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"));
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
+const MlmPoolManagement = React.lazy(() => import("../pages/MlmPoolManagement"));
 
 const navItems = [
   {
@@ -167,6 +169,7 @@ const navItems = [
     ],
   },
   { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
+  { label: "MLM Pool & IDs", path: "/admin/mlm-pool", icon: Coins, color: "amber" },
   {
     label: "Money Requests",
     path: "/admin/withdrawals",
@@ -287,6 +290,7 @@ const AdminRoutes = () => {
         <Route path="/delivery-funds" element={<DeliveryFunds />} />
         <Route path="/sos-alerts" element={<SOSAlerts />} />
         <Route path="/wallet" element={<AdminWallet />} />
+        <Route path="/mlm-pool" element={<MlmPoolManagement />} />
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
         <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />

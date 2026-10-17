@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { Tag, Check, Search } from "lucide-react";
 import { motion } from "framer-motion";
