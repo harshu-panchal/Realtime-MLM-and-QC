@@ -107,7 +107,7 @@ const MlmPoolManagement = () => {
             <Users size={18} className="text-blue-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            ₹{(summary.totalCustomerSubAmount || 0).toLocaleString()}
+            {loading ? "..." : `₹${(summary.totalCustomerSubAmount || 0).toLocaleString()}`}
           </p>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Customer Saturday fee pool</p>
         </div>
@@ -119,7 +119,7 @@ const MlmPoolManagement = () => {
             <TrendingUp size={18} className="text-emerald-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            ₹{(summary.totalVendorFeeAmount || 0).toLocaleString()}
+            {loading ? "..." : `₹${(summary.totalVendorFeeAmount || 0).toLocaleString()}`}
           </p>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Seller registration collection</p>
         </div>
@@ -131,7 +131,7 @@ const MlmPoolManagement = () => {
             <Coins size={18} className="text-purple-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            ₹{(summary.totalRiderFeeAmount || 0).toLocaleString()}
+            {loading ? "..." : `₹${(summary.totalRiderFeeAmount || 0).toLocaleString()}`}
           </p>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Delivery partner registration</p>
         </div>
@@ -143,7 +143,7 @@ const MlmPoolManagement = () => {
             <Layers size={18} className="text-orange-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            ₹{(summary.totalOrderCommissionAmount || 0).toLocaleString()}
+            {loading ? "..." : `₹${(summary.totalOrderCommissionAmount || 0).toLocaleString()}`}
           </p>
           <p className="text-[11px] text-slate-400 mt-1 font-medium">Delivered order allocations</p>
         </div>
@@ -161,7 +161,9 @@ const MlmPoolManagement = () => {
               <span className="text-xs text-slate-400">Total Inflow: ₹{(summary.grandTotalInflow || 0).toLocaleString()}</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-              <span className="text-orange-400">{summary.totalGeneratedPoolIds}</span>{" "}
+              <span className="text-orange-400">
+                {loading ? "..." : summary.totalGeneratedPoolIds}
+              </span>{" "}
               <span className="text-white text-2xl font-bold">Generated IDs Today</span>
             </h2>
             <p className="text-xs text-slate-300 mt-2 max-w-xl leading-relaxed">

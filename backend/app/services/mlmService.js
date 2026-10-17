@@ -331,9 +331,9 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     let startOfDay, endOfDay;
     if (queryDate && typeof queryDate === "string" && queryDate.includes("-")) {
       const parts = queryDate.split("-").map(Number);
-      // Construct local date from YYYY-MM-DD
-      startOfDay = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
-      endOfDay = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+      // Give safe window covering IST (+5:30) and UTC (server)
+      startOfDay = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0) - 6 * 3600 * 1000);
+      endOfDay = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999) + 6 * 3600 * 1000);
     } else {
       const now = new Date();
       startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
@@ -343,7 +343,13 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     // 1. Calculate Collections from Transaction and Subscription logs for the day
     // A: Customer Weekly Subscriptions
     const customerSubs = await Customer.find({
-      "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay },
+      $or: [
+        { "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay } },
+        { 
+          "weeklySubscription.status": "active",
+          updatedAt: { $gte: startOfDay, $lte: endOfDay }
+        }
+      ]
     }).select("name phone weeklySubscription");
     const totalCustomerSubAmount = customerSubs.reduce(
       (sum, c) => sum + (Number(c.weeklySubscription?.amount) || 0),
