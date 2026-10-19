@@ -18,6 +18,8 @@ import mongoose from "mongoose";
 import Order from "../../models/order.js";
 import Transaction from "../../models/transaction.js";
 import Wallet from "../../models/wallet.js";
+import Delivery from "../../models/delivery.js";
+import Setting from "../../models/setting.js";
 import { roundCurrency } from "../../utils/money.js";
 import { buildKey, getOrSet, getTTL } from "../cacheService.js";
 
@@ -132,6 +134,28 @@ async function computeDeliveryStats(deliveryBoyId) {
   const remainingOrders = targetOrders - (totalDeliveries % targetOrders);
   const incentiveAmount = 300;
 
+  // Fetch rider-specific data and global fallback settings
+  const [deliveryDoc, globalSetting] = await Promise.all([
+    Delivery.findById(deliveryBoyId)
+      .select("onboardingPayment commissionType commissionValue dailySubscriptionFee")
+      .lean(),
+    Setting.findOne().select("riderRegistrationFee riderDailySubscriptionFee riderBaseEarning").lean(),
+  ]);
+
+  const onboardingAmount = deliveryDoc?.onboardingPayment?.amount != null && deliveryDoc?.onboardingPayment?.amount > 0
+    ? deliveryDoc.onboardingPayment.amount
+    : (globalSetting?.riderRegistrationFee ?? 500);
+
+  const onboardingStatus = deliveryDoc?.onboardingPayment?.status || "pending";
+
+  const riderCommissionStr = deliveryDoc?.commissionValue != null
+    ? (deliveryDoc.commissionType === "percentage" ? `${deliveryDoc.commissionValue}%` : `₹${deliveryDoc.commissionValue}`)
+    : (globalSetting?.riderBaseEarning != null ? `₹${globalSetting.riderBaseEarning}/order` : "Standard");
+
+  const riderDailySub = deliveryDoc?.dailySubscriptionFee != null
+    ? `₹${deliveryDoc.dailySubscriptionFee}`
+    : (globalSetting?.riderDailySubscriptionFee != null ? `₹${globalSetting.riderDailySubscriptionFee}` : "₹0");
+
   return {
     today: todayEarnings,
     deliveries: totalDeliveries,
@@ -144,6 +168,10 @@ async function computeDeliveryStats(deliveryBoyId) {
     },
     incentives,
     cashCollected,
+    onboardingFee: `₹${onboardingAmount}`,
+    onboardingPaymentStatus: onboardingStatus,
+    commissionRate: riderCommissionStr,
+    dailySubscriptionFee: riderDailySub,
   };
 }
 

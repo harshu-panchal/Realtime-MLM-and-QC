@@ -327,12 +327,18 @@ const Dashboard = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <div className="flex items-center text-[10px] font-bold text-[#ffb74d]">
-                <Flame size={12} className="mr-1 fill-[#ffb74d]" /> 5% more than yesterday
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-[10px] font-bold text-white">
+                <span className="opacity-80">Payout:</span>
+                <span className="text-emerald-300 font-extrabold">{earnings?.commissionRate || "Standard"}</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-[10px] font-bold text-white">
+                <span className="opacity-80">Onboarding:</span>
+                <span className="text-sky-300 font-extrabold">{earnings?.onboardingFee || "₹500"}</span>
+                <span className="text-[9px] opacity-75">({earnings?.onboardingPaymentStatus === "completed" ? "Paid" : earnings?.onboardingPaymentStatus === "exempt" ? "Exempt" : "Pending"})</span>
               </div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-[10px] font-bold text-white">
                 <span className="opacity-80">Daily Plan:</span>
-                <span className="text-emerald-300 font-extrabold">₹{Number(settings?.riderDailySubscriptionFee ?? 0)}/day</span>
+                <span className="text-amber-300 font-extrabold">{earnings?.dailySubscriptionFee || "₹0/day"}</span>
               </div>
             </div>
 

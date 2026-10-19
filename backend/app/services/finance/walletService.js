@@ -2,6 +2,9 @@ import Wallet from "../../models/wallet.js";
 import Payout from "../../models/payout.js";
 import Order from "../../models/order.js";
 import User from "../../models/customer.js";
+import Seller from "../../models/seller.js";
+import Delivery from "../../models/delivery.js";
+import Transaction from "../../models/transaction.js";
 import {
   LEDGER_DIRECTION,
   ORDER_PAYMENT_STATUS,
@@ -479,6 +482,13 @@ export async function getAdminFinanceSummary() {
     pendingPayouts,
     systemFloatCOD,
     platformGross,
+    sellerProductCommission,
+    deliveryLogisticsMargin,
+    sellerOnboardingAgg,
+    riderOnboardingAgg,
+    userSubscriptionAgg,
+    sellerSubscriptionAgg,
+    riderSubscriptionAgg,
   ] =
     await Promise.all([
       Order.aggregate([
@@ -495,8 +505,8 @@ export async function getAdminFinanceSummary() {
         { $group: { _id: null, amount: { $sum: "$paymentBreakdown.codRemittedAmount" } } },
       ]),
       Order.aggregate([
-        // Requirement: Total Admin Earning should not include COD orders.
-        { $match: { status: "delivered", paymentMode: "ONLINE" } },
+        // Total Admin Earning for all delivered orders (ONLINE + COD)
+        { $match: { status: "delivered", paymentMode: { $in: ["ONLINE", "COD"] } } },
         { $group: { _id: null, amount: { $sum: "$paymentBreakdown.platformTotalEarning" } } },
       ]),
       Payout.aggregate([
@@ -568,6 +578,65 @@ export async function getAdminFinanceSummary() {
           },
         },
       ]),
+      // 7. Seller Product Commission (Delivered orders)
+      Order.aggregate([
+        { $match: { status: "delivered", paymentMode: { $in: ["ONLINE", "COD"] } } },
+        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.adminProductCommissionTotal" } } },
+      ]),
+      // 8. Delivery Logistics Margin (Delivered orders)
+      Order.aggregate([
+        { $match: { status: "delivered", paymentMode: { $in: ["ONLINE", "COD"] } } },
+        { $group: { _id: null, amount: { $sum: "$paymentBreakdown.platformLogisticsMargin" } } },
+      ]),
+      // 9. Seller Onboarding Fee (Completed/Paid)
+      Seller.aggregate([
+        { $match: { "onboardingPayment.status": { $in: ["completed", "exempt"] } } },
+        { $group: { _id: null, amount: { $sum: "$onboardingPayment.amount" } } },
+      ]),
+      // 10. Rider Onboarding Fee (Completed/Paid)
+      Delivery.aggregate([
+        { $match: { "onboardingPayment.status": { $in: ["completed", "exempt"] } } },
+        { $group: { _id: null, amount: { $sum: "$onboardingPayment.amount" } } },
+      ]),
+      // 11. User Subscription Collections
+      Transaction.aggregate([
+        {
+          $match: {
+            $or: [
+              { type: { $regex: /subscription/i } },
+              { "meta.type": { $regex: /subscription/i } },
+            ],
+            userModel: "Customer",
+          },
+        },
+        { $group: { _id: null, amount: { $sum: "$amount" } } },
+      ]),
+      // 12. Seller Subscription Collections
+      Transaction.aggregate([
+        {
+          $match: {
+            $or: [
+              { type: "Seller Daily Subscription" },
+              { type: { $regex: /subscription/i } },
+            ],
+            userModel: "Seller",
+          },
+        },
+        { $group: { _id: null, amount: { $sum: "$amount" } } },
+      ]),
+      // 13. Rider Subscription Collections
+      Transaction.aggregate([
+        {
+          $match: {
+            $or: [
+              { type: "Rider Daily Subscription" },
+              { type: { $regex: /subscription/i } },
+            ],
+            userModel: "Delivery",
+          },
+        },
+        { $group: { _id: null, amount: { $sum: "$amount" } } },
+      ]),
     ]);
 
   const sellerPendingPayouts =
@@ -597,6 +666,15 @@ export async function getAdminFinanceSummary() {
     deliveryPendingPayouts: roundCurrency(riderPendingPayouts),
     reconciledOnlineInflows: roundCurrency(onlineCollection[0]?.amount || 0),
     reconciledCODInflows: roundCurrency(codReconciled[0]?.amount || 0),
+
+    // 7 Core Dynamic Breakdown Metrics
+    sellerCommissionTotal: roundCurrency(sellerProductCommission[0]?.amount || 0),
+    deliveryCommissionTotal: roundCurrency(deliveryLogisticsMargin[0]?.amount || 0),
+    sellerOnboardingTotal: roundCurrency(sellerOnboardingAgg[0]?.amount || 0),
+    deliveryOnboardingTotal: roundCurrency(riderOnboardingAgg[0]?.amount || 0),
+    userSubscriptionTotal: roundCurrency(userSubscriptionAgg[0]?.amount || 0),
+    sellerSubscriptionTotal: roundCurrency(sellerSubscriptionAgg[0]?.amount || 0),
+    deliverySubscriptionTotal: roundCurrency(riderSubscriptionAgg[0]?.amount || 0),
   };
 }
 

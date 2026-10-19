@@ -328,7 +328,7 @@ async function computeSellerStats(sellerOid, range) {
   const devicePerc =
     totalOrders > 0 ? Math.round((topDeviceCount / totalOrders) * 100) : 0;
 
-  const sellerDoc = await Seller.findById(sellerOid).select("commissionValue dailySubscriptionFee").lean();
+  const sellerDoc = await Seller.findById(sellerOid).select("commissionValue dailySubscriptionFee onboardingPayment").lean();
 
   return {
     overview: {
@@ -340,6 +340,8 @@ async function computeSellerStats(sellerOid, range) {
       ordersTrend: `${ordersTrendPerc > 0 ? "+" : ""}${ordersTrendPerc}%`,
       commissionRate: sellerDoc?.commissionValue != null ? `${sellerDoc.commissionValue}%` : "0%",
       dailySubscriptionFee: sellerDoc?.dailySubscriptionFee != null ? `₹${sellerDoc.dailySubscriptionFee}` : "₹0",
+      onboardingFee: sellerDoc?.onboardingPayment?.amount != null ? `₹${sellerDoc.onboardingPayment.amount}` : "₹0",
+      onboardingPaymentStatus: sellerDoc?.onboardingPayment?.status || "pending",
     },
     salesTrend: chartData,
     categoryMix: categoryData,

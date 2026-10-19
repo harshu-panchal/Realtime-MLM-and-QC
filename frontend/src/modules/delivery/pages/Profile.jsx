@@ -102,6 +102,33 @@ const Profile = () => {
             <span className="text-yellow-400 text-[14px]">★</span>
           </div>
         </div>
+
+        {/* Dynamic Partner Payout & Onboarding Info Card */}
+        <div className="mt-6 grid grid-cols-3 gap-2 p-3.5 bg-gray-50/90 rounded-2xl border border-gray-100">
+          <div className="text-center">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Onboarding</p>
+            <p className="text-xs font-black text-gray-900 mt-0.5">
+              ₹{user?.onboardingPayment?.amount ?? settings?.riderRegistrationFee ?? 500}
+            </p>
+            <span className={`inline-block text-[9px] font-bold px-1.5 py-0.2 rounded mt-0.5 ${user?.onboardingPayment?.status === "completed" ? "bg-emerald-100 text-emerald-700" : user?.onboardingPayment?.status === "exempt" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"}`}>
+              {user?.onboardingPayment?.status === "completed" ? "Paid" : user?.onboardingPayment?.status === "exempt" ? "Exempt" : "Pending"}
+            </span>
+          </div>
+          <div className="text-center border-x border-gray-200/70">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Per Delivery</p>
+            <p className="text-xs font-black text-emerald-600 mt-0.5">
+              {user?.commissionValue != null ? (user?.commissionType === "percentage" ? `${user.commissionValue}%` : `₹${user.commissionValue}`) : `₹${settings?.riderBaseEarning ?? 25}`}
+            </p>
+            <span className="text-[9px] text-gray-400 font-medium">Payout Rate</span>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Daily Plan</p>
+            <p className="text-xs font-black text-amber-600 mt-0.5">
+              ₹{user?.dailySubscriptionFee != null ? user.dailySubscriptionFee : (settings?.riderDailySubscriptionFee ?? 0)}
+            </p>
+            <span className="text-[9px] text-gray-400 font-medium">Per Active Day</span>
+          </div>
+        </div>
       </div>
 
       {/* Menu Options */}

@@ -816,13 +816,44 @@ const SellerProfile = () => {
               </div>
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
-                  <Globe size={20} className="text-white" />
+                  <Tag size={20} className="text-emerald-400" />
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-white/60">
-                    Region
+                    Platform Commission
                   </p>
-                  <p className="text-sm font-bold">Pan India Reach</p>
+                  <p className="text-sm font-bold text-emerald-300">
+                    {profile?.commissionValue != null ? `${profile.commissionValue}%` : "Default (10%)"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Sparkles size={20} className="text-sky-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-white/60">
+                    Onboarding Fee
+                  </p>
+                  <p className="text-sm font-bold text-sky-300">
+                    ₹{profile?.onboardingPayment?.amount ?? 1000}{" "}
+                    <span className="text-[10px] font-normal text-white/70">
+                      ({profile?.onboardingPayment?.status === "completed" ? "Paid" : profile?.onboardingPayment?.status === "exempt" ? "Exempt" : "Pending"})
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Clock size={20} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-white/60">
+                    Daily Subscription
+                  </p>
+                  <p className="text-sm font-bold text-amber-300">
+                    ₹{profile?.dailySubscriptionFee ?? 0}/day
+                  </p>
                 </div>
               </div>
 

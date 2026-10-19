@@ -148,6 +148,21 @@ const deliverySchema = new mongoose.Schema(
             paidAt: { type: Date },
         },
 
+        commissionType: {
+            type: String,
+            enum: ["percentage", "fixed"],
+            default: "fixed",
+        },
+        commissionValue: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
+        dailySubscriptionFee: {
+            type: Number,
+            default: null,
+            min: 0,
+        },
     },
     {
         timestamps: true,

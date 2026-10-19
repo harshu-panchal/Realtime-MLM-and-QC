@@ -251,6 +251,13 @@ const Dashboard = () => {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-white shadow-sm">
+              <span className="text-xs text-slate-400 font-medium">Onboarding Fee:</span>
+              <span className="text-sm font-bold text-sky-400">{statsData?.overview?.onboardingFee ?? "₹0"}</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${statsData?.overview?.onboardingPaymentStatus === "completed" ? "bg-emerald-500/20 text-emerald-400" : statsData?.overview?.onboardingPaymentStatus === "exempt" ? "bg-indigo-500/20 text-indigo-400" : "bg-amber-500/20 text-amber-400"}`}>
+                {statsData?.overview?.onboardingPaymentStatus === "completed" ? "Paid" : statsData?.overview?.onboardingPaymentStatus === "exempt" ? "Exempt" : "Pending"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-white shadow-sm">
               <span className="text-xs text-slate-400 font-medium">Commission:</span>
               <span className="text-sm font-bold text-emerald-400">{statsData?.overview?.commissionRate ?? "0%"}</span>
             </div>
