@@ -420,6 +420,11 @@ export const createDeliveryOnboardingOrder = async (req, res) => {
             return handleResponse(res, 400, "Phone number is required");
         }
 
+        const existingRider = await Delivery.findOne({ phone, isVerified: true });
+        if (existingRider) {
+            return handleResponse(res, 400, "Delivery partner with this phone is already registered. Please login instead.");
+        }
+
         const setting = await Setting.findOne().lean();
         const feeAmount = Number(setting?.riderRegistrationFee ?? 500);
 

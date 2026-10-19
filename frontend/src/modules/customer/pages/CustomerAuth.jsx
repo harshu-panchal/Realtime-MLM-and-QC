@@ -124,8 +124,8 @@ const CustomerAuth = () => {
             const sub = customer?.weeklySubscription || {};
             const isSubActive = sub.status === 'active' && sub.expiresAt && new Date(sub.expiresAt) > new Date();
 
-            // Check if user needs subscription (if weekly fee > 0 and user has no active subscription)
-            if (weeklyFee > 0 && !isSubActive) {
+            // Only require weekly subscription on NEW SIGNUP, not for already registered login users
+            if (!isLogin && weeklyFee > 0 && !isSubActive) {
                 setAuthPayload({ token, customer });
                 setShowSubscriptionStep(true);
                 sessionStorage.setItem('customer_pending_subscription', JSON.stringify({
@@ -137,6 +137,7 @@ const CustomerAuth = () => {
                 return;
             }
 
+            sessionStorage.removeItem('customer_pending_subscription');
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
             navigate('/', { replace: true });

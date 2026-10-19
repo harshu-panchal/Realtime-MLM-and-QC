@@ -641,6 +641,15 @@ export const createSellerOnboardingOrder = async (req, res) => {
             return handleResponse(res, 400, "Email or phone is required");
         }
 
+        const query = [];
+        if (email) query.push({ email: email.toLowerCase() });
+        if (phone) query.push({ phone });
+
+        const existingSeller = await Seller.findOne({ $or: query });
+        if (existingSeller) {
+            return handleResponse(res, 400, "Seller with this email or phone is already registered. Please login instead.");
+        }
+
         const setting = await Setting.findOne().lean();
         const feeAmount = Number(setting?.vendorRegistrationFee ?? 1000);
 
