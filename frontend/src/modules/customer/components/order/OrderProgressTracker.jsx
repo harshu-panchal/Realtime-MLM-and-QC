@@ -61,13 +61,9 @@ const OrderProgressTracker = ({
 
               {/* Status Indicator */}
               <div className="relative z-10 flex h-[24px] w-[24px] shrink-0 items-center justify-center bg-white">
-                {isCompleted ? (
-                  <div className="flex h-[20px] w-[20px] items-center justify-center rounded-full bg-[#1e7145] text-white">
+                {isCompleted || isActive ? (
+                  <div className="flex h-[20px] w-[20px] items-center justify-center rounded-full bg-[#1e7145] text-white shadow-sm ring-2 ring-[#1e7145]/20">
                     <Check size={12} strokeWidth={4} />
-                  </div>
-                ) : isActive ? (
-                  <div className="flex h-[20px] w-[20px] items-center justify-center rounded-full bg-[#1e7145]">
-                    <div className="h-[6px] w-[6px] rounded-full bg-white" />
                   </div>
                 ) : (
                   <div className="flex h-[20px] w-[20px] items-center justify-center rounded-full border-[2px] border-slate-300">

@@ -214,7 +214,11 @@ const Dashboard = () => {
       },
       address: addressStr || "—",
       items,
-      total: Number(order.pricing?.total ?? 0),
+      subtotal: Number(order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? (Number(order.pricing?.total ?? 0) - Number(order.pricing?.deliveryFee ?? 0))),
+      deliveryFee: Number(order.paymentBreakdown?.deliveryFeeCharged ?? order.pricing?.deliveryFee ?? 0),
+      sellerPayout: Number(order.paymentBreakdown?.sellerPayoutTotal ?? 0),
+      adminCommission: Number(order.paymentBreakdown?.adminProductCommissionTotal ?? 0),
+      total: Number(order.pricing?.total ?? order.paymentBreakdown?.grandTotal ?? 0),
       status: order.status || "pending",
       payment:
         order.payment?.method === "cash" || order.payment?.method === "cod"
@@ -273,8 +277,8 @@ const Dashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card 
-            key={stat.label} 
+          <Card
+            key={stat.label}
             className={cn("hover:shadow-lg transition-all hover:-translate-y-1", stat.path && "cursor-pointer")}
             onClick={() => stat.path && navigate(stat.path)}
           >
@@ -601,7 +605,7 @@ const Dashboard = () => {
                             Subtotal
                           </span>
                           <span className="font-black text-slate-900">
-                            ₹{(selectedOrder.total - 10).toFixed(2)}
+                            ₹{(selectedOrder.subtotal ?? (selectedOrder.total - selectedOrder.deliveryFee)).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">
@@ -609,18 +613,38 @@ const Dashboard = () => {
                             Delivery Fee
                           </span>
                           <span className="font-black text-brand-600">
-                            ₹10.00
+                            ₹{(selectedOrder.deliveryFee ?? 0).toFixed(2)}
                           </span>
                         </div>
+                        {selectedOrder.adminCommission > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="font-bold text-slate-600">
+                              Admin Commission
+                            </span>
+                            <span className="font-black text-rose-600">
+                              -₹{selectedOrder.adminCommission.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                         <div className="h-px bg-primary/10 my-2" />
                         <div className="flex justify-between text-sm">
                           <span className="font-black text-slate-900">
-                            Total
+                            Total Customer Paid
                           </span>
                           <span className="font-black text-primary">
                             ₹{selectedOrder.total.toFixed(2)}
                           </span>
                         </div>
+                        {selectedOrder.sellerPayout > 0 && (
+                          <div className="flex justify-between text-xs pt-1 border-t border-dashed border-primary/20">
+                            <span className="font-black text-emerald-700">
+                              Your Net Payout
+                            </span>
+                            <span className="font-black text-emerald-700">
+                              ₹{selectedOrder.sellerPayout.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="bg-slate-900 p-3 sm:p-4 rounded-3xl text-white shadow-xl shadow-slate-900/10">
@@ -703,13 +727,13 @@ const Dashboard = () => {
                             : getStatusColor(selectedOrder.status) === "primary"
                               ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
                               : getStatusColor(selectedOrder.status) ===
-                                  "secondary"
+                                "secondary"
                                 ? "bg-purple-100 text-purple-700 focus:ring-purple-200"
                                 : getStatusColor(selectedOrder.status) ===
-                                    "success"
+                                  "success"
                                   ? "bg-brand-100 text-brand-700 focus:ring-brand-200"
                                   : getStatusColor(selectedOrder.status) ===
-                                      "error"
+                                    "error"
                                     ? "bg-rose-100 text-rose-700 focus:ring-rose-200"
                                     : "bg-slate-100 text-slate-700 focus:ring-slate-200"
                       )}

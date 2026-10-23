@@ -598,18 +598,10 @@ export async function getAdminFinanceSummary() {
         { $match: { "onboardingPayment.status": { $in: ["completed", "exempt"] } } },
         { $group: { _id: null, amount: { $sum: "$onboardingPayment.amount" } } },
       ]),
-      // 11. User Subscription Collections
-      Transaction.aggregate([
-        {
-          $match: {
-            $or: [
-              { type: { $regex: /subscription/i } },
-              { "meta.type": { $regex: /subscription/i } },
-            ],
-            userModel: "Customer",
-          },
-        },
-        { $group: { _id: null, amount: { $sum: "$amount" } } },
+      // 11. User Subscription Collections (from User.weeklySubscription & Transaction)
+      User.aggregate([
+        { $match: { "weeklySubscription.status": { $in: ["active", "due", "completed"] } } },
+        { $group: { _id: null, amount: { $sum: "$weeklySubscription.amount" } } },
       ]),
       // 12. Seller Subscription Collections
       Transaction.aggregate([
@@ -618,8 +610,9 @@ export async function getAdminFinanceSummary() {
             $or: [
               { type: "Seller Daily Subscription" },
               { type: { $regex: /subscription/i } },
+              { "meta.note": { $regex: /subscription/i } },
             ],
-            userModel: "Seller",
+            userModel: { $in: ["Seller", "seller"] },
           },
         },
         { $group: { _id: null, amount: { $sum: "$amount" } } },
@@ -631,8 +624,9 @@ export async function getAdminFinanceSummary() {
             $or: [
               { type: "Rider Daily Subscription" },
               { type: { $regex: /subscription/i } },
+              { "meta.note": { $regex: /subscription/i } },
             ],
-            userModel: "Delivery",
+            userModel: { $in: ["Delivery", "delivery"] },
           },
         },
         { $group: { _id: null, amount: { $sum: "$amount" } } },

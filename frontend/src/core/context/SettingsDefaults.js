@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   pricingMode: "distance_based",
   customerBaseDeliveryFee: 30,
   riderBasePayout: 30,
+  riderBaseEarning: 25,
   baseDeliveryCharge: 30,
   baseDistanceCapacityKm: 0.5,
   incrementalKmSurcharge: 10,

@@ -218,10 +218,11 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   emitOrderStatusUpdate(
     updated.orderId,
     {
+      status: updated.status || "confirmed",
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
       deliverySearchExpiresAt: updated.deliverySearchExpiresAt,
     },
-    updated.customer?._id || updated.customer,
+    updated.customer?._id ? updated.customer._id.toString() : updated.customer,
   );
 
   await emitDeliveryBroadcastForSeller(

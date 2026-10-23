@@ -95,9 +95,9 @@ const OrderDetail = () => {
     const handlePrintInvoice = async () => {
         const element = invoiceRef.current;
         if (!element) return;
-        
+
         showToast("Generating PDF Invoice...", "info");
-        
+
         try {
             const canvas = await html2canvas(element, {
                 scale: 2,
@@ -121,7 +121,7 @@ const OrderDetail = () => {
                             // Skip cross-origin stylesheets that we can't access
                         }
                     }
-                    
+
                     // Also explicitly reset root variables just in case
                     const style = clonedDoc.createElement('style');
                     style.innerHTML = `
@@ -139,7 +139,7 @@ const OrderDetail = () => {
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            
+
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pdf.save(`Invoice_${order.orderId}.pdf`);
             showToast("Invoice downloaded successfully", "success");
@@ -208,7 +208,7 @@ const OrderDetail = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={handlePrintInvoice}
                         className="flex items-center gap-2 px-5 py-3 bg-white ring-1 ring-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
                     >
@@ -277,18 +277,42 @@ const OrderDetail = () => {
                             </table>
                         </div>
                         <div className="p-4 bg-slate-50/50 flex flex-col items-end gap-3 text-right">
-                            <div className="flex items-center justify-between w-full max-w-[240px]">
+                            <div className="flex items-center justify-between w-full max-w-[280px]">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subtotal</span>
-                                <span className="text-sm font-black text-slate-700">₹{order.pricing?.subtotal || 0}</span>
+                                <span className="text-sm font-black text-slate-700">₹{order.pricing?.subtotal || order.paymentBreakdown?.productSubtotal || 0}</span>
                             </div>
-                            <div className="flex items-center justify-between w-full max-w-[240px]">
+                            <div className="flex items-center justify-between w-full max-w-[280px]">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Fee</span>
-                                <span className="text-sm font-bold text-brand-600">₹{order.pricing?.deliveryFee || 0}</span>
+                                <span className="text-sm font-bold text-brand-600">₹{order.pricing?.deliveryFee || order.paymentBreakdown?.deliveryFeeCharged || 0}</span>
                             </div>
-                            <div className="h-px w-full max-w-[240px] bg-slate-200 my-2" />
-                            <div className="flex items-center justify-between w-full max-w-[240px]">
+                            {order.paymentBreakdown?.handlingFeeCharged > 0 && (
+                                <div className="flex items-center justify-between w-full max-w-[280px]">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Handling Fee</span>
+                                    <span className="text-sm font-bold text-slate-600">₹{order.paymentBreakdown.handlingFeeCharged}</span>
+                                </div>
+                            )}
+                            <div className="h-px w-full max-w-[280px] bg-slate-200 my-1" />
+                            <div className="flex items-center justify-between w-full max-w-[280px]">
                                 <span className="text-xs font-black text-slate-900 uppercase tracking-tight">Total Payable</span>
-                                <span className="text-2xl font-black text-fuchsia-600">₹{order.pricing?.total || 0}</span>
+                                <span className="text-2xl font-black text-fuchsia-600">₹{order.pricing?.total || order.paymentBreakdown?.grandTotal || 0}</span>
+                            </div>
+
+                            {/* Revenue & Commission Breakdown */}
+                            <div className="w-full max-w-[280px] mt-2 pt-3 border-t border-dashed border-slate-300 flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">
+                                        Admin Commission ({order.paymentBreakdown?.snapshots?.sellerCommissionSettings?.value ?? order.seller?.commissionValue ?? 0}%)
+                                    </span>
+                                    <span className="text-xs font-black text-emerald-600">
+                                        ₹{(order.paymentBreakdown?.adminProductCommissionTotal ?? 0).toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Seller Net Payout</span>
+                                    <span className="text-xs font-black text-indigo-600">
+                                        ₹{(order.paymentBreakdown?.sellerPayoutTotal ?? (Number(order.pricing?.subtotal || 0) - Number(order.paymentBreakdown?.adminProductCommissionTotal || 0))).toFixed(2)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </Card>
@@ -343,10 +367,10 @@ const OrderDetail = () => {
                             Customer Node Information
                         </h4>
                         <div className="flex items-center gap-4">
-                            <img 
-                                src="https://cdn-icons-png.flaticon.com/512/149/149071.png" 
-                                alt="" 
-                                className="h-16 w-16 rounded-2xl bg-slate-50 ring-2 ring-white shadow-sm object-cover" 
+                            <img
+                                src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                                alt=""
+                                className="h-16 w-16 rounded-2xl bg-slate-50 ring-2 ring-white shadow-sm object-cover"
                             />
                             <div className="text-left">
                                 <h3 className="text-lg font-black text-slate-900 leading-tight">
@@ -472,14 +496,14 @@ const OrderDetail = () => {
 
             {/* Hidden Printable Invoice Template */}
             <div className="fixed -left-[9999px] top-0">
-                <div 
+                <div
                     ref={invoiceRef}
                     className="w-[800px] bg-white p-1"
                     style={{ backgroundColor: "#f8fafc" }}
                 >
                     {/* Inner Paper with Border */}
-                    <div style={{ 
-                        backgroundColor: "#ffffff", 
+                    <div style={{
+                        backgroundColor: "#ffffff",
                         margin: "40px",
                         padding: "65px",
                         border: "1px solid #e2e8f0",
@@ -586,7 +610,7 @@ const OrderDetail = () => {
                                             <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#2563eb" }}>+ ₹{order.pricing?.deliveryFee || 0}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan="2" style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
+                                            <td colSpan={2} style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
                                         </tr>
                                         <tr>
                                             <td align="left" style={{ fontSize: "15px", fontWeight: "900", color: "#0f172a" }}>Grand Total</td>

@@ -118,7 +118,7 @@ export async function emitDeliveryBroadcastForSeller(sellerId, payload) {
   const sid = normalizeSellerId(sellerId);
   if (!sid) return;
 
-  const ids = await getDeliveryPartnerIdsWithinSellerRadius(sid);
+  let ids = await getDeliveryPartnerIdsWithinSellerRadius(sid);
   if (!ids.length) {
     if (process.env.NODE_ENV !== "production" && s) {
       s.to("delivery:online").emit("delivery:broadcast", {
@@ -127,18 +127,17 @@ export async function emitDeliveryBroadcastForSeller(sellerId, payload) {
         _devFallback: true,
       });
     }
-    return;
   }
 
   const body = { ...payload, at: new Date().toISOString() };
 
-  if (s) {
+  if (s && ids.length) {
     for (const id of ids) {
       s.to(`delivery:${id}`).emit("delivery:broadcast", body);
     }
   }
 
-  // Trigger Push Notifications for nearby riders
+  // Trigger Push Notifications for riders
   if (ids.length > 0 && !payload.retryAttempt) {
     emitNotificationEvent(NOTIFICATION_EVENTS.NEW_DELIVERY_BROADCAST, {
       orderId: payload.orderId,

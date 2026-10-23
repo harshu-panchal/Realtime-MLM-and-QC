@@ -57,6 +57,7 @@ const ALLOWED_KEYS = [
   "vendorRegistrationFee",
   "riderRegistrationFee",
   "riderDailySubscriptionFee",
+  "riderBaseEarning",
   "userWeeklySubscriptionFee",
 ];
 
@@ -152,6 +153,7 @@ const updateSettingsSchema = Joi.object({
   vendorRegistrationFee: Joi.number().min(0),
   riderRegistrationFee: Joi.number().min(0),
   riderDailySubscriptionFee: Joi.number().min(0),
+  riderBaseEarning: Joi.number().min(0),
   userWeeklySubscriptionFee: Joi.number().min(0),
 }).unknown(false);
 
@@ -173,7 +175,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner vendorRegistrationFee riderRegistrationFee riderDailySubscriptionFee userWeeklySubscriptionFee createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner vendorRegistrationFee riderRegistrationFee riderDailySubscriptionFee riderBaseEarning userWeeklySubscriptionFee createdAt",
           )
           .lean();
         return existing || null;

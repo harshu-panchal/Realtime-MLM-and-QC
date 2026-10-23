@@ -80,6 +80,9 @@ const AdminSettings = () => {
         returnDeliveryCommission: 0,
         vendorRegistrationFee: 1000,
         userWeeklySubscriptionFee: 50,
+        riderRegistrationFee: 500,
+        riderDailySubscriptionFee: 0,
+        riderBaseEarning: 25,
         lowStockAlertsEnabled: true,
         productApproval: {
             sellerCreateRequiresApproval: false,
@@ -520,6 +523,16 @@ const AdminSettings = () => {
                                         min="0"
                                         value={settings.riderDailySubscriptionFee ?? 0}
                                         onChange={(e) => handleInputChange('riderDailySubscriptionFee', Number(e.target.value))}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Boy Commission / Base Payout (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={settings.riderBaseEarning ?? 25}
+                                        onChange={(e) => handleInputChange('riderBaseEarning', Number(e.target.value))}
                                         className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
                                     />
                                 </div>

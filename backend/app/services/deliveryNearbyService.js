@@ -90,10 +90,21 @@ export async function getDeliveryPartnerIdsWithinSellerRadius(sellerId) {
       .limit(HAVERSINE_FALLBACK_LIMIT())
       .lean();
 
-    return filterByHaversine(rough, lat, lng, maxDistanceM);
+    const nearby = filterByHaversine(rough, lat, lng, maxDistanceM);
+    if (nearby.length) return nearby;
+
+    // Fallback: If no rider found strictly within radius, broadcast to all online riders
+    // so orders never get stuck without notifications
+    const allOnline = await Delivery.find(base).select("_id").limit(50).lean();
+    return allOnline.map((d) => d._id.toString());
   } catch (e) {
     console.warn("[deliveryNearby] Haversine fallback failed:", e.message);
-    return [];
+    try {
+      const allOnline = await Delivery.find(base).select("_id").limit(50).lean();
+      return allOnline.map((d) => d._id.toString());
+    } catch {
+      return [];
+    }
   }
 }
 
