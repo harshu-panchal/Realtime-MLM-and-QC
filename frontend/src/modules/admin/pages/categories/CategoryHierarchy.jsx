@@ -149,9 +149,22 @@ const CategoryHierarchy = () => {
           </div>
           <div className="flex flex-col overflow-hidden">
             <span className="font-semibold text-sm truncate">{item.name}</span>
-            <span className="text-[10px] uppercase tracking-wider opacity-60 truncate">
-              {item.slug}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider opacity-60 truncate">
+                {item.slug}
+              </span>
+              {item.businessType && (
+                <span className={`text-[9px] px-1 py-0.5 rounded font-medium ${
+                  item.businessType === "ecommerce"
+                    ? "bg-purple-100 text-purple-700"
+                    : item.businessType === "quick_commerce"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-blue-100 text-blue-700"
+                }`}>
+                  {item.businessType === "ecommerce" ? "E-Com" : item.businessType === "quick_commerce" ? "Quick" : "Both"}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

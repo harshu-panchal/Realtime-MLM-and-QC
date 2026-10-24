@@ -226,6 +226,7 @@ const HeaderCategories = () => {
       parentId: null,
       iconId: "",
       handlingFees: "",
+      sortOrder: 0,
       headerColor: "#FF1E1E",
       headerFontColor: "#111111",
       headerIconColor: "#111111",
@@ -251,7 +252,7 @@ const HeaderCategories = () => {
       headerColor: item.headerColor || "#FF1E1E",
       headerFontColor: item.headerFontColor || "#FFFFFF",
       headerIconColor: item.headerIconColor || "#111111",
-      businessType: item.businessType === "ecommerce" ? "ecommerce" : "quick_commerce",
+      businessType: item.businessType || "quick_commerce",
     });
     setPreviewUrl(item.image || null);
     setIsAddModalOpen(true);
@@ -341,13 +342,13 @@ const HeaderCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-8 text-gray-500">
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-8 text-gray-500">
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
                     No header categories found
                   </td>
                 </tr>
@@ -715,6 +716,7 @@ const HeaderCategories = () => {
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="quick_commerce">Quick Commerce</option>
                     <option value="ecommerce">E-commerce</option>
+                    <option value="both">Both</option>
                   </select>
                 </div>
 

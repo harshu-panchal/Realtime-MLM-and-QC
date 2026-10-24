@@ -33,6 +33,7 @@ const SubCategories = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLevel2, setFilterLevel2] = useState("all");
+  const [filterBusinessType, setFilterBusinessType] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -50,6 +51,7 @@ const SubCategories = () => {
     status: "active",
     type: "subcategory",
     parentId: "",
+    businessType: "quick_commerce",
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -108,7 +110,11 @@ const SubCategories = () => {
         filterLevel2 === "all" ||
         (cat.parentId && cat.parentId._id === filterLevel2) ||
         cat.parentId === filterLevel2;
-      return matchesSearch && matchesParent;
+      const matchesBusinessType =
+        filterBusinessType === "all" ||
+        cat.businessType === filterBusinessType ||
+        (filterBusinessType === "quick_commerce" && !cat.businessType);
+      return matchesSearch && matchesParent && matchesBusinessType;
     });
 
     return [...filtered].sort((a, b) => {
@@ -129,7 +135,7 @@ const SubCategories = () => {
           return bTime - aTime;
       }
     });
-  }, [categories, searchTerm, filterLevel2, sortBy]);
+  }, [categories, searchTerm, filterLevel2, filterBusinessType, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
 
@@ -140,7 +146,7 @@ const SubCategories = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, filterLevel2, sortBy, pageSize]);
+  }, [searchTerm, filterLevel2, filterBusinessType, sortBy, pageSize]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -184,7 +190,10 @@ const SubCategories = () => {
       const data = new FormData();
       data.append("type", "subcategory");
       Object.keys(formData).forEach((key) => {
-        if (key !== "type") data.append(key, formData[key]);
+        const val = formData[key];
+        if (key !== "type" && val !== undefined && val !== null && val !== "") {
+          data.append(key, val);
+        }
       });
 
       if (imageFile) {
@@ -207,7 +216,8 @@ const SubCategories = () => {
       fetchCategories();
     } catch (error) {
       console.error(error);
-      toast.error(editingItem ? "Failed to update" : "Failed to create");
+      const errorMsg = error.response?.data?.message || (editingItem ? "Failed to update subcategory" : "Failed to create subcategory");
+      toast.error(errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -236,6 +246,7 @@ const SubCategories = () => {
       status: "active",
       type: "subcategory",
       parentId: "",
+      businessType: "quick_commerce",
     });
     setImageFile(null);
     setPreviewUrl(null);
@@ -251,10 +262,20 @@ const SubCategories = () => {
       status: item.status,
       type: "subcategory",
       parentId: item.parentId?._id || item.parentId || "",
+      businessType: item.businessType || "quick_commerce",
     });
-    const currentImage = item.image && typeof item.image === 'object' ? item.image.url : (item.image || null);
+    const currentImage = item.image && typeof item.image === 'object' ? (item.image.url || item.image.secure_url) : (item.image || null);
     setPreviewUrl(currentImage);
     setIsAddModalOpen(true);
+  };
+
+  const handleParentLevel2Change = (parentId) => {
+    const parent = level2Categories.find((c) => (c._id || c.id) === parentId);
+    setFormData((prev) => ({
+      ...prev,
+      parentId,
+      businessType: parent?.businessType || prev.businessType || "quick_commerce",
+    }));
   };
 
   const handleSelect = (id) => {
@@ -316,6 +337,14 @@ const SubCategories = () => {
 
       <Card className="border-none shadow-sm">
         <div className="p-4 border-b border-gray-100 flex gap-4 items-center flex-wrap">
+          {selectedItems.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium">
+              <Trash2 className="w-4 h-4" />
+              Delete ({selectedItems.length})
+            </button>
+          )}
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -338,6 +367,17 @@ const SubCategories = () => {
                   {c.name}
                 </option>
               ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 min-w-[170px]">
+            <select
+              value={filterBusinessType}
+              onChange={(e) => setFilterBusinessType(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+              <option value="all">All Storefronts</option>
+              <option value="quick_commerce">Quick Commerce</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="both">Both</option>
             </select>
           </div>
           <div className="flex items-center gap-2 min-w-[180px]">
@@ -384,6 +424,9 @@ const SubCategories = () => {
                   Slug
                 </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Storefront
+                </th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -394,13 +437,13 @@ const SubCategories = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : filteredCategories.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     No subcategories found
                   </td>
                 </tr>
@@ -447,6 +490,22 @@ const SubCategories = () => {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-gray-500">{cat.slug}</td>
+                      <td className="py-3 px-4">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize",
+                          cat.businessType === "ecommerce"
+                            ? "bg-purple-50 text-purple-700 border border-purple-200"
+                            : cat.businessType === "quick_commerce"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                        )}>
+                          {cat.businessType === "ecommerce"
+                            ? "E-Commerce"
+                            : cat.businessType === "quick_commerce"
+                            ? "Quick Commerce"
+                            : "Both"}
+                        </span>
+                      </td>
                       <td className="py-3 px-4">
                         <Badge
                           variant={
@@ -549,9 +608,7 @@ const SubCategories = () => {
                   </label>
                   <select
                     value={formData.parentId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, parentId: e.target.value })
-                    }
+                    onChange={(e) => handleParentLevel2Change(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="">Select Parent Category</option>
                     {sortedParentCategoryOptions.map((option) => (
@@ -606,6 +663,22 @@ const SubCategories = () => {
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Storefront / Business Type
+                  </label>
+                  <select
+                    value={formData.businessType || "quick_commerce"}
+                    onChange={(e) =>
+                      setFormData({ ...formData, businessType: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                    <option value="quick_commerce">Quick Commerce</option>
+                    <option value="ecommerce">E-commerce</option>
+                    <option value="both">Both</option>
                   </select>
                 </div>
               </div>

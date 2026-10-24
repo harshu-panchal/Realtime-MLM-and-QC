@@ -290,6 +290,12 @@ export const createCategory = async (req, res) => {
         return handleResponse(res, 400, "The URL Slug already exists; please use a unique name");
     }
 
+    if (categoryData.businessType) {
+      if (!["quick_commerce", "ecommerce", "both"].includes(categoryData.businessType)) {
+        categoryData.businessType = "both";
+      }
+    }
+
     const category = await Category.create(categoryData);
     
     invalidate("cache:catalog:categories:*").catch(err => {
@@ -363,6 +369,19 @@ export const updateCategory = async (req, res) => {
     if (!parentOk) {
       if (type === "category") return handleResponse(res, 400, "Level 2 Category must be linked to a Level 1 Header category");
       if (type === "subcategory") return handleResponse(res, 400, "Level 3 Subcategory must be linked to a Level 2 Category");
+    }
+
+    if (Object.prototype.hasOwnProperty.call(categoryData, "businessType")) {
+      if (!["quick_commerce", "ecommerce", "both"].includes(categoryData.businessType)) {
+        delete categoryData.businessType;
+      }
+    }
+
+    if (categoryData.slug) {
+      const existingSlug = await Category.findOne({ slug: categoryData.slug, _id: { $ne: id } }).lean();
+      if (existingSlug) {
+        return handleResponse(res, 400, "The URL Slug already exists; please use a unique name");
+      }
     }
 
     const updatedCategory = await Category.findByIdAndUpdate(
