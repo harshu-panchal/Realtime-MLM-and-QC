@@ -377,7 +377,6 @@ const SubCategories = () => {
               <option value="all">All Storefronts</option>
               <option value="quick_commerce">Quick Commerce</option>
               <option value="ecommerce">E-commerce</option>
-              <option value="both">Both</option>
             </select>
           </div>
           <div className="flex items-center gap-2 min-w-[180px]">
@@ -678,7 +677,6 @@ const SubCategories = () => {
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
                     <option value="quick_commerce">Quick Commerce</option>
                     <option value="ecommerce">E-commerce</option>
-                    <option value="both">Both</option>
                   </select>
                 </div>
               </div>
