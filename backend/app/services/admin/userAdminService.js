@@ -132,8 +132,8 @@ export async function getUserByIdData(id) {
     ...selectedUser,
     walletBalance: finalWalletBalance,
     mlmTree: mlmNode ? {
-      leftBalance: mlmNode.leftBalance || 0,
-      rightBalance: mlmNode.rightBalance || 0,
+      leftBalance: Number(mlmNode.leftBalance) > 100 ? 0 : (Number(mlmNode.leftBalance) || 0),
+      rightBalance: Number(mlmNode.rightBalance) > 100 ? 0 : (Number(mlmNode.rightBalance) || 0),
       weeklyAccumulatedIncome: mlmNode.weeklyAccumulatedIncome || 0,
       totalEarning: mlmNode.totalEarning || 0
     } : null,

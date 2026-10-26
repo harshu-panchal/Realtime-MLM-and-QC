@@ -372,7 +372,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     );
     const totalCustomerSubAmount = dateCustomerSubAmount > 0 ? dateCustomerSubAmount : allCustomerSubAmount;
 
-    // B: Vendor Onboarding Fees (From Seller onboardingPayment and MlmCommissionLog)
+    // B: Vendor Onboarding Fees (Tracked for records)
     const [vendorSellersDate, allPaidSellers, vendorLogs] = await Promise.all([
       Seller.find({
         "onboardingPayment.status": { $in: ["completed", "exempt"] },
@@ -441,7 +441,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     const candidateRiderSum = Math.max(dateRiderSum, riderLogsSum);
     const totalRiderFeeAmount = candidateRiderSum > 0 ? candidateRiderSum : allRiderSum;
 
-    // D: Order Commissions & other sources
+    // D: Order Commissions & other user sources
     const orderLogs = await MlmCommissionLog.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       source: { $nin: ["Vendor Registration Fee", "Rider Registration Fee"] },
@@ -451,14 +451,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       0
     );
 
-    const grandTotalInflow =
-      totalCustomerSubAmount +
-      totalVendorFeeAmount +
-      totalRiderFeeAmount +
-      totalOrderCommissionAmount;
+    // Strictly USER MLM POOL: Inflow comes from Customer weekly subscriptions and Customer order commissions
+    const grandTotalInflow = totalCustomerSubAmount + totalOrderCommissionAmount;
 
     // Formula: Total Inflow / 3.60 = Total Generated IDs
-    // e.g. 318 / 3.60 = 88.33 => 88 IDs and 318 - (88 * 3.60) = 1.20 remaining
+    // e.g. ₹36 / 3.60 = 10 IDs and ₹0 remaining
     const totalGeneratedPoolIds = grandTotalInflow > 0
       ? Number((grandTotalInflow / PAIR_VALUE).toFixed(2))
       : 0;
@@ -553,8 +550,9 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     }
 
     const sectionA = allUserNodes.map((node) => {
-      const left = Number(node.leftBalance) || 0;
-      const right = Number(node.rightBalance) || 0;
+      // In User MLM: volume comes strictly from Users (not Vendor)
+      const left = Number(node.leftBalance) > 100 ? 0 : (Number(node.leftBalance) || 0);
+      const right = Number(node.rightBalance) > 100 ? 0 : (Number(node.rightBalance) || 0);
       const pendingVolume = Math.abs(left - right);
       const matchedPotential = Math.min(left, right);
       return {
