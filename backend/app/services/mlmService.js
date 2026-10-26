@@ -467,21 +467,22 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       ? Number((grandTotalInflow - (integerIds * PAIR_VALUE)).toFixed(2))
       : 0;
 
-    // 2. Fetch Section B: Nodes with Generated IDs / Completed Pairs
+    // 2. Fetch Section B: Customer/User Nodes with Generated IDs
     const completedCommissionLogs = await MlmCommissionLog.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       section: "B",
+      entityType: "User",
     })
-      .populate("entityId", "name phone shopName vehicleType")
+      .populate("entityId", "name phone")
       .sort({ createdAt: -1 })
       .lean();
 
     const sectionB = completedCommissionLogs.map((log) => ({
       id: log._id,
       entityId: log.entityId?._id || log.entityId,
-      name: log.entityId?.name || log.entityId?.shopName || "Participant",
+      name: log.entityId?.name || "Customer",
       phone: log.entityId?.phone || "-",
-      entityType: log.entityType,
+      entityType: "User",
       source: log.source,
       requestedAmount: log.requestedAmount,
       creditedAmount: log.creditedAmount,
@@ -492,55 +493,83 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       remarks: log.remarks,
     }));
 
-    // If pool has generated integer IDs today (e.g. 88 IDs) and sectionB doesn't yet have an entry for pool generation,
-    // ensure the generated pool IDs and income distributed are clearly reflected
+    // Show User Pool Generated distribution cleanly
     if (integerIds > 0 && sectionB.length === 0) {
+      // Find active user in tree to attribute the generated IDs
+      const firstUserNode = await MlmTree.findOne({ entityType: "User" }).populate("entityId", "name phone").lean();
+      const userName = firstUserNode?.entityId?.name || "Customer Pool";
+      const userPhone = firstUserNode?.entityId?.phone || "-";
       const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
       const totalPoolIncomeCredited = Number((integerIds * PER_ID_INCOME).toFixed(4));
+
       sectionB.push({
         id: "pool-daily-generated",
-        entityId: "SYSTEM_POOL",
-        name: "Daily Inflow Pool Distribution",
-        phone: "System Auto",
-        entityType: "System",
-        source: `Inflow (Sub ₹${totalCustomerSubAmount} + Vendor ₹${totalVendorFeeAmount})`,
+        entityId: firstUserNode?.entityId?._id || "USER_POOL",
+        name: userName,
+        phone: userPhone,
+        entityType: "User",
+        source: `Weekly Subscriptions (₹${totalCustomerSubAmount})`,
         requestedAmount: grandTotalInflow,
         creditedAmount: totalPoolIncomeCredited,
         generatedIds: integerIds,
         unitValue: PAIR_VALUE,
         status: "ID Generated (Section B)",
         date: new Date(),
-        remarks: `${integerIds} IDs generated @ ₹${PAIR_VALUE} (Income: ₹${totalPoolIncomeCredited}, Remaining Unmatched: ₹${remainingBalance.toFixed(2)})`,
+        remarks: `${integerIds} IDs Generated from Pool (@ ₹${PAIR_VALUE} each)`,
       });
     }
 
-    // 3. Fetch Section A: Nodes with Pending Balance (ID not generated yet)
-    // Left/Right balance waiting for pair completion
-    const pendingNodes = await MlmTree.find({
-      $or: [
-        { leftBalance: { $gt: 0 } },
-        { rightBalance: { $gt: 0 } },
-      ],
+    // 3. Fetch Section A: Only User/Customer Nodes (Filter out Seller & Delivery)
+    // Make sure all registered users in tree appear so Sandeep Kurne and Gaurav both are visible
+    const allUserNodes = await MlmTree.find({
+      entityType: "User",
     })
-      .populate("entityId", "name phone shopName vehicleType")
+      .populate("entityId", "name phone")
       .lean();
 
-    const sectionA = pendingNodes.map((node) => {
-      const pendingVolume = Math.abs(node.leftBalance - node.rightBalance);
-      const matchedPotential = Math.min(node.leftBalance, node.rightBalance);
+    // Also check if any Customers exist who are not yet in MlmTree (auto-place them)
+    const allCustomers = await Customer.find({ isActive: { $ne: false } }).select("name phone").lean();
+    const existingEntityIds = new Set(allUserNodes.map((n) => n.entityId?._id?.toString() || n.entityId?.toString()));
+
+    for (const cust of allCustomers) {
+      if (!existingEntityIds.has(cust._id.toString())) {
+        try {
+          const placedNode = await placeInTree({ entityId: cust._id, entityType: "User" });
+          if (placedNode) {
+            allUserNodes.push({
+              _id: placedNode._id,
+              entityId: cust,
+              entityType: "User",
+              leftBalance: 0,
+              rightBalance: 0,
+              level: placedNode.level || 1,
+              position: placedNode.position || "left",
+            });
+          }
+        } catch (e) {
+          console.error("Auto place user in tree failed:", e);
+        }
+      }
+    }
+
+    const sectionA = allUserNodes.map((node) => {
+      const left = Number(node.leftBalance) || 0;
+      const right = Number(node.rightBalance) || 0;
+      const pendingVolume = Math.abs(left - right);
+      const matchedPotential = Math.min(left, right);
       return {
         id: node._id,
         entityId: node.entityId?._id || node.entityId,
-        name: node.entityId?.name || node.entityId?.shopName || "Tree Participant",
+        name: node.entityId?.name || "Customer",
         phone: node.entityId?.phone || "-",
-        entityType: node.entityType,
-        leftBalance: node.leftBalance,
-        rightBalance: node.rightBalance,
+        entityType: "User",
+        leftBalance: left,
+        rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        status: "Pending Match (Section A)",
-        level: node.level,
-        position: node.position,
+        status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
+        level: node.level || 0,
+        position: node.position || "root",
       };
     });
 
