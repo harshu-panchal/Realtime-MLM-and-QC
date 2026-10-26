@@ -55,6 +55,7 @@ const MlmPoolManagement = () => {
     pairValue: 3.60,
     totalGeneratedPoolIds: 0,
     integerIds: 0,
+    remainingBalance: 0,
   };
 
   const sectionA = data?.sectionA?.items || [];
@@ -162,25 +163,31 @@ const MlmPoolManagement = () => {
             </div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
               <span className="text-orange-400">
-                {loading ? "..." : summary.totalGeneratedPoolIds}
+                {loading ? "..." : (summary.integerIds ?? Math.floor(summary.totalGeneratedPoolIds || 0))}
               </span>{" "}
               <span className="text-white text-2xl font-bold">Generated IDs Today</span>
             </h2>
             <p className="text-xs text-slate-300 mt-2 max-w-xl leading-relaxed">
-              Based on today&apos;s collections. Nodes with completed pairs are credited in{" "}
+              Based on today&apos;s collections (₹{(summary.grandTotalInflow || 0).toLocaleString()} ÷ {summary.pairValue || 3.60} = {summary.totalGeneratedPoolIds || 0} IDs). Nodes with completed pairs are in{" "}
               <span className="text-emerald-400 font-bold">Section B</span>, and waiting volumes remain in{" "}
               <span className="text-amber-400 font-bold">Section A</span>.
             </p>
           </div>
 
           <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-            <div className="text-center px-4 border-r border-white/10">
-              <p className="text-[11px] font-bold text-slate-300 uppercase">Section A (Pending)</p>
-              <p className="text-2xl font-black text-amber-400 mt-0.5">{data?.sectionA?.count || 0}</p>
+            <div className="text-center px-3 border-r border-white/10">
+              <p className="text-[10px] font-bold text-slate-300 uppercase">Remaining Pool Bal</p>
+              <p className="text-xl font-black text-orange-400 mt-0.5">
+                ₹{(summary.remainingBalance !== undefined ? summary.remainingBalance : 0).toFixed(2)}
+              </p>
             </div>
-            <div className="text-center px-4">
-              <p className="text-[11px] font-bold text-slate-300 uppercase">Section B (Generated)</p>
-              <p className="text-2xl font-black text-emerald-400 mt-0.5">{data?.sectionB?.count || 0}</p>
+            <div className="text-center px-3 border-r border-white/10">
+              <p className="text-[10px] font-bold text-slate-300 uppercase">Section A (Pending)</p>
+              <p className="text-xl font-black text-amber-400 mt-0.5">{data?.sectionA?.count || 0}</p>
+            </div>
+            <div className="text-center px-3">
+              <p className="text-[10px] font-bold text-slate-300 uppercase">Section B (Generated)</p>
+              <p className="text-xl font-black text-emerald-400 mt-0.5">{data?.sectionB?.count || 0}</p>
             </div>
           </div>
         </div>

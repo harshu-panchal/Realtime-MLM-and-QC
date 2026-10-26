@@ -340,14 +340,18 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     }
 
-    // 1. Calculate Collections from Transaction and Subscription logs for the day
+    // 1. Calculate Collections from Transaction, Seller/Delivery onboarding, and Subscription logs for the day
     // A: Customer Weekly Subscriptions
     const customerSubs = await Customer.find({
       $or: [
         { "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay } },
         {
-          "weeklySubscription.status": "active",
+          "weeklySubscription.status": { $in: ["active", "completed", "due"] },
           updatedAt: { $gte: startOfDay, $lte: endOfDay }
+        },
+        {
+          "weeklySubscription.status": { $in: ["active", "completed", "due"] },
+          createdAt: { $gte: startOfDay, $lte: endOfDay }
         }
       ]
     }).select("name phone weeklySubscription");
@@ -356,25 +360,55 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       0
     );
 
-    // B: Vendor Onboarding Fees
-    const vendorLogs = await MlmCommissionLog.find({
-      date: { $gte: startOfDay, $lte: endOfDay },
-      source: "Vendor Registration Fee",
-    });
-    const totalVendorFeeAmount = vendorLogs.reduce(
+    // B: Vendor Onboarding Fees (From Seller onboardingPayment and MlmCommissionLog)
+    const [vendorSellers, vendorLogs] = await Promise.all([
+      Seller.find({
+        "onboardingPayment.status": { $in: ["completed", "exempt"] },
+        $or: [
+          { "onboardingPayment.paidAt": { $gte: startOfDay, $lte: endOfDay } },
+          { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+          { updatedAt: { $gte: startOfDay, $lte: endOfDay } }
+        ]
+      }).select("onboardingPayment name phone shopName"),
+      MlmCommissionLog.find({
+        date: { $gte: startOfDay, $lte: endOfDay },
+        source: "Vendor Registration Fee",
+      })
+    ]);
+    const sellerOnboardingSum = vendorSellers.reduce(
+      (sum, s) => sum + (Number(s.onboardingPayment?.amount) || 0),
+      0
+    );
+    const vendorLogsSum = vendorLogs.reduce(
       (sum, v) => sum + (Number(v.requestedAmount) || 0),
       0
     );
+    const totalVendorFeeAmount = Math.max(sellerOnboardingSum, vendorLogsSum);
 
     // C: Rider Subscriptions / Fees
-    const riderLogs = await MlmCommissionLog.find({
-      date: { $gte: startOfDay, $lte: endOfDay },
-      source: "Rider Registration Fee",
-    });
-    const totalRiderFeeAmount = riderLogs.reduce(
+    const [riderDelivery, riderLogs] = await Promise.all([
+      Delivery.find({
+        "onboardingPayment.status": { $in: ["completed", "exempt"] },
+        $or: [
+          { "onboardingPayment.paidAt": { $gte: startOfDay, $lte: endOfDay } },
+          { createdAt: { $gte: startOfDay, $lte: endOfDay } },
+          { updatedAt: { $gte: startOfDay, $lte: endOfDay } }
+        ]
+      }).select("onboardingPayment name phone"),
+      MlmCommissionLog.find({
+        date: { $gte: startOfDay, $lte: endOfDay },
+        source: "Rider Registration Fee",
+      })
+    ]);
+    const riderOnboardingSum = riderDelivery.reduce(
+      (sum, r) => sum + (Number(r.onboardingPayment?.amount) || 0),
+      0
+    );
+    const riderLogsSum = riderLogs.reduce(
       (sum, r) => sum + (Number(r.requestedAmount) || 0),
       0
     );
+    const totalRiderFeeAmount = Math.max(riderOnboardingSum, riderLogsSum);
 
     // D: Order Commissions & other sources
     const orderLogs = await MlmCommissionLog.find({
@@ -393,8 +427,13 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       totalOrderCommissionAmount;
 
     // Formula: Total Inflow / 3.60 = Total Generated IDs
+    // e.g. 318 / 3.60 = 88.33 => 88 IDs and 318 - (88 * 3.60) = 1.20 remaining
     const totalGeneratedPoolIds = grandTotalInflow > 0
       ? Number((grandTotalInflow / PAIR_VALUE).toFixed(2))
+      : 0;
+    const integerIds = Math.floor(totalGeneratedPoolIds);
+    const remainingBalance = grandTotalInflow > 0
+      ? Number((grandTotalInflow - (integerIds * PAIR_VALUE)).toFixed(2))
       : 0;
 
     // 2. Fetch Section B: Nodes with Generated IDs / Completed Pairs
@@ -421,6 +460,28 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       date: log.date,
       remarks: log.remarks,
     }));
+
+    // If pool has generated integer IDs today (e.g. 88 IDs) and sectionB doesn't yet have an entry for pool generation,
+    // ensure the generated pool IDs and income distributed are clearly reflected
+    if (integerIds > 0 && sectionB.length === 0) {
+      const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
+      const totalPoolIncomeCredited = Number((integerIds * PER_ID_INCOME).toFixed(4));
+      sectionB.push({
+        id: "pool-daily-generated",
+        entityId: "SYSTEM_POOL",
+        name: "Daily Inflow Pool Distribution",
+        phone: "System Auto",
+        entityType: "System",
+        source: `Inflow (Sub ₹${totalCustomerSubAmount} + Vendor ₹${totalVendorFeeAmount})`,
+        requestedAmount: grandTotalInflow,
+        creditedAmount: totalPoolIncomeCredited,
+        generatedIds: integerIds,
+        unitValue: PAIR_VALUE,
+        status: "ID Generated (Section B)",
+        date: new Date(),
+        remarks: `${integerIds} IDs generated @ ₹${PAIR_VALUE} (Income: ₹${totalPoolIncomeCredited}, Remaining Unmatched: ₹${remainingBalance.toFixed(2)})`,
+      });
+    }
 
     // 3. Fetch Section A: Nodes with Pending Balance (ID not generated yet)
     // Left/Right balance waiting for pair completion
@@ -462,7 +523,8 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         grandTotalInflow,
         pairValue: PAIR_VALUE,
         totalGeneratedPoolIds,
-        integerIds: Math.floor(totalGeneratedPoolIds),
+        integerIds,
+        remainingBalance,
       },
       sectionA: {
         title: "Section A - Pending (ID Not Generated / Waiting Balance)",

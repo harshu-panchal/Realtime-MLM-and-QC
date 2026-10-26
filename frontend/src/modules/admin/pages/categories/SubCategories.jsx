@@ -495,14 +495,14 @@ const SubCategories = () => {
                           cat.businessType === "ecommerce"
                             ? "bg-purple-50 text-purple-700 border border-purple-200"
                             : cat.businessType === "quick_commerce"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-blue-50 text-blue-700 border border-blue-200"
                         )}>
                           {cat.businessType === "ecommerce"
                             ? "E-Commerce"
                             : cat.businessType === "quick_commerce"
-                            ? "Quick Commerce"
-                            : "Both"}
+                              ? "Quick Commerce"
+                              : "Both"}
                         </span>
                       </td>
                       <td className="py-3 px-4">
