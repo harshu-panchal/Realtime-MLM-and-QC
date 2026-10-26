@@ -266,6 +266,31 @@ const CustomerDetail = () => {
                         </div>
                     </Card>
 
+                    {customer.mlmTree && (
+                        <Card className="p-6 bg-amber-50/50 rounded-xl border border-amber-100 shadow-xs">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">MLM Tree Matching Volume</p>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                                    {customer.mlmTree.leftBalance > 0 && customer.mlmTree.rightBalance > 0 ? "Pair Ready" : "Pending Match"}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div className="p-2.5 rounded-xl bg-white border border-amber-100">
+                                    <p className="text-[10px] font-bold text-slate-400">Left Balance</p>
+                                    <p className="text-sm font-black text-blue-600">₹{(customer.mlmTree.leftBalance || 0).toFixed(2)}</p>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-white border border-amber-100">
+                                    <p className="text-[10px] font-bold text-slate-400">Right Balance</p>
+                                    <p className="text-sm font-black text-purple-600">₹{(customer.mlmTree.rightBalance || 0).toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div className="mt-3 pt-2.5 border-t border-amber-100 flex items-center justify-between text-[11px]">
+                                <span className="text-slate-500 font-medium">Accumulated Income:</span>
+                                <span className="font-bold text-slate-900">₹{(customer.mlmTree.weeklyAccumulatedIncome || 0).toFixed(2)}</span>
+                            </div>
+                        </Card>
+                    )}
+
                     <Card className="p-6 bg-white rounded-xl border-none shadow-md ring-1 ring-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Weekly Subscription</p>
                         <div className="flex items-center justify-between">
