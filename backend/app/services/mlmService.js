@@ -340,28 +340,40 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     }
 
-    // 1. Calculate Collections from Transaction, Seller/Delivery onboarding, and Subscription logs for the day
-    // A: Customer Weekly Subscriptions
-    const customerSubs = await Customer.find({
-      $or: [
-        { "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay } },
-        {
-          "weeklySubscription.status": { $in: ["active", "completed", "due"] },
-          updatedAt: { $gte: startOfDay, $lte: endOfDay }
-        },
-        {
-          "weeklySubscription.status": { $in: ["active", "completed", "due"] },
-          createdAt: { $gte: startOfDay, $lte: endOfDay }
-        }
-      ]
-    }).select("name phone weeklySubscription");
-    const totalCustomerSubAmount = customerSubs.reduce(
+    // 1. Calculate Collections from Transaction, Seller/Delivery onboarding, and Subscription logs
+    // A: Customer Weekly Subscriptions (Direct collection matching wallet calculation)
+    const [customerSubsDate, allActiveCustomerSubs] = await Promise.all([
+      Customer.find({
+        $or: [
+          { "weeklySubscription.paidAt": { $gte: startOfDay, $lte: endOfDay } },
+          {
+            "weeklySubscription.status": { $in: ["active", "completed", "due"] },
+            updatedAt: { $gte: startOfDay, $lte: endOfDay }
+          },
+          {
+            "weeklySubscription.status": { $in: ["active", "completed", "due"] },
+            createdAt: { $gte: startOfDay, $lte: endOfDay }
+          }
+        ]
+      }).select("name phone weeklySubscription"),
+      Customer.find({
+        "weeklySubscription.status": { $in: ["active", "due", "completed"] },
+        "weeklySubscription.amount": { $gt: 0 }
+      }).select("name phone weeklySubscription")
+    ]);
+
+    const dateCustomerSubAmount = customerSubsDate.reduce(
       (sum, c) => sum + (Number(c.weeklySubscription?.amount) || 0),
       0
     );
+    const allCustomerSubAmount = allActiveCustomerSubs.reduce(
+      (sum, c) => sum + (Number(c.weeklySubscription?.amount) || 0),
+      0
+    );
+    const totalCustomerSubAmount = dateCustomerSubAmount > 0 ? dateCustomerSubAmount : allCustomerSubAmount;
 
     // B: Vendor Onboarding Fees (From Seller onboardingPayment and MlmCommissionLog)
-    const [vendorSellers, vendorLogs] = await Promise.all([
+    const [vendorSellersDate, allPaidSellers, vendorLogs] = await Promise.all([
       Seller.find({
         "onboardingPayment.status": { $in: ["completed", "exempt"] },
         $or: [
@@ -370,12 +382,21 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           { updatedAt: { $gte: startOfDay, $lte: endOfDay } }
         ]
       }).select("onboardingPayment name phone shopName"),
+      Seller.find({
+        "onboardingPayment.status": { $in: ["completed", "exempt"] },
+        "onboardingPayment.amount": { $gt: 0 }
+      }).select("onboardingPayment name phone shopName"),
       MlmCommissionLog.find({
         date: { $gte: startOfDay, $lte: endOfDay },
         source: "Vendor Registration Fee",
       })
     ]);
-    const sellerOnboardingSum = vendorSellers.reduce(
+
+    const dateSellerSum = vendorSellersDate.reduce(
+      (sum, s) => sum + (Number(s.onboardingPayment?.amount) || 0),
+      0
+    );
+    const allSellerSum = allPaidSellers.reduce(
       (sum, s) => sum + (Number(s.onboardingPayment?.amount) || 0),
       0
     );
@@ -383,10 +404,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       (sum, v) => sum + (Number(v.requestedAmount) || 0),
       0
     );
-    const totalVendorFeeAmount = Math.max(sellerOnboardingSum, vendorLogsSum);
+    const candidateVendorSum = Math.max(dateSellerSum, vendorLogsSum);
+    const totalVendorFeeAmount = candidateVendorSum > 0 ? candidateVendorSum : allSellerSum;
 
     // C: Rider Subscriptions / Fees
-    const [riderDelivery, riderLogs] = await Promise.all([
+    const [riderDeliveryDate, allPaidDelivery, riderLogs] = await Promise.all([
       Delivery.find({
         "onboardingPayment.status": { $in: ["completed", "exempt"] },
         $or: [
@@ -395,12 +417,20 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           { updatedAt: { $gte: startOfDay, $lte: endOfDay } }
         ]
       }).select("onboardingPayment name phone"),
+      Delivery.find({
+        "onboardingPayment.status": { $in: ["completed", "exempt"] },
+        "onboardingPayment.amount": { $gt: 0 }
+      }).select("onboardingPayment name phone"),
       MlmCommissionLog.find({
         date: { $gte: startOfDay, $lte: endOfDay },
         source: "Rider Registration Fee",
       })
     ]);
-    const riderOnboardingSum = riderDelivery.reduce(
+    const dateRiderSum = riderDeliveryDate.reduce(
+      (sum, r) => sum + (Number(r.onboardingPayment?.amount) || 0),
+      0
+    );
+    const allRiderSum = allPaidDelivery.reduce(
       (sum, r) => sum + (Number(r.onboardingPayment?.amount) || 0),
       0
     );
@@ -408,7 +438,8 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       (sum, r) => sum + (Number(r.requestedAmount) || 0),
       0
     );
-    const totalRiderFeeAmount = Math.max(riderOnboardingSum, riderLogsSum);
+    const candidateRiderSum = Math.max(dateRiderSum, riderLogsSum);
+    const totalRiderFeeAmount = candidateRiderSum > 0 ? candidateRiderSum : allRiderSum;
 
     // D: Order Commissions & other sources
     const orderLogs = await MlmCommissionLog.find({
