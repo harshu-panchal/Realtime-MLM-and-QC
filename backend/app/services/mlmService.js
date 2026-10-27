@@ -570,6 +570,28 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       }
     }
 
+    // Fetch all tree nodes to compute exact total downline IDs (Left subtree + Right subtree) for every user
+    const allTreeNodes = await MlmTree.find({}).select("_id leftId rightId parentId").lean();
+    const treeNodeMap = new Map(allTreeNodes.map((t) => [t._id.toString(), t]));
+    const countTotalDownline = (nodeId) => {
+      let count = 0;
+      const q = [nodeId?.toString()];
+      while (q.length > 0) {
+        const currId = q.shift();
+        const curr = treeNodeMap.get(currId);
+        if (!curr) continue;
+        if (curr.leftId) {
+          count++;
+          q.push(curr.leftId.toString());
+        }
+        if (curr.rightId) {
+          count++;
+          q.push(curr.rightId.toString());
+        }
+      }
+      return count;
+    };
+
     const sectionA = allUserNodes.map((node) => {
       // In User MLM: volume comes strictly from Users (not Vendor)
       const left = Number(node.leftBalance) > 100 ? 0 : (Number(node.leftBalance) || 0);
@@ -586,6 +608,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
+        downlineGeneratedIds: countTotalDownline(node._id),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",

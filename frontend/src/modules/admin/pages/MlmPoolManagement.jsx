@@ -347,6 +347,7 @@ const MlmPoolManagement = () => {
                 <tr>
                   <th className="py-3 px-4">Participant</th>
                   <th className="py-3 px-4">Role & Level</th>
+                  <th className="py-3 px-4">Downline IDs</th>
                   <th className="py-3 px-4">Left Balance</th>
                   <th className="py-3 px-4">Right Balance</th>
                   <th className="py-3 px-4">Unmatched Difference</th>
@@ -356,7 +357,7 @@ const MlmPoolManagement = () => {
               <tbody className="divide-y divide-slate-100">
                 {sectionA.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-8 text-center text-slate-400 text-xs font-semibold">
+                    <td colSpan="7" className="py-8 text-center text-slate-400 text-xs font-semibold">
                       No nodes pending in Section A. All tree nodes are currently balanced!
                     </td>
                   </tr>
@@ -370,6 +371,11 @@ const MlmPoolManagement = () => {
                       <td className="py-3.5 px-4">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                           {node.entityType} (Lvl {node.level})
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-black text-xs px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {node.downlineGeneratedIds || 0} IDs
                         </span>
                       </td>
                       <td className="py-3.5 px-4 font-bold text-blue-600">
