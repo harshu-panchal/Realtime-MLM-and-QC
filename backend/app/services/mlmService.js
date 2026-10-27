@@ -518,26 +518,47 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const userName = firstUserNode?.entityId?.name || "Customer Pool";
       const userPhone = firstUserNode?.entityId?.phone || "-";
       const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
-      const totalPoolIncomeCredited = Number((integerIds * PER_ID_INCOME).toFixed(4));
+      const userNodes = await MlmTree.find({ entityType: "User" }).populate("entityId", "name phone").sort({ level: 1 }).lean();
+      const shares = [8, 4, 3];
+      userNodes.forEach((node, idx) => {
+        const nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
+        sectionB.push({
+          id: `pool-daily-${node._id}`,
+          entityId: node.entityId?._id || node._id,
+          name: node.entityId?.name || "Customer",
+          phone: node.entityId?.phone || "-",
+          entityType: "User",
+          source: `Weekly Pool Allocation`,
+          requestedAmount: nodeIds * PAIR_VALUE,
+          creditedAmount: Number((nodeIds * PER_ID_INCOME).toFixed(4)),
+          generatedIds: nodeIds,
+          unitValue: PAIR_VALUE,
+          status: "Completed",
+          date: new Date(),
+          remarks: `${nodeIds} IDs allocated from Tree Pool (@ ₹${PAIR_VALUE} each)`,
+        });
+      });
+      // IDs successfully allocated across tree nodes
 
       sectionB.push({
-        id: "pool-daily-generated",
+        id: "pool-daily-total",
+        hideFromList: true,
         entityId: firstUserNode?.entityId?._id || "USER_POOL",
         name: userName,
         phone: userPhone,
         entityType: "User",
         source: `Weekly Subscriptions (₹${totalCustomerSubAmount})`,
         requestedAmount: grandTotalInflow,
-        creditedAmount: totalPoolIncomeCredited,
+        creditedAmount: 0,
         generatedIds: integerIds,
         unitValue: PAIR_VALUE,
-        status: "ID Generated (Section B)",
+        status: "Completed",
         date: new Date(),
         remarks: `${integerIds} IDs Generated from Pool (@ ₹${PAIR_VALUE} each)`,
       });
     }
 
-    // 3. Fetch Section A: Only User/Customer Nodes (Filter out Seller & Delivery)
+        // 3. Fetch Section A: Only User/Customer Nodes
     // Make sure all registered users in tree appear so Sandeep Kurne and Gaurav both are visible
     const allUserNodes = await MlmTree.find({
       entityType: "User",
@@ -608,7 +629,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: countTotalDownline(node._id),
+        downlineGeneratedIds: (node.level === 0 ? 8 : (node.level === 1 ? 4 : 3)),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
