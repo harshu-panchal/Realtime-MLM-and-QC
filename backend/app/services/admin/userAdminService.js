@@ -128,9 +128,12 @@ export async function getUserByIdData(id) {
     ? authoritativeBalance
     : (Number(selectedUser.walletBalance) || (Number(mlmNode?.weeklyAccumulatedIncome) || 0));
 
+  // If balance is tiny fraction (< 1 paisa like 0.001), treat as 0 until real pair matches
+  const displayWalletBalance = finalWalletBalance < 0.01 ? 0 : Number(finalWalletBalance.toFixed(2));
+
   return {
     ...selectedUser,
-    walletBalance: finalWalletBalance,
+    walletBalance: displayWalletBalance,
     mlmTree: mlmNode ? {
       leftBalance: Number(mlmNode.leftBalance) > 100 ? 0 : (Number(mlmNode.leftBalance) || 0),
       rightBalance: Number(mlmNode.rightBalance) > 100 ? 0 : (Number(mlmNode.rightBalance) || 0),

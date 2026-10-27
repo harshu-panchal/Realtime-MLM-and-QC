@@ -257,7 +257,7 @@ const CustomerDetail = () => {
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Wallet & MLM Balance</p>
                         <div className="flex items-center justify-between">
                             <div>
-                                <h4 className="text-2xl font-black text-emerald-600">₹{(customer.walletBalance || 0).toLocaleString()}</h4>
+                                <h4 className="text-2xl font-black text-emerald-600">₹{(customer.walletBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h4>
                                 <p className="text-[10px] font-bold text-slate-400 mt-0.5">Available for shopping/withdrawal</p>
                             </div>
                             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">

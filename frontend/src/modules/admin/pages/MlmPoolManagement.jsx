@@ -55,6 +55,7 @@ const MlmPoolManagement = () => {
     pairValue: 3.60,
     totalGeneratedPoolIds: 0,
     integerIds: 0,
+    cumulativeTotalGeneratedIds: 0,
     remainingBalance: 0,
   };
 
@@ -157,18 +158,27 @@ const MlmPoolManagement = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-                Daily Pool Status
+                Daily & Cumulative Status
               </span>
               <span className="text-xs text-slate-400">Total Inflow: ₹{(summary.grandTotalInflow || 0).toLocaleString()}</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-              <span className="text-orange-400">
-                {loading ? "..." : (summary.integerIds ?? Math.floor(summary.totalGeneratedPoolIds || 0))}
-              </span>{" "}
-              <span className="text-white text-2xl font-bold">Generated IDs Today</span>
-            </h2>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+                <span className="text-orange-400">
+                  {loading ? "..." : (summary.integerIds ?? Math.floor(summary.totalGeneratedPoolIds || 0))}
+                </span>{" "}
+                <span className="text-white text-2xl font-bold">Generated Today</span>
+              </h2>
+              <span className="text-slate-400 font-bold">|</span>
+              <div className="flex items-baseline gap-1.5 bg-white/10 px-3 py-1 rounded-xl">
+                <span className="text-xs text-slate-300 font-bold uppercase">All-Time Cumulative:</span>
+                <span className="text-emerald-400 text-xl font-black">
+                  {loading ? "..." : (summary.cumulativeTotalGeneratedIds || summary.integerIds || 0)} IDs
+                </span>
+              </div>
+            </div>
             <p className="text-xs text-slate-300 mt-2 max-w-xl leading-relaxed">
-              Based on today&apos;s collections (₹{(summary.grandTotalInflow || 0).toLocaleString()} ÷ {summary.pairValue || 3.60} = {summary.totalGeneratedPoolIds || 0} IDs). Nodes with completed pairs are in{" "}
+              Based on collections (÷ {summary.pairValue || 3.60} per ID). Har week generate hui IDs ka total aggregate hokar Section B aur cumulative counter me track hota hai. Nodes with completed pairs are in{" "}
               <span className="text-emerald-400 font-bold">Section B</span>, and waiting volumes remain in{" "}
               <span className="text-amber-400 font-bold">Section A</span>.
             </p>

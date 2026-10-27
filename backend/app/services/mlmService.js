@@ -451,7 +451,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       0
     );
 
-    // Strictly USER MLM POOL: Inflow comes from Customer weekly subscriptions and Customer order commissions
+        // Strictly USER MLM POOL: Inflow comes from Customer weekly subscriptions and Customer order commissions
     const grandTotalInflow = totalCustomerSubAmount + totalOrderCommissionAmount;
 
     // Formula: Total Inflow / 3.60 = Total Generated IDs
@@ -465,6 +465,27 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       : 0;
 
     // 2. Fetch Section B: Customer/User Nodes with Generated IDs
+    const [allCustomerSubscriptions, allHistoricalOrders] = await Promise.all([
+      Customer.find({
+        "weeklySubscription.amount": { $gt: 0 }
+      }).select("weeklySubscription").lean(),
+      MlmCommissionLog.find({
+        source: { $nin: ["Vendor Registration Fee", "Rider Registration Fee"] }
+      }).select("requestedAmount generatedIds").lean()
+    ]);
+
+    const totalHistoricalCustomerInflow = allCustomerSubscriptions.reduce(
+      (sum, c) => sum + (Number(c.weeklySubscription?.amount) || 0),
+      0
+    );
+    const totalHistoricalOrderInflow = allHistoricalOrders.reduce(
+      (sum, o) => sum + (Number(o.requestedAmount) || 0),
+      0
+    );
+    const totalAllTimeInflow = totalHistoricalCustomerInflow + totalHistoricalOrderInflow;
+    const cumulativeTotalGeneratedIds = totalAllTimeInflow > 0
+      ? Math.floor(totalAllTimeInflow / PAIR_VALUE)
+      : integerIds;
     const completedCommissionLogs = await MlmCommissionLog.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       section: "B",
@@ -582,6 +603,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         pairValue: PAIR_VALUE,
         totalGeneratedPoolIds,
         integerIds,
+        cumulativeTotalGeneratedIds,
         remainingBalance,
       },
       sectionA: {
