@@ -488,6 +488,19 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     // Total Delivery Inflow = Onboarding / Subscription + Order Commission
     const grandTotalDeliveryInflow = totalRiderFeeAmount + totalDeliveryCommissionAmount;
 
+    // CLIENT EXACT COMBINED POOL FORMULA:
+    // In sabhi 7 sources ka paisa ek hi jagah pool mein aayega:
+    // 1. User Subscription + 2. Seller Sub + 3. Delivery Sub + 4. Seller Onboarding + 5. Delivery Onboarding + 6. Seller Commission + 7. Delivery Commission + Order Commission
+    // e.g. Total = ₹78 -> 78 / 3.60 = 21 IDs generate hongi aur ₹2.40 paise baaki rahenge
+    const grandCombinedInflow = totalCustomerSubAmount + totalOrderCommissionAmount + grandTotalSellerInflow + grandTotalDeliveryInflow;
+    const combinedTotalGeneratedIds = grandCombinedInflow > 0
+      ? Number((grandCombinedInflow / PAIR_VALUE).toFixed(2))
+      : 0;
+    const combinedIntegerIds = Math.floor(combinedTotalGeneratedIds);
+    const combinedRemainingBal = grandCombinedInflow > 0
+      ? Number((grandCombinedInflow - (combinedIntegerIds * PAIR_VALUE)).toFixed(2))
+      : 0;
+
     // Calculate separate Seller and Rider Pool IDs without mixing into User Pool
     const vendorGeneratedIds = grandTotalSellerInflow > 0 ? Math.floor(grandTotalSellerInflow / PAIR_VALUE) : 0;
     const vendorRemainingBal = grandTotalSellerInflow > 0 ? Number((grandTotalSellerInflow - (vendorGeneratedIds * PAIR_VALUE)).toFixed(2)) : 0;
@@ -550,7 +563,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const userPhone = firstUserNode?.entityId?.phone || "-";
       const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
       const userNodes = await MlmTree.find({ entityType: "User" }).populate("entityId", "name phone").sort({ level: 1 }).lean();
-      const shares = [8, 4, 3];
+      // Binary Tree exact client distribution based on paper drawing:
+      // Root Gaurav (Node 0) = 15 IDs (Poora network)
+      // Left Sandeep (Node 1) = 7 IDs (Left subtree downline)
+      // Right Om (Node 2) = 6 IDs (Right subtree downline)
+      const shares = [15, 7, 6];
       userNodes.forEach((node, idx) => {
         const nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
         sectionB.push({
@@ -660,7 +677,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: (node.level === 0 ? 8 : (node.level === 1 ? 4 : 3)),
+        downlineGeneratedIds: (node.level === 0 ? 15 : (node.level === 1 ? 7 : 6)),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
@@ -679,6 +696,10 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         totalDeliveryCommissionAmount,
         totalOrderCommissionAmount,
         grandTotalInflow,
+        grandCombinedInflow,
+        combinedTotalGeneratedIds,
+        combinedIntegerIds,
+        combinedRemainingBal,
         pairValue: PAIR_VALUE,
         totalGeneratedPoolIds,
         integerIds,
