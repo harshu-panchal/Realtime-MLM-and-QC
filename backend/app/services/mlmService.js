@@ -451,7 +451,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       0
     );
 
-        // Strictly USER MLM POOL: Inflow comes from Customer weekly subscriptions and Customer order commissions
+    // Strictly USER MLM POOL: Inflow comes from Customer weekly subscriptions and Customer order commissions
     const grandTotalInflow = totalCustomerSubAmount + totalOrderCommissionAmount;
 
     // Formula: Total Inflow / 3.60 = Total Generated IDs
@@ -554,11 +554,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         unitValue: PAIR_VALUE,
         status: "Completed",
         date: new Date(),
-        remarks: `${integerIds} IDs Generated from Pool (@ ₹${PAIR_VALUE} each)`,
+        remarks: `Pool Total: ${integerIds} IDs Generated (@ ₹${PAIR_VALUE} each)`,
       });
     }
 
-        // 3. Fetch Section A: Only User/Customer Nodes
+    // 3. Fetch Section A: Only User/Customer Nodes
     // Make sure all registered users in tree appear so Sandeep Kurne and Gaurav both are visible
     const allUserNodes = await MlmTree.find({
       entityType: "User",
@@ -657,8 +657,8 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       },
       sectionB: {
         title: "Section B - Completed (ID Generated & Credited)",
-        count: sectionB.length,
-        items: sectionB,
+        count: sectionB.filter((item) => !item.hideFromList).length,
+        items: sectionB.filter((item) => !item.hideFromList),
       },
     };
   } catch (error) {
