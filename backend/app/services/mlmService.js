@@ -548,7 +548,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     const sectionB = completedCommissionLogs.map((log) => {
       let gIds = log.generatedIds || (log.creditedAmount > 0 ? Math.floor(log.creditedAmount / PAIR_VALUE) : 0);
       const logName = (log.entityId?.name || "").toLowerCase();
-      if (logName.includes("om")) {
+      if (logName.includes("om") || String(log.entityId?._id || log.entityId || "").includes("6adf3cc3dd1a8b969866f231")) {
         gIds = Math.floor((integerIds - 1) / 2);
       } else if (logName.includes("sandeep")) {
         gIds = Math.ceil((integerIds - 1) / 2);
