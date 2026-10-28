@@ -53,7 +53,14 @@ export async function getUsersData({ page, limit, skip }) {
   ]);
 
   const total = result?.totalCount?.[0]?.count ?? 0;
-  const items = result?.items ?? [];
+  const items = (result?.items ?? []).map((u) => {
+    let bal = Number(u.walletBalance || 0);
+    if (bal < 0.01) bal = 0;
+    return {
+      ...u,
+      walletBalance: bal,
+    };
+  });
 
   return {
     items,
