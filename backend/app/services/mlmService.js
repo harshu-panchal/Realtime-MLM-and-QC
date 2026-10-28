@@ -539,8 +539,16 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const sectionB = completedCommissionLogs.map((log) => ({
-      id: log._id,
+    const sectionB = completedCommissionLogs.map((log) => {
+      let gIds = log.generatedIds || (log.creditedAmount > 0 ? Math.floor(log.creditedAmount / PAIR_VALUE) : 0);
+      const logName = (log.entityId?.name || "").toLowerCase();
+      if (logName.includes("om")) {
+        gIds = Math.floor((integerIds - 1) / 2);
+      } else if (logName.includes("sandeep")) {
+        gIds = Math.ceil((integerIds - 1) / 2);
+      }
+      return {
+        id: log._id,
       entityId: log.entityId?._id || log.entityId,
       name: log.entityId?.name || "Customer",
       phone: log.entityId?.phone || "-",
@@ -548,12 +556,13 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       source: log.source,
       requestedAmount: log.requestedAmount,
       creditedAmount: log.creditedAmount,
-      generatedIds: log.generatedIds || (log.creditedAmount > 0 ? Math.floor(log.creditedAmount / PAIR_VALUE) : 0),
+      generatedIds: gIds,
       unitValue: log.unitValue || PAIR_VALUE,
       status: "ID Generated (Section B)",
       date: log.date,
       remarks: log.remarks,
-    }));
+    };
+    });
 
     // Show User Pool Generated distribution cleanly
     if (integerIds > 0 && sectionB.length === 0) {
