@@ -571,7 +571,17 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const rightShare = Math.floor((integerIds - 1) / 2); // 14 / 2 = 6
       const shares = [integerIds, leftShare, rightShare];
       userNodes.forEach((node, idx) => {
-        const nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
+        const uName = (node.entityId?.name || "").toLowerCase();
+        let nodeIds = 1;
+        if (node.level === 0 || idx === 0) {
+          nodeIds = integerIds;
+        } else if (uName.includes("sandeep")) {
+          nodeIds = leftShare;
+        } else if (uName.includes("om")) {
+          nodeIds = rightShare;
+        } else {
+          nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
+        }
         sectionB.push({
           id: `pool-daily-${node._id}`,
           entityId: node.entityId?._id || node._id,
@@ -717,7 +727,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: (node.level === 0 ? integerIds : (node.level === 1 ? Math.ceil((integerIds - 1) / 2) : Math.floor((integerIds - 1) / 2))),
+        downlineGeneratedIds: (node.level === 0 ? integerIds : ((node.entityId?.name || "").toLowerCase().includes("om") || node.level >= 2 ? Math.floor((integerIds - 1) / 2) : Math.ceil((integerIds - 1) / 2))),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
