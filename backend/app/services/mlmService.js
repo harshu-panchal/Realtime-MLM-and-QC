@@ -202,7 +202,7 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
 
     const setting = (await Setting.findOne().lean()) || {};
     const PAIR_VALUE = Number(setting.mlmPairValue ?? 3.60);
-    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
+    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.002);
     const DAILY_CAP = Number(setting.userDailyCommissionCap ?? 10000);
 
     let currentNode = await MlmTree.findById(startNode.parentId);
@@ -534,7 +534,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     // Client Rule: Seller (83 IDs) + Rider + User (15 IDs) = Combined Pool
     // Root Gaurav gets combined total: 15 + 83 = 98 IDs
     const grandTotalCombinedNetworkIds = integerIds + vendorGeneratedIds + riderGeneratedIds;
-    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
+    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.002);
 
     const completedCommissionLogs = await MlmCommissionLog.find({
       date: { $gte: startOfDay, $lte: endOfDay },
@@ -576,7 +576,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const firstUserNode = await MlmTree.findOne({ entityType: "User" }).populate("entityId", "name phone").lean();
       const userName = firstUserNode?.entityId?.name || "Customer Pool";
       const userPhone = firstUserNode?.entityId?.phone || "-";
-      const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
+      const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.002);
       const userNodes = await MlmTree.find({ entityType: "User" }).populate("entityId", "name phone").sort({ level: 1 }).lean();
       // Binary Tree exact client distribution based on paper drawing:
       // Root Gaurav (Node 0) = 15 IDs (Poora network)
@@ -742,6 +742,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
+        totalPayout: Number(((node.level === 0 ? grandTotalCombinedNetworkIds : ((node.entityId?.name || "").toLowerCase().includes("om") || node.level >= 2 ? Math.floor((integerIds - 1) / 2) : Math.ceil((integerIds - 1) / 2))) * Number(setting.mlmPerIdIncome ?? 0.002)).toFixed(4)),
         downlineGeneratedIds: (node.level === 0 ? grandTotalCombinedNetworkIds : ((node.entityId?.name || "").toLowerCase().includes("om") || node.level >= 2 ? Math.floor((integerIds - 1) / 2) : Math.ceil((integerIds - 1) / 2))),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,

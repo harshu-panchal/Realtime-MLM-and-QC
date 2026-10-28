@@ -355,16 +355,14 @@ const MlmPoolManagement = () => {
                   <th className="py-3 px-4">Participant</th>
                   <th className="py-3 px-4">Role & Level</th>
                   <th className="py-3 px-4">Downline IDs</th>
-                  <th className="py-3 px-4">Left Balance</th>
-                  <th className="py-3 px-4">Right Balance</th>
-                  <th className="py-3 px-4">Unmatched Difference</th>
+                  <th className="py-3 px-4">Total Payout</th>
                   <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sectionA.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="py-8 text-center text-slate-400 text-xs font-semibold">
+                    <td colSpan="5" className="py-8 text-center text-slate-400 text-xs font-semibold">
                       No nodes pending in Section A. All tree nodes are currently balanced!
                     </td>
                   </tr>
@@ -385,14 +383,8 @@ const MlmPoolManagement = () => {
                           {node.downlineGeneratedIds || 0} IDs
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-blue-600">
-                        ₹{(node.leftBalance || 0).toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-purple-600">
-                        ₹{(node.rightBalance || 0).toFixed(2)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-amber-600">
-                        ₹{(node.unmatchedBalance || 0).toFixed(2)}
+                      <td className="py-3.5 px-4 font-black text-emerald-600 text-sm">
+                        ₹{(node.totalPayout || 0).toFixed(4)}
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
