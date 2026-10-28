@@ -1,14 +1,14 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
 import axiosInstance from "@core/api/axios";
-import { 
-  Users, 
-  Coins, 
-  Layers, 
-  ArrowRight, 
-  CheckCircle2, 
-  Clock, 
-  RefreshCw, 
+import {
+  Users,
+  Coins,
+  Layers,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
   HelpCircle,
   Calendar,
   Sparkles,
@@ -121,9 +121,14 @@ const MlmPoolManagement = () => {
             <TrendingUp size={18} className="text-emerald-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            {loading ? "..." : `₹${(summary.totalVendorFeeAmount || 0).toLocaleString()}`}
+            {loading ? "..." : `₹${((summary.grandTotalSellerInflow || summary.totalVendorFeeAmount) || 0).toLocaleString()}`}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1 font-medium">Seller registration collection</p>
+          <div className="flex items-center justify-between mt-1 text-[11px] font-semibold">
+            <span className="text-slate-400">Onboarding + Commission</span>
+            <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+              {summary.vendorGeneratedIds || Math.floor(((summary.grandTotalSellerInflow || summary.totalVendorFeeAmount) || 0) / (summary.pairValue || 3.6))} IDs
+            </span>
+          </div>
         </div>
 
         {/* Card 3: Rider Subscriptions */}
@@ -133,9 +138,14 @@ const MlmPoolManagement = () => {
             <Coins size={18} className="text-purple-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            {loading ? "..." : `₹${(summary.totalRiderFeeAmount || 0).toLocaleString()}`}
+            {loading ? "..." : `₹${((summary.grandTotalDeliveryInflow || summary.totalRiderFeeAmount) || 0).toLocaleString()}`}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1 font-medium">Delivery partner registration</p>
+          <div className="flex items-center justify-between mt-1 text-[11px] font-semibold">
+            <span className="text-slate-400">Onboarding + Commission</span>
+            <span className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
+              {summary.riderGeneratedIds || Math.floor(((summary.grandTotalDeliveryInflow || summary.totalRiderFeeAmount) || 0) / (summary.pairValue || 3.6))} IDs
+            </span>
+          </div>
         </div>
 
         {/* Card 4: Orders MLM Commission */}
@@ -207,32 +217,29 @@ const MlmPoolManagement = () => {
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "all"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "all"
               ? "bg-slate-900 text-white"
               : "text-slate-600 hover:bg-slate-100"
-          }`}
+            }`}
         >
           All Sections
         </button>
         <button
           onClick={() => setActiveTab("sectionB")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === "sectionB"
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === "sectionB"
               ? "bg-emerald-600 text-white"
               : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-          }`}
+            }`}
         >
           <CheckCircle2 size={13} />
           <span>Section B - Generated IDs ({data?.sectionB?.count || 0})</span>
         </button>
         <button
           onClick={() => setActiveTab("sectionA")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === "sectionA"
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === "sectionA"
               ? "bg-amber-600 text-white"
               : "text-amber-700 bg-amber-50 hover:bg-amber-100"
-          }`}
+            }`}
         >
           <Clock size={13} />
           <span>Section A - Pending ({data?.sectionA?.count || 0})</span>

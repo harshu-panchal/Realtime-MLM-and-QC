@@ -464,6 +464,37 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       ? Number((grandTotalInflow - (integerIds * PAIR_VALUE)).toFixed(2))
       : 0;
 
+    // Fetch Seller Order Commissions
+    const sellerCommissionLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      entityType: "Seller",
+    }).lean();
+    const totalSellerCommissionAmount = sellerCommissionLogs.reduce(
+      (sum, s) => sum + (Number(s.requestedAmount) || 0),
+      0
+    );
+    // Total Seller Inflow = Onboarding + Order Commission
+    const grandTotalSellerInflow = totalVendorFeeAmount + totalSellerCommissionAmount;
+
+    // Fetch Delivery Order Commissions
+    const deliveryCommissionLogs = await MlmCommissionLog.find({
+      date: { $gte: startOfDay, $lte: endOfDay },
+      entityType: "Delivery",
+    }).lean();
+    const totalDeliveryCommissionAmount = deliveryCommissionLogs.reduce(
+      (sum, d) => sum + (Number(d.requestedAmount) || 0),
+      0
+    );
+    // Total Delivery Inflow = Onboarding / Subscription + Order Commission
+    const grandTotalDeliveryInflow = totalRiderFeeAmount + totalDeliveryCommissionAmount;
+
+    // Calculate separate Seller and Rider Pool IDs without mixing into User Pool
+    const vendorGeneratedIds = grandTotalSellerInflow > 0 ? Math.floor(grandTotalSellerInflow / PAIR_VALUE) : 0;
+    const vendorRemainingBal = grandTotalSellerInflow > 0 ? Number((grandTotalSellerInflow - (vendorGeneratedIds * PAIR_VALUE)).toFixed(2)) : 0;
+
+    const riderGeneratedIds = grandTotalDeliveryInflow > 0 ? Math.floor(grandTotalDeliveryInflow / PAIR_VALUE) : 0;
+    const riderRemainingBal = grandTotalDeliveryInflow > 0 ? Number((grandTotalDeliveryInflow - (riderGeneratedIds * PAIR_VALUE)).toFixed(2)) : 0;
+
     // 2. Fetch Section B: Customer/User Nodes with Generated IDs
     const [allCustomerSubscriptions, allHistoricalOrders] = await Promise.all([
       Customer.find({
@@ -641,7 +672,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         date: startOfDay.toISOString().split("T")[0],
         totalCustomerSubAmount,
         totalVendorFeeAmount,
+        grandTotalSellerInflow,
+        totalSellerCommissionAmount,
         totalRiderFeeAmount,
+        grandTotalDeliveryInflow,
+        totalDeliveryCommissionAmount,
         totalOrderCommissionAmount,
         grandTotalInflow,
         pairValue: PAIR_VALUE,
@@ -649,6 +684,10 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         integerIds,
         cumulativeTotalGeneratedIds,
         remainingBalance,
+        vendorGeneratedIds,
+        vendorRemainingBal,
+        riderGeneratedIds,
+        riderRemainingBal,
       },
       sectionA: {
         title: "Section A - Pending (ID Not Generated / Waiting Balance)",
