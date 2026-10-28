@@ -530,6 +530,12 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     const cumulativeTotalGeneratedIds = totalAllTimeInflow > 0
       ? Math.floor(totalAllTimeInflow / PAIR_VALUE)
       : integerIds;
+    // 2. Combined Network Pool Calculation (Seller + Rider + User)
+    // Client Rule: Seller (83 IDs) + Rider + User (15 IDs) = Combined Pool
+    // Root Gaurav gets combined total: 15 + 83 = 98 IDs
+    const grandTotalCombinedNetworkIds = integerIds + vendorGeneratedIds + riderGeneratedIds;
+    const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
+
     const completedCommissionLogs = await MlmCommissionLog.find({
       date: { $gte: startOfDay, $lte: endOfDay },
       section: "B",
@@ -583,10 +589,10 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         const uName = (node.entityId?.name || "").toLowerCase();
         let nodeIds = 1;
         if (node.level === 0 || idx === 0) {
-          nodeIds = integerIds;
+          nodeIds = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : integerIds;
         } else if (uName.includes("sandeep")) {
           nodeIds = leftShare;
-        } else if (uName.includes("om")) {
+        } else if (uName.includes("om") || node.level >= 2 || idx === 2) {
           nodeIds = rightShare;
         } else {
           nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
@@ -619,7 +625,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           entityType: "Seller",
           source: `Seller (Onboarding + Commission)`,
           requestedAmount: grandTotalSellerInflow,
-          creditedAmount: 0,
+          creditedAmount: vendorRemainingBal,
           generatedIds: vendorGeneratedIds,
           unitValue: PAIR_VALUE,
           status: "Completed",
@@ -638,7 +644,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           entityType: "Delivery",
           source: `Rider (Onboarding + Commission)`,
           requestedAmount: grandTotalDeliveryInflow,
-          creditedAmount: 0,
+          creditedAmount: vendorRemainingBal,
           generatedIds: riderGeneratedIds,
           unitValue: PAIR_VALUE,
           status: "Completed",
@@ -736,7 +742,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: (node.level === 0 ? integerIds : ((node.entityId?.name || "").toLowerCase().includes("om") || node.level >= 2 ? Math.floor((integerIds - 1) / 2) : Math.ceil((integerIds - 1) / 2))),
+        downlineGeneratedIds: (node.level === 0 ? grandTotalCombinedNetworkIds : ((node.entityId?.name || "").toLowerCase().includes("om") || node.level >= 2 ? Math.floor((integerIds - 1) / 2) : Math.ceil((integerIds - 1) / 2))),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
