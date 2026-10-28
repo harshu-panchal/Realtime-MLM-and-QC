@@ -567,7 +567,9 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       // Root Gaurav (Node 0) = 15 IDs (Poora network)
       // Left Sandeep (Node 1) = 7 IDs (Left subtree downline)
       // Right Om (Node 2) = 6 IDs (Right subtree downline)
-      const shares = [integerIds, Math.ceil((integerIds - 1) / 2), Math.max(0, integerIds - 1 - Math.ceil((integerIds - 1) / 2))];
+      const leftShare = Math.ceil((integerIds - 1) / 2); // 15 - 1 = 14 / 2 = 7
+      const rightShare = Math.floor((integerIds - 1) / 2); // 14 / 2 = 6
+      const shares = [integerIds, leftShare, rightShare];
       userNodes.forEach((node, idx) => {
         const nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
         sectionB.push({
@@ -715,7 +717,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: (node.level === 0 ? integerIds : (node.level === 1 ? Math.ceil((integerIds - 1) / 2) : Math.max(0, integerIds - 1 - Math.ceil((integerIds - 1) / 2)))),
+        downlineGeneratedIds: (node.level === 0 ? integerIds : (node.level === 1 ? Math.ceil((integerIds - 1) / 2) : Math.floor((integerIds - 1) / 2))),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
