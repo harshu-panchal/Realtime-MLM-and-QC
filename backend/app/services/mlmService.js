@@ -567,7 +567,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       // Root Gaurav (Node 0) = 15 IDs (Poora network)
       // Left Sandeep (Node 1) = 7 IDs (Left subtree downline)
       // Right Om (Node 2) = 6 IDs (Right subtree downline)
-      const shares = [15, 7, 6];
+      const shares = [integerIds, Math.ceil((integerIds - 1) / 2), Math.max(0, integerIds - 1 - Math.ceil((integerIds - 1) / 2))];
       userNodes.forEach((node, idx) => {
         const nodeIds = shares[idx] !== undefined ? shares[idx] : 1;
         sectionB.push({
@@ -587,6 +587,44 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         });
       });
       // IDs successfully allocated across tree nodes
+      
+      // 2. Seller Pool IDs (Onboarding + Commission -> 83 IDs) into Section B
+      if (vendorGeneratedIds > 0) {
+        sectionB.push({
+          id: `pool-seller-generated`,
+          entityId: "SELLER_POOL",
+          name: "Seller Network",
+          phone: "Onboarding + Orders",
+          entityType: "Seller",
+          source: `Seller (Onboarding + Commission)`,
+          requestedAmount: grandTotalSellerInflow,
+          creditedAmount: 0,
+          generatedIds: vendorGeneratedIds,
+          unitValue: PAIR_VALUE,
+          status: "Completed",
+          date: new Date(),
+          remarks: `${vendorGeneratedIds} Seller IDs generated from ₹${grandTotalSellerInflow} (@ ₹${PAIR_VALUE} each)`,
+        });
+      }
+
+      // 3. Delivery Rider Pool IDs (Onboarding + Commission) into Section B
+      if (riderGeneratedIds > 0) {
+        sectionB.push({
+          id: `pool-delivery-generated`,
+          entityId: "DELIVERY_POOL",
+          name: "Delivery Fleet",
+          phone: "Onboarding + Orders",
+          entityType: "Delivery",
+          source: `Rider (Onboarding + Commission)`,
+          requestedAmount: grandTotalDeliveryInflow,
+          creditedAmount: 0,
+          generatedIds: riderGeneratedIds,
+          unitValue: PAIR_VALUE,
+          status: "Completed",
+          date: new Date(),
+          remarks: `${riderGeneratedIds} Rider IDs generated from ₹${grandTotalDeliveryInflow} (@ ₹${PAIR_VALUE} each)`,
+        });
+      }
 
       sectionB.push({
         id: "pool-daily-total",
@@ -677,7 +715,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        downlineGeneratedIds: (node.level === 0 ? 15 : (node.level === 1 ? 7 : 6)),
+        downlineGeneratedIds: (node.level === 0 ? integerIds : (node.level === 1 ? Math.ceil((integerIds - 1) / 2) : Math.max(0, integerIds - 1 - Math.ceil((integerIds - 1) / 2)))),
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
