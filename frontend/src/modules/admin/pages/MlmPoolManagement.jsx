@@ -304,12 +304,12 @@ const MlmPoolManagement = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="font-black text-emerald-700 text-sm">
-                          {item.name?.toLowerCase()?.includes("om") || String(item.entityId?._id || item.entityId || "").includes("6adf3cc3dd1a8b969866f231") ? 34 : (item.name?.toLowerCase()?.includes("sandeep") ? 62 : (item.generatedIds || 0))} IDs
+                          {item.generatedIds || 0} IDs
                         </span>
                         <p className="text-[10px] text-slate-400">@ ₹{item.unitValue} each</p>
                       </td>
                       <td className="py-3.5 px-4 font-black text-slate-900">
-                        ₹{(item.creditedAmount || 0).toFixed(2)}
+                        ₹{(item.creditedAmount || 0).toFixed(4)}
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
