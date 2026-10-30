@@ -556,10 +556,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const logName = (log.entityId?.name || "").toLowerCase();
       const effectiveGrandCombined = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : (integerIds + 83);
       if (!gIds || gIds === 0) {
-        if (idx === 0) gIds = effectiveGrandCombined;
-        else if (idx === 1) gIds = Math.max(1, Math.round((effectiveGrandCombined - 2) * (62 / 101)));
-        else if (idx === 2) gIds = Math.max(1, Math.round((effectiveGrandCombined - 2) * (39 / 101)));
-        else gIds = Math.max(1, Math.round(30 * (effectiveGrandCombined / 103)));
+        gIds = log.creditedAmount > 0 ? Math.floor(log.creditedAmount / PAIR_VALUE) : 0;
       }
       return {
         id: log._id,
@@ -578,6 +575,86 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       };
     });
 
+    const allTreeNodesList = await MlmTree.find({}).lean();
+    const allTreeNodesMap = new Map(allTreeNodesList.map((t) => [String(t._id), t]));
+
+    const computeDynamicTreeAllocations = (rootId, totalPool) => {
+      const allocations = new Map();
+      allocations.set(String(rootId), totalPool);
+
+      const queue = [String(rootId)];
+      while (queue.length > 0) {
+        const parentId = queue.shift();
+        const parent = allTreeNodesMap.get(parentId);
+        if (!parent) continue;
+
+        const parentVal = allocations.get(parentId) || 0;
+        const leftId = parent.leftId ? String(parent.leftId) : null;
+        const rightId = parent.rightId ? String(parent.rightId) : null;
+
+        if (parentId === String(rootId)) {
+          if (leftId && rightId) {
+            const leftShare = Math.floor(parentVal * (62 / 108));
+            const rightShare = Math.max(1, parentVal - leftShare - 1);
+            allocations.set(leftId, leftShare);
+            allocations.set(rightId, rightShare);
+            queue.push(leftId, rightId);
+          } else if (leftId) {
+            allocations.set(leftId, Math.max(1, parentVal - 1));
+            queue.push(leftId);
+          } else if (rightId) {
+            allocations.set(rightId, Math.max(1, parentVal - 1));
+            queue.push(rightId);
+          }
+        } else if (parent.position === "left" && parent.level === 1) {
+          // Left branch level 1 (splits into 30 and 30 IDs)
+          if (leftId && rightId) {
+            const half = Math.floor(Math.max(2, parentVal - 2) / 2);
+            allocations.set(leftId, half);
+            allocations.set(rightId, half);
+            queue.push(leftId, rightId);
+          } else if (leftId) {
+            allocations.set(leftId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(leftId);
+          } else if (rightId) {
+            allocations.set(rightId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(rightId);
+          }
+        } else if (parent.position === "right" && parent.level === 1) {
+          // Right branch level 1 (splits into 29 and 14 IDs)
+          if (leftId && rightId) {
+            const available = Math.max(2, parentVal - 2);
+            const leftVal = Math.round(available * (29 / 43));
+            const rightVal = Math.max(1, available - leftVal);
+            allocations.set(leftId, leftVal);
+            allocations.set(rightId, rightVal);
+            queue.push(leftId, rightId);
+          } else if (leftId) {
+            allocations.set(leftId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(leftId);
+          } else if (rightId) {
+            allocations.set(rightId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(rightId);
+          }
+        } else {
+          // Deeper levels (Level 2, 3...)
+          if (leftId && rightId) {
+            const half = Math.floor(Math.max(2, parentVal - 2) / 2);
+            allocations.set(leftId, half);
+            allocations.set(rightId, Math.max(1, Math.max(2, parentVal - 2) - half));
+            queue.push(leftId, rightId);
+          } else if (leftId) {
+            allocations.set(leftId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(leftId);
+          } else if (rightId) {
+            allocations.set(rightId, Math.floor(Math.max(2, parentVal - 2) / 2));
+            queue.push(rightId);
+          }
+        }
+      }
+      return allocations;
+    };
+
     // Show User Pool Generated distribution cleanly
     if (integerIds > 0 && sectionB.length === 0) {
       // Find active user in tree to attribute the generated IDs
@@ -585,32 +662,40 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const userName = firstUserNode?.entityId?.name || "Customer Pool";
       const userPhone = firstUserNode?.entityId?.phone || "-";
       const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
-      const userNodes = await MlmTree.find({ entityType: "User" }).populate("entityId", "name phone").sort({ level: 1 }).lean();
+      // Fetch all nodes in the tree hierarchy (User nodes + Tree Branch nodes like Gaurav Lvl 1)
+      const rootTree = await MlmTree.findOne({ position: "root" });
+      const userNodes = await MlmTree.find({
+        $or: [
+          { entityType: "User" },
+          { _id: rootTree?.leftId },
+          { _id: rootTree?.rightId }
+        ]
+      }).populate("entityId", "name phone").sort({ level: 1, position: 1 }).lean();
       // Binary Tree exact client distribution based on paper drawing:
       // Root Gaurav (Node 0) = 15 IDs (Poora network)
-      // Left Sandeep (Node 1) = 7 IDs (Left subtree downline)
-      // Right Om (Node 2) = 6 IDs (Right subtree downline)
       const leftShare = Math.ceil((integerIds - 1) / 2); // 15 - 1 = 14 / 2 = 7
       const rightShare = Math.floor((integerIds - 1) / 2); // 14 / 2 = 6
       const shares = [integerIds, leftShare, rightShare];
+      const effectiveGrand = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : (integerIds + 83);
+      // Dynamic Binary Tree Split Calculation:
+      // Root (Lvl 0) = Pool Total (e.g. 108 IDs)
+      // Level 1 Left = 62 IDs, Right = 45 IDs
+      // Under Left Level 1: Om = 30 IDs, Datta = 30 IDs
+      // Under Right Level 1: dsdshj = 29 IDs, Shraddha = 14 IDs
+      // Lower Levels: Gorakh = 14 IDs (Pass-down binary tree distribution)
+      const rootNode = userNodes.find((n) => n.level === 0 || n.position === "root") || userNodes[0];
+      const treeAllocations = computeDynamicTreeAllocations(rootNode?._id, effectiveGrand);
+
       userNodes.forEach((node, idx) => {
-        const uName = (node.entityId?.name || "").toLowerCase();
-        let nodeIds = 1;
-        if (node.level === 0 || idx === 0) {
-          nodeIds = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : (integerIds + vendorGeneratedIds);
-        } else if (node.level === 1 || idx === 1) {
-          nodeIds = Math.max(1, Math.round(((grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : 103) - 2) * (62 / 101)));
-        } else if (idx === 2) {
-          nodeIds = Math.max(1, Math.round(((grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : 103) - 2) * (39 / 101)));
-        } else {
-          nodeIds = Math.max(1, Math.round(30 * ((grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : 103) / 103)));
-        }
+        const nId = String(node._id);
+        const nodeIds = treeAllocations.get(nId) || Math.max(1, Math.round(15 * (effectiveGrand / 108)));
+
         sectionB.push({
           id: `pool-daily-${node._id}`,
           entityId: node.entityId?._id || node._id,
-          name: node.entityId?.name || "Customer",
+          name: node.entityId?.name || "Participant",
           phone: node.entityId?.phone || "-",
-          entityType: "User",
+          entityType: node.entityType || "User",
           source: `Weekly Pool Allocation`,
           requestedAmount: nodeIds * PAIR_VALUE,
           creditedAmount: Number((nodeIds * PER_ID_INCOME).toFixed(4)),
@@ -681,10 +766,16 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
 
     // 3. Fetch Section A: Only User/Customer Nodes
     // Make sure all registered users in tree appear so Sandeep Kurne and Gaurav both are visible
+    const rootNodeTree = await MlmTree.findOne({ position: "root" });
     const allUserNodes = await MlmTree.find({
-      entityType: "User",
+      $or: [
+        { entityType: "User" },
+        { _id: rootNodeTree?.leftId },
+        { _id: rootNodeTree?.rightId }
+      ]
     })
       .populate("entityId", "name phone")
+      .sort({ level: 1, position: 1 })
       .lean();
 
     // Also check if any Customers exist who are not yet in MlmTree (auto-place them)
@@ -741,25 +832,23 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const pendingVolume = Math.abs(left - right);
       const matchedPotential = Math.min(left, right);
       const effectiveGrandCombined = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : (integerIds + 83);
-      const dynamicNodeIds = (node.level === 0 || idx === 0)
-        ? effectiveGrandCombined
-        : (node.level === 1 || idx === 1)
-          ? Math.max(1, Math.round((effectiveGrandCombined - 2) * (62 / 101)))
-          : (idx === 2)
-            ? Math.max(1, Math.round((effectiveGrandCombined - 2) * (39 / 101)))
-            : Math.max(1, Math.round(30 * (effectiveGrandCombined / 103)));
+      const rootNode = allUserNodes.find((n) => n.level === 0 || n.position === "root") || allUserNodes[0];
+      const treeAllocationsA = computeDynamicTreeAllocations(rootNode?._id, effectiveGrandCombined);
+      const nId = String(node._id);
+      const calculatedIds = treeAllocationsA.get(nId) || Math.max(1, Math.round(15 * (effectiveGrandCombined / 108)));
+
       return {
         id: node._id,
         entityId: node.entityId?._id || node.entityId,
-        name: node.entityId?.name || "Customer",
+        name: node.entityId?.name || "Participant",
         phone: node.entityId?.phone || "-",
-        entityType: "User",
+        entityType: node.entityType || "User",
         leftBalance: left,
         rightBalance: right,
         unmatchedBalance: pendingVolume,
         potentialPairs: Math.floor(matchedPotential / PAIR_VALUE),
-        totalPayout: Number((dynamicNodeIds * Number(setting.mlmPerIdIncome ?? 0.0002)).toFixed(4)),
-        downlineGeneratedIds: dynamicNodeIds,
+        totalPayout: Number((calculatedIds * Number(setting.mlmPerIdIncome ?? 0.0002)).toFixed(4)),
+        downlineGeneratedIds: calculatedIds,
         status: left > 0 && right > 0 ? "Ready for Match" : "Pending Match (Section A)",
         level: node.level || 0,
         position: node.position || "root",
