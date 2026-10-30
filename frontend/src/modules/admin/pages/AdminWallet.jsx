@@ -335,7 +335,165 @@ const AdminWallet = () => {
                 </div>
             </div>
 
-            {/* Stats Grid */}
+{/* Dynamic Revenue & Platform Fee Breakdown Section (All 7 DB-Powered Metrics) */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5 pb-4 border-b border-slate-100">
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-amber-500" />
+                            Platform Revenue, Subscriptions & Commission Breakdown
+                        </h2>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                            Realtime database collections for Onboarding fees, Subscriptions, and Order commissions
+                        </p>
+                    </div>
+                    <span className="text-[10px] font-black px-3 py-1 rounded-full bg-brand-50 text-brand-600 border border-brand-100 uppercase tracking-widest w-fit">
+                        Live DB Sync
+                    </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-9 gap-4">
+                    {/* 1. Seller Onboarding Fee */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-sky-100 text-sky-700">
+                                <Store size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Onboarding</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-900">₹{(walletData.stats?.sellerOnboardingTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Registration collected</p>
+                    </div>
+
+                    {/* 2. Delivery Onboarding Fee */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                                <Bike size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rider Onboarding</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-900">₹{(walletData.stats?.deliveryOnboardingTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Registration collected</p>
+                    </div>
+
+                    {/* 3. Seller Commission */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                                <Tag size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Commission</span>
+                        </div>
+                        <p className="text-lg font-black text-emerald-600">₹{(walletData.stats?.sellerCommissionTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Product cut earned</p>
+                    </div>
+
+                    {/* 4. Delivery Commission / Margin */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-teal-100 text-teal-700">
+                                <TrendingUp size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Delivery Commission</span>
+                        </div>
+                        <p className="text-lg font-black text-teal-600">₹{(walletData.stats?.deliveryCommissionTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Logistics net profit</p>
+                    </div>
+
+                    {/* 5. User Weekly Subscription */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                                <UserCheck size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">User Subscription</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-900">₹{(walletData.stats?.userSubscriptionTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Customer plan fees</p>
+                    </div>
+
+                    {/* 6. Seller Daily Subscription */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
+                                <Clock size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Daily Plan</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-900">₹{(walletData.stats?.sellerSubscriptionTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Active order days</p>
+                    </div>
+
+                    {/* 7. Rider Daily Subscription */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700">
+                                <DollarSign size={14} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rider Daily Plan</span>
+                        </div>
+                        <p className="text-lg font-black text-slate-900">₹{(walletData.stats?.deliverySubscriptionTotal || 0).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Active shift fees</p>
+                    </div>
+                    {/* 8. Total Earning (Sum of all 7 breakdown sources) */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 rounded-lg bg-emerald-600 text-white shadow-xs">
+                                <Wallet size={14} />
+                            </div>
+                            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">Total Earning</span>
+                        </div>
+                        <p className="text-lg font-black text-emerald-700">
+                            ₹{(
+                                Number(walletData.stats?.sellerOnboardingTotal || 0) +
+                                Number(walletData.stats?.deliveryOnboardingTotal || 0) +
+                                Number(walletData.stats?.sellerCommissionTotal || 0) +
+                                Number(walletData.stats?.deliveryCommissionTotal || 0) +
+                                Number(walletData.stats?.userSubscriptionTotal || 0) +
+                                Number(walletData.stats?.sellerSubscriptionTotal || 0) +
+                                Number(walletData.stats?.deliverySubscriptionTotal || 0)
+                            ).toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-emerald-600/80 font-bold mt-0.5">Total of 7 sources</p>
+                    </div>
+
+                    {/* 9. Generated IDs & Remaining Balance (Client Pool Formula: Inflow ÷ 3.60) */}
+                    {(() => {
+                        const totalInflow = 
+                            Number(walletData.stats?.sellerOnboardingTotal || 0) +
+                            Number(walletData.stats?.deliveryOnboardingTotal || 0) +
+                            Number(walletData.stats?.sellerCommissionTotal || 0) +
+                            Number(walletData.stats?.deliveryCommissionTotal || 0) +
+                            Number(walletData.stats?.userSubscriptionTotal || 0) +
+                            Number(walletData.stats?.sellerSubscriptionTotal || 0) +
+                            Number(walletData.stats?.deliverySubscriptionTotal || 0);
+                        const pairVal = 3.60;
+                        const genIds = totalInflow > 0 ? Math.floor(totalInflow / pairVal) : 0;
+                        const usedAmt = Number((genIds * pairVal).toFixed(2));
+                        const remBal = totalInflow > 0 ? Number((totalInflow - usedAmt).toFixed(2)) : 0;
+
+                        return (
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between min-h-[132px]">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="p-1.5 rounded-lg bg-violet-100 text-violet-700">
+                                        <Sparkles size={14} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Generated IDs</span>
+                                </div>
+                                <p className="text-lg font-black text-violet-700">
+                                    {genIds} IDs
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                    Remaining Bal: ₹{remBal.toFixed(2)}
+                                </p>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </div>
+
+{/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {stats.map((stat, idx) => (
                     <motion.div
@@ -379,110 +537,6 @@ const AdminWallet = () => {
                         </Card>
                     </motion.div>
                 ))}
-            </div>
-
-            {/* Dynamic Revenue & Platform Fee Breakdown Section (All 7 DB-Powered Metrics) */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5 pb-4 border-b border-slate-100">
-                    <div>
-                        <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-amber-500" />
-                            Platform Revenue, Subscriptions & Commission Breakdown
-                        </h2>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            Realtime database collections for Onboarding fees, Subscriptions, and Order commissions
-                        </p>
-                    </div>
-                    <span className="text-[10px] font-black px-3 py-1 rounded-full bg-brand-50 text-brand-600 border border-brand-100 uppercase tracking-widest w-fit">
-                        Live DB Sync
-                    </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-                    {/* 1. Seller Onboarding Fee */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-sky-100 text-sky-700">
-                                <Store size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Onboarding</span>
-                        </div>
-                        <p className="text-base font-black text-slate-900">₹{(walletData.stats?.sellerOnboardingTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Registration collected</p>
-                    </div>
-
-                    {/* 2. Delivery Onboarding Fee */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
-                                <Bike size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rider Onboarding</span>
-                        </div>
-                        <p className="text-base font-black text-slate-900">₹{(walletData.stats?.deliveryOnboardingTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Registration collected</p>
-                    </div>
-
-                    {/* 3. Seller Commission */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
-                                <Tag size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Commission</span>
-                        </div>
-                        <p className="text-base font-black text-emerald-600">₹{(walletData.stats?.sellerCommissionTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Product cut earned</p>
-                    </div>
-
-                    {/* 4. Delivery Commission / Margin */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-teal-100 text-teal-700">
-                                <TrendingUp size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Delivery Commission</span>
-                        </div>
-                        <p className="text-base font-black text-teal-600">₹{(walletData.stats?.deliveryCommissionTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Logistics net profit</p>
-                    </div>
-
-                    {/* 5. User Weekly Subscription */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
-                                <UserCheck size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">User Subscription</span>
-                        </div>
-                        <p className="text-base font-black text-slate-900">₹{(walletData.stats?.userSubscriptionTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Customer plan fees</p>
-                    </div>
-
-                    {/* 6. Seller Daily Subscription */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
-                                <Clock size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Seller Daily Plan</span>
-                        </div>
-                        <p className="text-base font-black text-slate-900">₹{(walletData.stats?.sellerSubscriptionTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Active order days</p>
-                    </div>
-
-                    {/* 7. Rider Daily Subscription */}
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 hover:bg-white hover:shadow-md transition-all col-span-2 sm:col-span-1">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="p-1.5 rounded-lg bg-orange-100 text-orange-700">
-                                <DollarSign size={14} />
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rider Daily Plan</span>
-                        </div>
-                        <p className="text-base font-black text-slate-900">₹{(walletData.stats?.deliverySubscriptionTotal || 0).toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">Active shift fees</p>
-                    </div>
-                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

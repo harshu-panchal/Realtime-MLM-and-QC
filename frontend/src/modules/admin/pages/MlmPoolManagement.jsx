@@ -246,7 +246,8 @@ const MlmPoolManagement = () => {
         </button>
       </div>
 
-      {/* SECTION B: GENERATED IDS TABLE */}
+      {/* SECTION B: GENERATED IDS TABLE (HIDDEN AS REQUESTED - CALCULATION PRESERVED) */}
+      {/* 
       {(activeTab === "all" || activeTab === "sectionB") && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xs overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/40">
@@ -325,6 +326,7 @@ const MlmPoolManagement = () => {
           </div>
         </div>
       )}
+      */}
 
       {/* SECTION A: PENDING IDS TABLE */}
       {(activeTab === "all" || activeTab === "sectionA") && (
