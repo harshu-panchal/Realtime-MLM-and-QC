@@ -611,33 +611,31 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           const rightWeight = getSubtreeWeight(rightId);
 
           let leftShare, rightShare;
-          if (leftWeight === rightWeight) {
-            // Equal branches: 50-50 split after small parent retention
-            const avail = Math.max(2, parentVal - 2);
-            leftShare = Math.ceil(avail / 2);
-            rightShare = avail - leftShare;
+          if (leftWeight > rightWeight) {
+            // Stronger branch gets 50% of parent's pool, other branch gets remaining after 2 IDs retention
+            // e.g. parent = 28: Left (Om) = 28 / 2 = 14, Right (Shraddha) = 28 - 14 - 2 = 12
+            leftShare = Math.floor(parentVal / 2);
+            rightShare = Math.max(1, parentVal - leftShare - 2);
+          } else if (rightWeight > leftWeight) {
+            rightShare = Math.floor(parentVal / 2);
+            leftShare = Math.max(1, parentVal - rightShare - 2);
           } else {
-            // Unequal branches: Proportional to subtree team weight
-            const totalWeight = Math.max(1, leftWeight + rightWeight);
-            // Reserve remaining fraction so available divides cleanly or drops surplus to match ratio
-            const remainder = parentVal % totalWeight;
-            // e.g., parentVal = 20, totalWeight = 3 (Om has 2, Shraddha 1):
-            // remainder = 20 % 3 = 2 -> avail = 20 - 2 = 18!
-            // Om = 18 * (2/3) = 12, Shraddha = 18 * (1/3) = 6
-            const reserve = remainder > 0 ? remainder : totalWeight;
-            const avail = Math.max(totalWeight, parentVal - reserve);
-            leftShare = Math.round(avail * (leftWeight / totalWeight));
+            // Equal branches: (parent - 2) divided equally
+            // e.g. Om has 14 -> (14 - 2) / 2 = 6 for Gorakh & 6 for Seller
+            const avail = Math.max(2, parentVal - 2);
+            leftShare = Math.floor(avail / 2);
             rightShare = Math.max(1, avail - leftShare);
           }
+
           allocations.set(leftId, leftShare);
           allocations.set(rightId, rightShare);
           queue.push(leftId, rightId);
         } else if (leftId) {
-          // Single child gets half of parent's volume (e.g. Om has 12 -> Gorakh gets 12 / 2 = 6)
-          allocations.set(leftId, Math.max(1, Math.floor(parentVal / 2)));
+          // Single child gets half of parent's volume after retention
+          allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
           queue.push(leftId);
         } else if (rightId) {
-          allocations.set(rightId, Math.max(1, Math.floor(parentVal / 2)));
+          allocations.set(rightId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
           queue.push(rightId);
         }
       }
