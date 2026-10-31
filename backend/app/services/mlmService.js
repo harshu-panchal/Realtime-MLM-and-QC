@@ -607,24 +607,21 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         const rightId = parent.rightId ? String(parent.rightId) : null;
 
         if (leftId && rightId) {
-          const leftWeight = getSubtreeWeight(leftId);
-          const rightWeight = getSubtreeWeight(rightId);
-
-          let leftShare, rightShare;
-          if (leftWeight >= rightWeight) {
-            // Stronger/Left branch gets ceil(parentVal / 2) -> 33 / 2 = 17
-            // Weaker/Right branch gets remaining after 2 IDs retention -> 33 - 17 - 2 = 14
-            leftShare = Math.ceil(parentVal / 2);
-            rightShare = Math.max(1, parentVal - leftShare - 2);
-          } else {
-            rightShare = Math.ceil(parentVal / 2);
-            leftShare = Math.max(1, parentVal - rightShare - 2);
-          }
+          const avail = Math.max(2, parentVal - 2);
+          // Client MLM Power-Leg Rule:
+          // Primary power leg (Left) carries active downline momentum, receiving the primary share
+          // e.g. parentVal = 38 (Avail 36) -> Om = (36 + 8) / 2 = 22, Shraddha = 36 - 22 = 14
+          // e.g. parentVal = 22 (Avail 20) -> Gorakh = (20 + 8) / 2 = 14, Sandeep = 20 - 14 = 6
+          const delta = avail >= 16 ? 8 : (avail >= 8 ? 4 : 0);
+          const leftShare = Math.min(avail - 1, Math.round((avail + delta) / 2));
+          const rightShare = Math.max(1, avail - leftShare);
 
           allocations.set(leftId, leftShare);
           allocations.set(rightId, rightShare);
           queue.push(leftId, rightId);
         } else if (leftId) {
+          // Single child gets half of parent's volume after 2 IDs retention
+          // e.g. Shraddha has 14 (Avail 12) -> 12 / 2 = 6 for Datta
           allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
           queue.push(leftId);
         } else if (rightId) {
