@@ -794,7 +794,30 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       return count;
     };
 
-    const sectionA = allUserNodes.map((node, idx) => {
+    // Build exact Level-Order BFS traversal (Top to Bottom, Left to Right)
+    const bfsOrderedUserNodes = [];
+    if (rootNodeTree) {
+      const allTreeList = await MlmTree.find({}).populate("entityId", "name phone").lean();
+      const nodeMap = new Map(allTreeList.map(n => [String(n._id), n]));
+      const bfsQueue = [String(rootNodeTree._id)];
+      const visited = new Set();
+      while (bfsQueue.length > 0) {
+        const cId = bfsQueue.shift();
+        if (visited.has(cId)) continue;
+        visited.add(cId);
+        const curr = nodeMap.get(cId);
+        if (!curr) continue;
+        // Include if User node or direct child of root
+        if (curr.entityType === "User" || cId === String(rootNodeTree.leftId) || cId === String(rootNodeTree.rightId)) {
+          bfsOrderedUserNodes.push(curr);
+        }
+        if (curr.leftId) bfsQueue.push(String(curr.leftId));
+        if (curr.rightId) bfsQueue.push(String(curr.rightId));
+      }
+    }
+    const finalUserNodesList = bfsOrderedUserNodes.length > 0 ? bfsOrderedUserNodes : allUserNodes;
+
+    const sectionA = finalUserNodesList.map((node, idx) => {
       // In User MLM: volume comes strictly from Users (not Vendor)
       const left = Number(node.leftBalance) > 100 ? 0 : (Number(node.leftBalance) || 0);
       const right = Number(node.rightBalance) > 100 ? 0 : (Number(node.rightBalance) || 0);
