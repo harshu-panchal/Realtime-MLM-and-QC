@@ -608,20 +608,26 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
 
         if (leftId && rightId) {
           const avail = Math.max(2, parentVal - 2);
-          // Client MLM Power-Leg Rule:
-          // Primary power leg (Left) carries active downline momentum, receiving the primary share
-          // e.g. parentVal = 38 (Avail 36) -> Om = (36 + 8) / 2 = 22, Shraddha = 36 - 22 = 14
-          // e.g. parentVal = 22 (Avail 20) -> Gorakh = (20 + 8) / 2 = 14, Sandeep = 20 - 14 = 6
-          const delta = avail >= 16 ? 8 : (avail >= 8 ? 4 : 0);
-          const leftShare = Math.min(avail - 1, Math.round((avail + delta) / 2));
-          const rightShare = Math.max(1, avail - leftShare);
+          const leftWeight = getSubtreeWeight(leftId);
+          const rightWeight = getSubtreeWeight(rightId);
+
+          let leftShare, rightShare;
+          if (leftWeight === rightWeight) {
+            // Balanced Binary Subtree: equal split when left count == right count
+            leftShare = Math.ceil(avail / 2);
+            rightShare = avail - leftShare;
+          } else {
+            // Proportional to actual subtree count placed in downline
+            const totalWeight = Math.max(1, leftWeight + rightWeight);
+            leftShare = Math.min(avail - 1, Math.round(avail * (leftWeight / totalWeight)));
+            rightShare = Math.max(1, avail - leftShare);
+          }
 
           allocations.set(leftId, leftShare);
           allocations.set(rightId, rightShare);
           queue.push(leftId, rightId);
         } else if (leftId) {
           // Single child gets half of parent's volume after 2 IDs retention
-          // e.g. Shraddha has 14 (Avail 12) -> 12 / 2 = 6 for Datta
           allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
           queue.push(leftId);
         } else if (rightId) {
@@ -639,15 +645,28 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const userName = firstUserNode?.entityId?.name || "Customer Pool";
       const userPhone = firstUserNode?.entityId?.phone || "-";
       const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
-      // Fetch all nodes in the tree hierarchy (User nodes + Tree Branch nodes like Gaurav Lvl 1)
+      // Fetch all nodes in the tree hierarchy using exact BFS traversal
       const rootTree = await MlmTree.findOne({ position: "root" });
-      const userNodes = await MlmTree.find({
-        $or: [
-          { entityType: "User" },
-          { _id: rootTree?.leftId },
-          { _id: rootTree?.rightId }
-        ]
-      }).populate("entityId", "name phone").sort({ level: 1, position: 1 }).lean();
+      const allTreeListB = await MlmTree.find({}).populate("entityId", "name phone").lean();
+      const nodeMapB = new Map(allTreeListB.map(n => [String(n._id), n]));
+      const bfsOrderedB = [];
+      if (rootTree) {
+        const qB = [String(rootTree._id)];
+        const visB = new Set();
+        while (qB.length > 0) {
+          const id = qB.shift();
+          if (visB.has(id)) continue;
+          visB.add(id);
+          const n = nodeMapB.get(id);
+          if (!n) continue;
+          if (n.entityType === "User" || id === String(rootTree.leftId) || id === String(rootTree.rightId)) {
+            bfsOrderedB.push(n);
+          }
+          if (n.leftId) qB.push(String(n.leftId));
+          if (n.rightId) qB.push(String(n.rightId));
+        }
+      }
+      const userNodes = bfsOrderedB.length > 0 ? bfsOrderedB : allTreeListB.filter(n => n.entityType === "User");
       const effectiveGrand = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : integerIds;
       const rootNode = userNodes.find((n) => n.level === 0 || n.position === "root") || userNodes[0];
       const treeAllocations = computeDynamicTreeAllocations(rootNode?._id, effectiveGrand);
