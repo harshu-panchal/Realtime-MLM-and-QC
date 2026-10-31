@@ -170,12 +170,12 @@ const MlmPoolManagement = () => {
               <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
                 Daily & Cumulative Status
               </span>
-              <span className="text-xs text-slate-400">Total Inflow: ₹{(summary.grandTotalInflow || 0).toLocaleString()}</span>
+              <span className="text-xs text-slate-400">Total Inflow: ₹{((summary.grandCombinedInflow || summary.grandTotalInflow) || 0).toLocaleString()}</span>
             </div>
             <div className="flex flex-wrap items-baseline gap-3">
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
                 <span className="text-orange-400">
-                  {loading ? "..." : (summary.integerIds ?? Math.floor(summary.totalGeneratedPoolIds || 0))}
+                  {loading ? "..." : (summary.combinedIntegerIds ?? summary.integerIds ?? Math.floor(summary.totalGeneratedPoolIds || 0))}
                 </span>{" "}
                 <span className="text-white text-2xl font-bold">Generated Today</span>
               </h2>
@@ -183,7 +183,7 @@ const MlmPoolManagement = () => {
               <div className="flex items-baseline gap-1.5 bg-white/10 px-3 py-1 rounded-xl">
                 <span className="text-xs text-slate-300 font-bold uppercase">All-Time Cumulative:</span>
                 <span className="text-emerald-400 text-xl font-black">
-                  {loading ? "..." : (summary.cumulativeTotalGeneratedIds || summary.integerIds || 0)} IDs
+                  {loading ? "..." : (summary.combinedIntegerIds || summary.cumulativeTotalGeneratedIds || summary.integerIds || 0)} IDs
                 </span>
               </div>
             </div>
@@ -198,7 +198,7 @@ const MlmPoolManagement = () => {
             <div className="text-center px-3 border-r border-white/10">
               <p className="text-[10px] font-bold text-slate-300 uppercase">Remaining Pool Bal</p>
               <p className="text-xl font-black text-orange-400 mt-0.5">
-                ₹{(summary.remainingBalance !== undefined ? summary.remainingBalance : 0).toFixed(2)}
+                ₹{((summary.combinedRemainingBal !== undefined ? summary.combinedRemainingBal : summary.remainingBalance) || 0).toFixed(2)}
               </p>
             </div>
             <div className="text-center px-3 border-r border-white/10">
