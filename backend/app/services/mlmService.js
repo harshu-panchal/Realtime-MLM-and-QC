@@ -611,27 +611,20 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           const rightWeight = getSubtreeWeight(rightId);
 
           let leftShare, rightShare;
-          if (leftWeight > rightWeight) {
-            // Stronger branch gets 50% of parent's pool, other branch gets remaining after 2 IDs retention
-            // e.g. parent = 28: Left (Om) = 28 / 2 = 14, Right (Shraddha) = 28 - 14 - 2 = 12
-            leftShare = Math.floor(parentVal / 2);
+          if (leftWeight >= rightWeight) {
+            // Stronger/Left branch gets ceil(parentVal / 2) -> 33 / 2 = 17
+            // Weaker/Right branch gets remaining after 2 IDs retention -> 33 - 17 - 2 = 14
+            leftShare = Math.ceil(parentVal / 2);
             rightShare = Math.max(1, parentVal - leftShare - 2);
-          } else if (rightWeight > leftWeight) {
-            rightShare = Math.floor(parentVal / 2);
-            leftShare = Math.max(1, parentVal - rightShare - 2);
           } else {
-            // Equal branches: (parent - 2) divided equally
-            // e.g. Om has 14 -> (14 - 2) / 2 = 6 for Gorakh & 6 for Seller
-            const avail = Math.max(2, parentVal - 2);
-            leftShare = Math.floor(avail / 2);
-            rightShare = Math.max(1, avail - leftShare);
+            rightShare = Math.ceil(parentVal / 2);
+            leftShare = Math.max(1, parentVal - rightShare - 2);
           }
 
           allocations.set(leftId, leftShare);
           allocations.set(rightId, rightShare);
           queue.push(leftId, rightId);
         } else if (leftId) {
-          // Single child gets half of parent's volume after retention
           allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
           queue.push(leftId);
         } else if (rightId) {
