@@ -592,49 +592,81 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       return count;
     };
 
+    /**
+     * Exact Level-Order BFS Binary Tree Downlines Calculation (Complete Binary Tree Heap Indexing)
+     * Pure dynamic calculation without any hardcoded/static values.
+     * Top-to-bottom, left-to-right filling order.
+     */
+    const getBfsDescendants = (k, totalDownlines) => {
+      if (!k || k < 1 || !totalDownlines || totalDownlines <= 0) return 0;
+      const T = 1 + totalDownlines;
+      let count = 0;
+      let d = 1;
+      while (true) {
+        const start = k * (2 ** d);
+        if (start > T) break;
+        const end = (k + 1) * (2 ** d) - 1;
+        const countAtDepth = Math.max(0, Math.min(T, end) - start + 1);
+        count += countAtDepth;
+        d++;
+      }
+      return count;
+    };
+
     const computeDynamicTreeAllocations = (rootId, totalPool) => {
       const allocations = new Map();
-      allocations.set(String(rootId), totalPool);
+      if (!rootId) return allocations;
 
+      // 1. Assign BFS 1-based heap indices (Top-to-Bottom, Left-to-Right)
+      const nodeHeapIndices = new Map();
+      nodeHeapIndices.set(String(rootId), 1);
       const queue = [String(rootId)];
+      const visited = new Set([String(rootId)]);
+
       while (queue.length > 0) {
-        const parentId = queue.shift();
-        const parent = allTreeNodesMap.get(parentId);
-        if (!parent) continue;
+        const currId = queue.shift();
+        const currK = nodeHeapIndices.get(currId);
+        const currNode = allTreeNodesMap.get(currId);
+        if (!currNode) continue;
 
-        const parentVal = allocations.get(parentId) || 0;
-        const leftId = parent.leftId ? String(parent.leftId) : null;
-        const rightId = parent.rightId ? String(parent.rightId) : null;
-
-        if (leftId && rightId) {
-          const avail = Math.max(2, parentVal - 2);
-          const leftWeight = getSubtreeWeight(leftId);
-          const rightWeight = getSubtreeWeight(rightId);
-
-          let leftShare, rightShare;
-          if (leftWeight === rightWeight) {
-            // Balanced Binary Subtree: equal split when left count == right count
-            leftShare = Math.ceil(avail / 2);
-            rightShare = avail - leftShare;
-          } else {
-            // Proportional to actual subtree count placed in downline
-            const totalWeight = Math.max(1, leftWeight + rightWeight);
-            leftShare = Math.min(avail - 1, Math.round(avail * (leftWeight / totalWeight)));
-            rightShare = Math.max(1, avail - leftShare);
+        if (currNode.leftId) {
+          const leftIdStr = String(currNode.leftId);
+          if (!visited.has(leftIdStr)) {
+            visited.add(leftIdStr);
+            nodeHeapIndices.set(leftIdStr, 2 * currK);
+            queue.push(leftIdStr);
           }
-
-          allocations.set(leftId, leftShare);
-          allocations.set(rightId, rightShare);
-          queue.push(leftId, rightId);
-        } else if (leftId) {
-          // Single child gets half of parent's volume after 2 IDs retention
-          allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
-          queue.push(leftId);
-        } else if (rightId) {
-          allocations.set(rightId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
-          queue.push(rightId);
+        }
+        if (currNode.rightId) {
+          const rightIdStr = String(currNode.rightId);
+          if (!visited.has(rightIdStr)) {
+            visited.add(rightIdStr);
+            nodeHeapIndices.set(rightIdStr, 2 * currK + 1);
+            queue.push(rightIdStr);
+          }
         }
       }
+
+      // If any nodes were not reachable via leftId/rightId pointers, assign sequential BFS slots
+      let maxK = 1;
+      for (const k of nodeHeapIndices.values()) {
+        if (k > maxK) maxK = k;
+      }
+      for (const [nodeId] of allTreeNodesMap) {
+        if (!nodeHeapIndices.has(nodeId)) {
+          maxK++;
+          nodeHeapIndices.set(nodeId, maxK);
+        }
+      }
+
+      // 2. Compute downlines for each node dynamically
+      for (const [nodeId, k] of nodeHeapIndices.entries()) {
+        const physicalSubtree = getSubtreeWeight(nodeId) - 1; // count minus self
+        const bfsDownlines = getBfsDescendants(k, totalPool);
+        const effectiveDownlines = Math.max(physicalSubtree > 0 ? physicalSubtree : 0, bfsDownlines);
+        allocations.set(nodeId, effectiveDownlines);
+      }
+
       return allocations;
     };
 
@@ -832,6 +864,9 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       }
     }
     const finalUserNodesList = bfsOrderedUserNodes.length > 0 ? bfsOrderedUserNodes : allUserNodes;
+    const effectiveGrandCombined = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : integerIds;
+    const rootNodeA = allUserNodes.find((n) => n.level === 0 || n.position === "root") || allUserNodes[0];
+    const treeAllocationsA = computeDynamicTreeAllocations(rootNodeA?._id, effectiveGrandCombined);
 
     const sectionA = finalUserNodesList.map((node, idx) => {
       // In User MLM: volume comes strictly from Users (not Vendor)
@@ -839,11 +874,8 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       const right = Number(node.rightBalance) > 100 ? 0 : (Number(node.rightBalance) || 0);
       const pendingVolume = Math.abs(left - right);
       const matchedPotential = Math.min(left, right);
-      const effectiveGrandCombined = grandTotalCombinedNetworkIds > 0 ? grandTotalCombinedNetworkIds : integerIds;
-      const rootNode = allUserNodes.find((n) => n.level === 0 || n.position === "root") || allUserNodes[0];
-      const treeAllocationsA = computeDynamicTreeAllocations(rootNode?._id, effectiveGrandCombined);
       const nId = String(node._id);
-      const calculatedIds = treeAllocationsA.get(nId) || 1;
+      const calculatedIds = treeAllocationsA.get(nId) || 0;
 
       return {
         id: node._id,
