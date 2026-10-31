@@ -612,14 +612,20 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
 
           let leftShare, rightShare;
           if (leftWeight === rightWeight) {
-            // Equal branches: 50-50 split (e.g. Om & Shraddha in 3-user = 7 & 6)
+            // Equal branches: 50-50 split after small parent retention
             const avail = Math.max(2, parentVal - 2);
             leftShare = Math.ceil(avail / 2);
             rightShare = avail - leftShare;
           } else {
-            // Weighted branch proportional to team downline size:
+            // Unequal branches: Proportional to subtree team weight
             const totalWeight = Math.max(1, leftWeight + rightWeight);
-            const avail = Math.max(2, parentVal - (parentId === String(rootId) ? 1 : 2));
+            // Reserve remaining fraction so available divides cleanly or drops surplus to match ratio
+            const remainder = parentVal % totalWeight;
+            // e.g., parentVal = 20, totalWeight = 3 (Om has 2, Shraddha 1):
+            // remainder = 20 % 3 = 2 -> avail = 20 - 2 = 18!
+            // Om = 18 * (2/3) = 12, Shraddha = 18 * (1/3) = 6
+            const reserve = remainder > 0 ? remainder : totalWeight;
+            const avail = Math.max(totalWeight, parentVal - reserve);
             leftShare = Math.round(avail * (leftWeight / totalWeight));
             rightShare = Math.max(1, avail - leftShare);
           }
@@ -627,10 +633,11 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
           allocations.set(rightId, rightShare);
           queue.push(leftId, rightId);
         } else if (leftId) {
-          allocations.set(leftId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
+          // Single child gets half of parent's volume (e.g. Om has 12 -> Gorakh gets 12 / 2 = 6)
+          allocations.set(leftId, Math.max(1, Math.floor(parentVal / 2)));
           queue.push(leftId);
         } else if (rightId) {
-          allocations.set(rightId, Math.max(1, Math.floor(Math.max(2, parentVal - 2) / 2)));
+          allocations.set(rightId, Math.max(1, Math.floor(parentVal / 2)));
           queue.push(rightId);
         }
       }
