@@ -845,7 +845,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
     // Build exact Level-Order BFS traversal (Top to Bottom, Left to Right)
     const bfsOrderedUserNodes = [];
     if (rootNodeTree) {
-      const allTreeList = await MlmTree.find({}).populate("entityId", "name phone").lean();
+      const allTreeList = await MlmTree.find({}).populate("entityId", "name phone shopName").lean();
       const nodeMap = new Map(allTreeList.map(n => [String(n._id), n]));
       const bfsQueue = [String(rootNodeTree._id)];
       const visited = new Set();
@@ -855,10 +855,8 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
         visited.add(cId);
         const curr = nodeMap.get(cId);
         if (!curr) continue;
-        // Include if User node or direct child of root
-        if (curr.entityType === "User" || cId === String(rootNodeTree.leftId) || cId === String(rootNodeTree.rightId)) {
-          bfsOrderedUserNodes.push(curr);
-        }
+        // Include participant node in BFS tree order
+        bfsOrderedUserNodes.push(curr);
         if (curr.leftId) bfsQueue.push(String(curr.leftId));
         if (curr.rightId) bfsQueue.push(String(curr.rightId));
       }
@@ -880,7 +878,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       return {
         id: node._id,
         entityId: node.entityId?._id || node.entityId,
-        name: node.entityId?.name || "Participant",
+        name: node.entityId?.name || node.entityId?.shopName || "Participant",
         phone: node.entityId?.phone || "-",
         entityType: node.entityType || "User",
         leftBalance: left,
