@@ -55,6 +55,16 @@
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* Bottom space reserved for the phone's system nav bar (gesture bar / 3 buttons).
+     Uses the real inset when the WebView reports it (Capacitor also injects --safe-area-inset-bottom). */
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+}
+
+/* Native app whose WebView reports no inset while drawing edge-to-edge:
+   reserve roughly the height of Android's 3-button nav bar. */
+html.native-no-bottom-inset {
+  --app-safe-bottom: 48px;
 }
 
 html, body {
@@ -125,6 +135,18 @@ body {
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  /* Brand shades (bg-brand-600, text-brand-500, ring-brand-500/20 ...) */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);

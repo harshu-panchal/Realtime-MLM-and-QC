@@ -57,20 +57,41 @@ export function applyThemeVariables(settings) {
   const primary = settings.primaryColor || DEFAULT_SETTINGS.primaryColor;
   const secondary = settings.secondaryColor || DEFAULT_SETTINGS.secondaryColor;
   
-  root.style.setProperty("--primary", primary);
-  root.style.setProperty("--secondary", secondary);
-  root.style.setProperty("--primary-color", primary);
-  root.style.setProperty("--secondary-color", secondary);
+  // Setting "--primary" to "var(--primary)" is a self-reference that makes the
+  // variable invalid (all brand colors vanish), so only apply real color values.
+  const isRealColor = (c) => typeof c === "string" && c.trim() && !c.trim().startsWith("var(");
 
-  // Calculate high-contrast foreground color
-  if (primary && !primary.startsWith("var")) {
-    const hex = primary.replace("#", "");
+  // Brightness (YIQ 0-255) of a hex color, or null if it isn't a hex color.
+  const brightness = (c) => {
+    let hex = String(c).trim().replace("#", "");
+    if (hex.length === 3) hex = hex.split("").map((ch) => ch + ch).join("");
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    const contrastColor = yiq >= 160 ? "#000000" : "#FFFFFF";
-    root.style.setProperty("--primary-foreground", contrastColor);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  };
+
+  // A white / near-white primary makes every brand button (white text on
+  // bg-brand-600) unreadable, so ignore it and keep the default brand blue.
+  const primaryBrightness = isRealColor(primary) ? brightness(primary) : null;
+  const primaryUsable = isRealColor(primary) && !(primaryBrightness !== null && primaryBrightness >= 235);
+
+  if (primaryUsable) {
+    root.style.setProperty("--primary", primary);
+    root.style.setProperty("--primary-color", primary);
+    if (primaryBrightness !== null) {
+      root.style.setProperty("--primary-foreground", primaryBrightness >= 160 ? "#000000" : "#FFFFFF");
+    }
+  } else {
+    root.style.removeProperty("--primary");
+    root.style.removeProperty("--primary-color");
+    root.style.removeProperty("--primary-foreground");
+  }
+
+  if (isRealColor(secondary)) {
+    root.style.setProperty("--secondary", secondary);
+    root.style.setProperty("--secondary-color", secondary);
   }
 }
 

@@ -137,7 +137,7 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
             {finalShowBottomNavMobile && (
                 <div 
                     className="md:hidden w-full shrink-0" 
-                    style={{ height: "3.25rem" }} 
+                    style={{ height: "calc(3.25rem + var(--app-safe-bottom, 0px))" }}
                     aria-hidden="true" 
                 />
             )}

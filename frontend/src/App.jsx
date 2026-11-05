@@ -1,5 +1,6 @@
 import { Suspense, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import AppRouter from '@core/routes/AppRouter';
 import { AuthProvider } from '@core/context/AuthContext';
 import { SettingsProvider } from '@core/context/SettingsContext';
@@ -29,8 +30,26 @@ function App() {
             }
         };
         setupBackButton();
-        
+
+        // Native app: if the WebView draws behind the system nav bar but reports
+        // no safe-area inset, flag it so the bottom nav gets pushed above it.
+        let insetTimer;
+        const checkBottomInset = () => {
+            if (!Capacitor.isNativePlatform()) return;
+            const probe = document.createElement('div');
+            probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding-bottom:max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));';
+            document.body.appendChild(probe);
+            const inset = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+            probe.remove();
+            document.documentElement.classList.toggle('native-no-bottom-inset', inset === 0);
+        };
+        checkBottomInset();
+        insetTimer = setTimeout(checkBottomInset, 800); // insets can arrive after first paint
+        window.addEventListener('resize', checkBottomInset);
+
         return () => {
+            clearTimeout(insetTimer);
+            window.removeEventListener('resize', checkBottomInset);
             try {
                 CapacitorApp.removeAllListeners();
             } catch (err) {}

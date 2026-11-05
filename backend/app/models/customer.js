@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        aadharNumber: {
+            type: String,
+            unique: true,
+            sparse: true,
+            match: /^\d{12}$/,
+            trim: true,
+        },
+
         password: {
             type: String,
             select: false, // response me password na aaye

@@ -313,10 +313,23 @@ export const createCustomerSubscriptionOrder = async (req, res) => {
 
 export const verifyCustomerSubscriptionPayment = async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, phone, customerId } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, phone, customerId, aadharNumber } = req.body;
 
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
             return handleResponse(res, 400, "Payment verification parameters missing");
+        }
+
+        const normalizedAadharNumber = String(aadharNumber || "").replace(/\s/g, "");
+        if (!/^\d{12}$/.test(normalizedAadharNumber)) {
+            return handleResponse(res, 400, "Aadhar number is required and must be 12 digits");
+        }
+
+        const existingAadhar = await Customer.findOne({
+            aadharNumber: normalizedAadharNumber,
+            ...(customerId ? { _id: { $ne: customerId } } : {}),
+        }).lean();
+        if (existingAadhar) {
+            return handleResponse(res, 400, "This Aadhar number is already registered");
         }
 
         const crypto = (await import("crypto")).default;
@@ -357,6 +370,7 @@ export const verifyCustomerSubscriptionPayment = async (req, res) => {
         }
 
         if (customer) {
+            customer.aadharNumber = normalizedAadharNumber;
             customer.weeklySubscription = {
                 status: "active",
                 amount: feeAmount,
