@@ -294,6 +294,16 @@ const WithdrawalRequests = () => {
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <p className="text-sm font-black text-slate-900">₹{Math.abs(req.amount).toLocaleString()}</p>
+                                            {req.meta?.withdrawalCharges && (
+                                                <p className="text-[10px] font-bold text-emerald-600">
+                                                    Pay ₹{Number(req.meta.withdrawalCharges.netPayable).toLocaleString()}
+                                                </p>
+                                            )}
+                                            {req.meta?.transferType && (
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase">
+                                                    {({ bank_transfer: 'Bank Transfer', wallet_to_wallet: 'Wallet to Wallet', quick_transfer: 'Quick Transfer' })[req.meta.transferType] || req.meta.transferType}
+                                                </p>
+                                            )}
                                         </td>
                                         <td className="px-6 py-5">
                                             <Badge
@@ -398,6 +408,20 @@ const WithdrawalRequests = () => {
                                 <h4 className="text-2xl font-black text-slate-900">₹{Math.abs(selectedRequest.amount).toLocaleString()}</h4>
                                 <p className="text-[10px] font-semibold text-slate-400 mt-1">Reference: {selectedRequest.reference}</p>
                             </Card>
+                            {selectedRequest.meta?.withdrawalCharges && (() => {
+                                const c = selectedRequest.meta.withdrawalCharges;
+                                const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                                return (
+                                    <Card className="p-5 border-none bg-white ring-1 ring-slate-100 rounded-xl space-y-2">
+                                        <p className="ds-label mb-1">Deductions{selectedRequest.meta?.transferType ? ` • ${({ bank_transfer: 'Bank Transfer', wallet_to_wallet: 'Wallet to Wallet', quick_transfer: 'Quick Transfer' })[selectedRequest.meta.transferType] || selectedRequest.meta.transferType}` : ''}</p>
+                                        <div className="flex justify-between text-xs font-semibold text-slate-600"><span>TDS ({c.tdsPercent}%)</span><span>- {fmt(c.tdsAmount)}</span></div>
+                                        <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Service Charge ({c.serviceChargePercent}%)</span><span>- {fmt(c.serviceChargeAmount)}</span></div>
+                                        <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Admin Charge ({c.adminChargePercent}%)</span><span>- {fmt(c.adminChargeAmount)}</span></div>
+                                        {Number(c.quickTransferAmount) > 0 && (<div className="flex justify-between text-xs font-semibold text-slate-600"><span>Quick Transfer ({c.quickTransferPercent}%)</span><span>- {fmt(c.quickTransferAmount)}</span></div>)}
+                                        <div className="flex justify-between text-sm font-black text-emerald-700 pt-2 border-t border-slate-100"><span>Amount to Pay</span><span>{fmt(c.netPayable)}</span></div>
+                                    </Card>
+                                );
+                            })()}
                         </div>
 
                         <div className="flex gap-3 pt-2">

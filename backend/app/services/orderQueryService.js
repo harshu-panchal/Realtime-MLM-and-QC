@@ -298,6 +298,24 @@ export async function fetchAvailableOrdersForDelivery({
     usedFallback = true;
   }
 
+  // Seller-owned rider: sees only their own seller's orders (no radius limit).
+  // Platform rider: never sees orders of free-delivery sellers.
+  const ownSellerId = deliveryPartner?.sellerId || null;
+  if (ownSellerId) {
+    sellerIds = [ownSellerId];
+  } else if (sellerIds.length) {
+    const freeDeliverySellers = await Seller.find({
+      _id: { $in: sellerIds },
+      freeDelivery: true,
+    })
+      .select("_id")
+      .lean();
+    if (freeDeliverySellers.length) {
+      const blocked = new Set(freeDeliverySellers.map((s) => String(s._id)));
+      sellerIds = sellerIds.filter((id) => !blocked.has(String(id)));
+    }
+  }
+
   let v2Orders = [];
   if (showDeliveries) {
     const v2OrdersRaw = await Order.find({
@@ -313,10 +331,12 @@ export async function fetchAvailableOrdersForDelivery({
       .populate("seller", "shopName address name location serviceRadius")
       .lean();
 
-    v2Orders = filterV2OrdersByRadius(
-      v2OrdersRaw,
-      deliveryPartner.location.coordinates,
-    );
+    v2Orders = ownSellerId
+      ? v2OrdersRaw
+      : filterV2OrdersByRadius(
+          v2OrdersRaw,
+          deliveryPartner.location.coordinates,
+        );
   }
 
   let legacyOrders = [];

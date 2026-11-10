@@ -366,7 +366,14 @@ export async function placeOrderAtomic({
       : null;
     const source = placementSource(normalizedPayload);
     const walletAmount = Math.max(0, Number(normalizedPayload.walletAmount || 0));
-    const tipAmount = Math.max(0, Number(normalizedPayload.tipAmount || 0));
+    const orderType = normalizedPayload.orderType === "takeaway" ? "takeaway" : "delivery";
+    // Takeaway: no rider, so no tip. Online payment only (seller never collects cash).
+    const tipAmount = orderType === "takeaway" ? 0 : Math.max(0, Number(normalizedPayload.tipAmount || 0));
+    if (orderType === "takeaway" && paymentMode !== "ONLINE") {
+      const error = new Error("Takeaway orders can be paid online only");
+      error.statusCode = 400;
+      throw error;
+    }
 
     // 1. Fetch user and validate wallet
     // Audit Phase 4 (M-4): read the canonical wallet balance (Wallet first,
@@ -439,6 +446,7 @@ export async function placeOrderAtomic({
       orderItems: orderItemsInput,
       address: normalizedAddress,
       tipAmount,
+      orderType,
       discountTotal: Math.max(0, Number(normalizedPayload.discountTotal || 0)),
       walletAmount,
       couponCode: normalizedPayload.couponCode || null,
@@ -547,6 +555,7 @@ export async function placeOrderAtomic({
         customer: customerId,
         seller: entry.actualSellerId || null,
         businessType: sellerBusinessTypeById.get(String(entry.actualSellerId)) || undefined,
+        orderType,
         items: mapOrderItemsForPersistence(entry.items),
         address: normalizedAddress,
         paymentMode,

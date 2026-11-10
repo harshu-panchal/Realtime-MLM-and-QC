@@ -26,6 +26,7 @@ export const previewCheckoutFinance = async (req, res) => {
       orderItems: payload.items,
       address: payload.address,
       tipAmount: payload.tipAmount,
+      orderType: payload.orderType || "delivery",
       discountTotal: payload.discountTotal || 0,
       // Audit Phase 4 (C-1): forward walletAmount so the preview's
       // aggregate breakdown exposes a `payableAmount` (post-wallet) the
@@ -67,6 +68,8 @@ export const previewCheckoutFinance = async (req, res) => {
       // SERVER_SIDE_COUPON_ENGINE is off.
       couponSnapshot: pricingSnapshot.couponSnapshot || null,
       freeDeliveryApplied: !!pricingSnapshot.freeDeliveryApplied,
+      orderType: pricingSnapshot.orderType,
+      takeawayAvailable: !!pricingSnapshot.takeawayAvailable,
       ...(distanceDebug ? { distanceDebug } : {}),
     });
   } catch (error) {
@@ -86,6 +89,7 @@ export const createOrderWithFinancialSnapshot = async (req, res) => {
       items: validated.items,
       address: validated.address,
       paymentMode: validated.paymentMode,
+      orderType: validated.orderType || "delivery",
       timeSlot: validated.timeSlot || "now",
       tipAmount: validated.tipAmount || 0,
       walletAmount: validated.walletAmount || 0,

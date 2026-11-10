@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Lock, User, Globe, ChevronRight, ToggleRight, LogOut } from 'lucide-react';
+import { Bell, Lock, User, Globe, ChevronRight, ToggleRight } from 'lucide-react';
 
 const SettingsPage = () => {
     return (
@@ -34,15 +34,6 @@ const SettingsPage = () => {
                     <div className="divide-y divide-slate-50">
                         <SettingItem icon={Lock} label="Change Password" />
                         <SettingItem icon={User} label="Privacy Settings" />
-                    </div>
-                </div>
-
-                {/* Danger Zone */}
-                <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-                    <div className="p-4">
-                        <button className="w-full py-4 text-red-600 font-bold bg-red-50 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors">
-                            <LogOut size={20} /> Delete Account
-                        </button>
                     </div>
                 </div>
 

@@ -147,6 +147,10 @@ const CheckoutPage = () => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("now");
   const [selectedPayment, setSelectedPayment] = useState("cash");
   const [selectedTip, setSelectedTip] = useState(0);
+  // "delivery" | "takeaway" (customer collects from the shop)
+  const [orderType, setOrderType] = useState("delivery");
+  const [takeawayAvailable, setTakeawayAvailable] = useState(false);
+  const isTakeaway = orderType === "takeaway";
   const [showAllCartItems, setShowAllCartItems] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
@@ -240,7 +244,7 @@ const CheckoutPage = () => {
             sublabel: "UPI / Cards / NetBanking",
           },
         ]),
-    ...(settings?.codEnabled === false
+    ...(settings?.codEnabled === false || isTakeaway
       ? []
       : [
           {
@@ -703,8 +707,9 @@ const CheckoutPage = () => {
       address: buildAddressForOrder(),
       discountTotal: discountAmount,
       taxTotal: 0,
-      tipAmount: selectedTip,
+      tipAmount: isTakeaway ? 0 : selectedTip,
       paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
+      orderType,
       timeSlot: selectedTimeSlot,
     });
 
@@ -714,9 +719,15 @@ const CheckoutPage = () => {
         const res = await customerApi.checkoutPreview(buildPreviewPayload());
         if (res.data?.success) {
           setPricingPreview(res.data.result?.breakdown ?? null);
+          setTakeawayAvailable(!!res.data.result?.takeawayAvailable);
         }
       } catch (error) {
         console.error("Checkout preview failed", error);
+        // Takeaway no longer allowed for this cart (e.g. shop switched it off) → back to delivery.
+        if (orderType === "takeaway") {
+          setOrderType("delivery");
+          showToast(error?.response?.data?.message || "Takeaway is not available for this cart", "error");
+        }
       } finally {
         setIsPreviewLoading(false);
       }
@@ -732,6 +743,7 @@ const CheckoutPage = () => {
     selectedPayment,
     selectedTip,
     selectedTimeSlot,
+    orderType,
     discountAmount,
     savedRecipient,
     currentAddress,
@@ -776,9 +788,10 @@ const CheckoutPage = () => {
       const orderData = {
         address: orderAddress,
         paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
+        orderType,
         discountTotal: discountAmount,
         taxTotal: taxAmount,
-        tipAmount: selectedTip,
+        tipAmount: isTakeaway ? 0 : selectedTip,
         timeSlot: selectedTimeSlot,
         walletAmount: walletAmountToUse,
         items: cart.map((item) => ({
@@ -1116,13 +1129,52 @@ const CheckoutPage = () => {
               onApplyManualCode={handleApplyManualCode}
             />
 
+            {/* Delivery / Takeaway */}
+            {((takeawayAvailable && settings?.onlineEnabled !== false) || isTakeaway) && (
+              <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                <h3 className="font-black text-slate-800 mb-3">How do you want your order?</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "delivery", label: "Delivery", sub: "To your address", Icon: Truck },
+                    { id: "takeaway", label: "Takeaway", sub: "Pick up from shop", Icon: ShoppingBag },
+                  ].map(({ id, label, sub, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => {
+                        setOrderType(id);
+                        if (id === "takeaway") {
+                          setSelectedTip(0);
+                          setSelectedPayment("online");
+                        }
+                      }}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all ${
+                        orderType === id ? "border-primary bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <Icon size={20} className={orderType === id ? "text-primary" : "text-slate-500"} />
+                      <span>
+                        <span className="block text-sm font-black text-slate-800">{label}</span>
+                        <span className="block text-[11px] text-slate-500">{sub}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {isTakeaway && (
+                  <p className="mt-3 text-[11px] font-semibold text-slate-500">
+                    No delivery fee. Collect your order from the shop once it is ready. Online payment only.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Pricing Breakdown */}
             <CheckoutPricingBreakdown
               pricingPreview={pricingPreview}
               isPreviewLoading={isPreviewLoading}
-              selectedTip={selectedTip}
+              selectedTip={isTakeaway ? 0 : selectedTip}
               onSelectTip={setSelectedTip}
-              tipAmounts={tipAmounts}
+              tipAmounts={isTakeaway ? [] : tipAmounts}
               walletAmountToUse={walletAmountToUse}
               finalAmountToPay={finalAmountToPay}
               cartTotal={cartTotal}

@@ -387,6 +387,14 @@ const orderSchema = new mongoose.Schema(
       enum: ["quick_commerce", "ecommerce"],
     },
 
+    // "takeaway" = customer collects the order from the shop (no rider,
+    // no delivery fee). Seller flow: accept → packed (ready) → delivered (picked up).
+    orderType: {
+      type: String,
+      enum: ["delivery", "takeaway"],
+      default: "delivery",
+    },
+
     // Populated only for ecommerce orders — see shiprocketWorkflowService.js.
     shipment: {
       provider: { type: String, default: "shiprocket" },

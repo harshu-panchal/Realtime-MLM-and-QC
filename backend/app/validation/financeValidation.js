@@ -40,6 +40,7 @@ export const checkoutPreviewSchema = Joi.object({
   // get the pre-wallet `grandTotal` exactly as before.
   walletAmount: Joi.number().min(0).default(0),
   paymentMode: Joi.string().valid("ONLINE", "COD").default("COD"),
+  orderType: Joi.string().valid("delivery", "takeaway").default("delivery"),
   timeSlot: Joi.string().allow("", null),
   couponId: Joi.string().allow("", null).optional(),
   // Audit Phase 5 (C-2 + H-7): accept the coupon CODE as an alternative

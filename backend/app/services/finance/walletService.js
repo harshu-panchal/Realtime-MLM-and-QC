@@ -615,7 +615,8 @@ export async function getAdminFinanceSummary() {
             userModel: { $in: ["Seller", "seller"] },
           },
         },
-        { $group: { _id: null, amount: { $sum: "$amount" } } },
+        // Seller fee records are stored negative (deducted); report the collected total as positive.
+        { $group: { _id: null, amount: { $sum: { $abs: "$amount" } } } },
       ]),
       // 13. Rider Subscription Collections
       Transaction.aggregate([

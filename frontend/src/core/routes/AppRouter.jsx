@@ -57,6 +57,7 @@ const NotificationsPage = lazy(() => import('../../modules/customer/pages/Notifi
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
 const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
+const PosApp = lazy(() => import('../../modules/pos/PosApp'));
 const DynamicLegalPage = lazy(() => import('../../shared/components/DynamicLegalPage'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
@@ -139,6 +140,11 @@ const AppRouter = () => {
                 {
                     path: 'delivery/privacy',
                     element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><DynamicLegalPage type="privacy" audience="delivery" /></Suspense>,
+                },
+                // POS billing panel for counter cashiers (own PIN login, separate session)
+                {
+                    path: 'pos',
+                    element: <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}><PosApp /></Suspense>,
                 },
                 {
                     path: 'seller/*',

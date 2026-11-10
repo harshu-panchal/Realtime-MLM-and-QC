@@ -3,11 +3,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
-    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe, AlertTriangle
+    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe
 } from 'lucide-react';
+import { useAuth } from '@core/context/AuthContext';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
-import { useAuth } from '@core/context/AuthContext';
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if (window.Razorpay) {
+            resolve(true);
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+};
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
 import CartPage from './CartPage';
@@ -15,28 +30,83 @@ import { cn } from '@/lib/utils';
 
 const ProfilePage = () => {
     const navigate = useNavigate();
-    const { user, logout } = useAuth();
+    const { user, logout, refreshUser, updateUser } = useAuth();
+    const [isRenewing, setIsRenewing] = React.useState(false);
+
+    // Active only if status is active AND not past expiry (cron may not have run yet).
+    const weeklySub = user?.weeklySubscription || {};
+    const isSubActive =
+        weeklySub.status === 'active' && weeklySub.expiresAt && new Date(weeklySub.expiresAt) > new Date();
+
+    const handleRenewSubscription = async () => {
+        setIsRenewing(true);
+        try {
+            const isLoaded = await loadRazorpayScript();
+            if (!isLoaded) {
+                toast.error("Payment gateway failed to load. Please check your internet connection.");
+                setIsRenewing(false);
+                return;
+            }
+
+            const res = await customerApi.createSubscriptionOrder({ phone: user?.phone });
+            const result = res.data?.result || {};
+
+            // Fee is 0 → nothing to pay.
+            if (result.exempt) {
+                toast.success("No subscription fee is required right now.");
+                setIsRenewing(false);
+                return;
+            }
+            if (!result.razorpayOrderId) throw new Error("Unable to create subscription order");
+
+            const rzp = new window.Razorpay({
+                key: result.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: Math.round(Number(result.amount || 0) * 100),
+                currency: result.currency || "INR",
+                name: appName,
+                description: "Weekly Subscription (Saturday-to-Saturday)",
+                order_id: result.razorpayOrderId,
+                prefill: { name: user?.name || "Customer", contact: user?.phone || "" },
+                theme: { color: "#f97316" },
+                handler: async (paymentResponse) => {
+                    try {
+                        const verifyRes = await customerApi.verifySubscriptionPayment({
+                            razorpay_order_id: paymentResponse.razorpay_order_id,
+                            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                            razorpay_signature: paymentResponse.razorpay_signature,
+                            phone: user?.phone,
+                            customerId: user?._id || user?.id,
+                        });
+                        const updated = verifyRes.data?.result?.customer;
+                        if (updated?.weeklySubscription) {
+                            updateUser({ weeklySubscription: updated.weeklySubscription });
+                        }
+                        await refreshUser?.();
+                        toast.success("Subscription activated successfully!");
+                    } catch (error) {
+                        toast.error(error?.response?.data?.message || "Payment verification failed");
+                    } finally {
+                        setIsRenewing(false);
+                    }
+                },
+                modal: { ondismiss: () => setIsRenewing(false) },
+            });
+            rzp.on("payment.failed", (response) => {
+                toast.error(response?.error?.description || "Payment failed");
+                setIsRenewing(false);
+            });
+            rzp.open();
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message || "Failed to start payment");
+            setIsRenewing(false);
+        }
+    };
     const { settings } = useSettings();
     const { t, language, setLanguage, languages } = useTranslation();
     const appName = settings?.appName || 'App';
     const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-    const [showDeleteModal, setShowDeleteModal] = React.useState(false);
-    const [isDeleting, setIsDeleting] = React.useState(false);
     const [isCartOpen, setIsCartOpen] = React.useState(false);
     const [isLangExpanded, setIsLangExpanded] = React.useState(false);
-
-    const handleDeleteAccount = async () => {
-        setIsDeleting(true);
-        try {
-            await customerApi.deleteAccount();
-            toast.success("Account deleted successfully.");
-            setShowDeleteModal(false);
-            logout();
-        } catch (error) {
-            toast.error(error?.response?.data?.message || "Failed to delete account");
-            setIsDeleting(false);
-        }
-    };
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
@@ -101,11 +171,11 @@ const ProfilePage = () => {
                             </div>
                             <span className={cn(
                                 "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
-                                user?.weeklySubscription?.status === 'active'
+                                isSubActive
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                     : "bg-amber-50 text-amber-700 border-amber-200"
                             )}>
-                                {user?.weeklySubscription?.status === 'active' ? 'Active / Paid' : 'Due / Pending'}
+                                {isSubActive ? 'Active / Paid' : weeklySub.expiresAt ? 'Expired' : 'Due / Pending'}
                             </span>
                         </div>
                         <div className="flex items-center justify-between text-xs text-slate-600 pt-1 border-t border-orange-100">
@@ -122,6 +192,18 @@ const ProfilePage = () => {
                                     minute: '2-digit',
                                 })}
                             </p>
+                        )}
+                        {!isSubActive && Number(settings?.userWeeklySubscriptionFee ?? 50) > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleRenewSubscription}
+                                disabled={isRenewing}
+                                className="w-full mt-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase tracking-wider transition-colors disabled:opacity-60"
+                            >
+                                {isRenewing
+                                    ? "Please wait..."
+                                    : `${weeklySub.expiresAt ? 'Renew' : 'Activate'} Now • ₹${settings?.userWeeklySubscriptionFee ?? 50}`}
+                            </button>
                         )}
                     </div>
                 )}
@@ -309,15 +391,6 @@ const ProfilePage = () => {
                     {t('signOut')}
                 </button>
 
-                {/* Delete Account Button */}
-                <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="w-full py-3.5 rounded-2xl border border-red-200 text-red-600 font-bold bg-red-50/50 hover:bg-red-50 transition-colors flex items-center justify-center gap-2 mt-4 shadow-2xs"
-                >
-                    <AlertTriangle size={18} className="text-red-500" />
-                    Delete Account
-                </button>
-
                 <div className="text-center pb-8 mt-4">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Version 2.4.0 • {appName}</p>
                 </div>
@@ -351,37 +424,6 @@ const ProfilePage = () => {
                             className="flex-1 py-3.5 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
                         >
                             {t('yesSignOut')}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* Delete Account Confirmation Modal */}
-        {showDeleteModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-                <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
-                    <div className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-                        <AlertTriangle size={24} />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 text-center mb-2">Delete Account?</h3>
-                    <p className="text-sm font-medium text-slate-500 text-center mb-6">
-                        Are you sure you want to delete your account? This action cannot be undone. You will be logged out and your profile will become inactive.
-                    </p>
-                    <div className="flex gap-3">
-                        <button
-                            disabled={isDeleting}
-                            onClick={() => setShowDeleteModal(false)}
-                            className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors disabled:opacity-50"
-                        >
-                            {t('cancel')}
-                        </button>
-                        <button
-                            disabled={isDeleting}
-                            onClick={handleDeleteAccount}
-                            className="flex-1 py-3.5 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30 disabled:opacity-50"
-                        >
-                            {isDeleting ? "Deleting..." : "Yes, Delete"}
                         </button>
                     </div>
                 </div>

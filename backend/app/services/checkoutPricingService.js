@@ -334,6 +334,42 @@ function applyFreeDeliveryToSellerBreakdowns(sellerBreakdownEntries = []) {
   }
 }
 
+// Seller "Free Delivery" (Seller.freeDelivery): the seller delivers with
+// their OWN delivery boys and pays them directly. So for that seller's
+// breakdown the customer delivery fee is 0 and the platform rider payout
+// is 0 (tip allocated later still goes to the rider). Handling fee stays.
+function applySellerOwnDeliveryToSellerBreakdowns(sellerBreakdownEntries = [], freeDeliverySellerIds = new Set(), reason = "sellerOwnDelivery") {
+  if (!freeDeliverySellerIds.size) return;
+  for (const entry of sellerBreakdownEntries) {
+    const breakdown = entry?.breakdown;
+    if (!breakdown || !freeDeliverySellerIds.has(String(entry.sellerId))) continue;
+    const oldDeliveryFee = round2(Number(breakdown.deliveryFeeCharged || 0));
+    breakdown.deliveryFeeCharged = 0;
+    breakdown.grossTotal = round2(Number(breakdown.grossTotal || 0) - oldDeliveryFee);
+    breakdown.grandTotal = round2(Number(breakdown.grandTotal || 0) - oldDeliveryFee);
+    breakdown.payableAmount = breakdown.grandTotal;
+    breakdown.riderPayoutBase = 0;
+    breakdown.riderPayoutDistance = 0;
+    breakdown.riderPayoutBonus = 0;
+    breakdown.riderPayoutTotal = 0;
+    const handlingFeeCharged = Number(breakdown.handlingFeeCharged || 0);
+    const adminProductCommissionTotal = Number(breakdown.adminProductCommissionTotal || 0);
+    breakdown.platformLogisticsMargin = round2(handlingFeeCharged);
+    breakdown.platformTotalEarning = round2(
+      adminProductCommissionTotal + breakdown.platformLogisticsMargin,
+    );
+    breakdown.snapshots = breakdown.snapshots && typeof breakdown.snapshots === "object"
+      ? breakdown.snapshots
+      : {};
+    if (reason === "takeaway") {
+      breakdown.snapshots.takeaway = true;
+    } else {
+      breakdown.snapshots.sellerOwnDelivery = true;
+      breakdown.snapshots.sellerFreeDeliveryRebate = oldDeliveryFee;
+    }
+  }
+}
+
 // Audit Phase 4 (C-1): allocate the checkout-group-level walletAmount
 // across sellers proportionately by their post-tip grandTotal, then
 // subtract it from each seller's grandTotal. Runs AFTER tip allocation
@@ -386,6 +422,8 @@ export async function buildCheckoutPricingSnapshot({
   orderItems = [],
   address = {},
   tipAmount = 0,
+  // "delivery" (default) or "takeaway" (customer collects from shop).
+  orderType = "delivery",
   discountTotal = 0,
   // Audit Phase 4 (C-1): checkout-group-level wallet redemption. Split
   // proportionately to each seller using the subtotal ratio (same rule
@@ -497,6 +535,40 @@ export async function buildCheckoutPricingSnapshot({
   }
 
   applyGlobalHandlingFeeToSellerBreakdowns(sellerBreakdownEntries, globalHandling);
+
+  // Takeaway is available only when EVERY seller in the cart is quick
+  // commerce and has takeaway enabled (ecommerce ships via courier).
+  const cartSellers = await Seller.find({ _id: { $in: sellerIds } })
+    .select("_id freeDelivery takeawayEnabled businessType")
+    .session(session || null)
+    .lean();
+  const takeawayAvailable =
+    cartSellers.length === sellerIds.length &&
+    cartSellers.every(
+      (s) => s.takeawayEnabled !== false && (s.businessType || "quick_commerce") !== "ecommerce",
+    );
+  const isTakeaway = orderType === "takeaway";
+  if (isTakeaway && !takeawayAvailable) {
+    const err = new Error("Takeaway is not available for one or more shops in your cart");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (isTakeaway) {
+    // Customer collects from the shop: no delivery fee, no rider payout, no rider tip.
+    applySellerOwnDeliveryToSellerBreakdowns(
+      sellerBreakdownEntries,
+      new Set(sellerIds.map(String)),
+      "takeaway",
+    );
+    tipAmount = 0;
+  } else {
+    // Seller free delivery (own delivery boys) — after handling, before coupon/tip/wallet.
+    applySellerOwnDeliveryToSellerBreakdowns(
+      sellerBreakdownEntries,
+      new Set(cartSellers.filter((s) => s.freeDelivery).map((s) => String(s._id))),
+    );
+  }
   // Audit Phase 5 (H-6): free-delivery rebate must run AFTER handling
   // (so `grossTotal` is final on the delivery axis) and BEFORE tip /
   // wallet allocation (so they clamp against the post-rebate grandTotal,
@@ -538,6 +610,8 @@ export async function buildCheckoutPricingSnapshot({
     couponSnapshot: resolvedCouponSnapshot,
     coupon: resolvedCoupon,
     freeDeliveryApplied: applyFreeDelivery,
+    orderType: isTakeaway ? "takeaway" : "delivery",
+    takeawayAvailable,
   };
 }
 

@@ -18,10 +18,13 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Button from "@/shared/components/ui/Button";
 import { deliveryApi } from "../../services/deliveryApi";
+import { useSettings } from "@core/context/SettingsContext";
 
 const Withdrawals = () => {
     const navigate = useNavigate();
     const [amount, setAmount] = useState("");
+    const { settings } = useSettings();
+    const [transferType, setTransferType] = useState('bank_transfer');
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,7 +78,7 @@ const Withdrawals = () => {
 
         setLoading(true);
         try {
-            const res = await deliveryApi.requestWithdrawal({ amount: Number(amount) });
+            const res = await deliveryApi.requestWithdrawal({ amount: Number(amount) , transferType });
             if (res.data.success) {
                 toast.success("Withdrawal request submitted successfully!");
                 setAmount("");
@@ -231,6 +234,44 @@ const Withdrawals = () => {
                                         />
                                     </div>
                                 </div>
+                        {/* Transfer type */}
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { id: 'bank_transfer', label: 'Bank Transfer' },
+                                { id: 'wallet_to_wallet', label: 'Wallet to Wallet' },
+                                { id: 'quick_transfer', label: `Quick Transfer (+${Number(settings?.withdrawalQuickTransferPercent ?? 2)}%)` },
+                            ].map((opt) => (
+                                <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => setTransferType(opt.id)}
+                                    className={`px-2 py-2.5 rounded-xl border-2 text-[11px] font-bold leading-tight transition-all ${transferType === opt.id ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        {/* Withdrawal deductions preview (percentages from Settings / DB) */}
+                        {Number(amount) > 0 && (() => {
+                            const a = Number(amount);
+                            const tdsP = Number(settings?.withdrawalTdsPercent ?? 5);
+                            const svcP = Number(settings?.withdrawalServiceChargePercent ?? 5);
+                            const admP = Number(settings?.withdrawalAdminChargePercent ?? 15);
+                            const qtP = transferType === 'quick_transfer' ? Number(settings?.withdrawalQuickTransferPercent ?? 2) : 0;
+                            const r2 = (n) => Math.round(n * 100) / 100;
+                            const tds = r2((a * tdsP) / 100), svc = r2((a * svcP) / 100), adm = r2((a * admP) / 100), qt = r2((a * qtP) / 100);
+                            const net = r2(Math.max(0, a - tds - svc - adm - qt));
+                            const f = (n) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                            return (
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>TDS ({tdsP}%)</span><span>- {f(tds)}</span></div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Service Charge ({svcP}%)</span><span>- {f(svc)}</span></div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Admin Charge ({admP}%)</span><span>- {f(adm)}</span></div>
+                                    {qt > 0 && (<div className="flex justify-between text-xs font-semibold text-slate-600"><span>Quick Transfer ({qtP}%)</span><span>- {f(qt)}</span></div>)}
+                                    <div className="flex justify-between text-sm font-black text-emerald-700 pt-2 border-t border-slate-200"><span>You will receive</span><span>{f(net)}</span></div>
+                                </div>
+                            );
+                        })()}
 
                                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100/50">
                                     <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />

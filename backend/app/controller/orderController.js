@@ -15,6 +15,7 @@ import { ORDER_PAYMENT_STATUS } from "../constants/finance.js";
 import {
   afterPlaceOrderV2,
   sellerAcceptAtomic,
+  sellerUpdateTakeawayAtomic,
   sellerRejectAtomic,
   deliveryAcceptAtomic,
   customerCancelV2,
@@ -436,6 +437,23 @@ export const updateOrderStatus = async (req, res) => {
         try {
           const updated = await sellerRejectAtomic(userId, canonicalOrderId);
           return handleResponse(res, 200, "Order rejected", updated);
+        } catch (e) {
+          return handleResponse(res, e.statusCode || 500, e.message);
+        }
+      }
+      // Takeaway: "packed" = ready for pickup, "delivered" = customer collected.
+      if (order.orderType === "takeaway") {
+        try {
+          const updated = await sellerUpdateTakeawayAtomic(userId, canonicalOrderId, status);
+          try {
+            await invalidate(buildKey("orders", "customer", `${order.customer.toString()}:*`));
+          } catch (_) { /* non-critical */ }
+          return handleResponse(
+            res,
+            200,
+            status === "delivered" ? "Order picked up by customer" : "Order ready for pickup",
+            updated,
+          );
         } catch (e) {
           return handleResponse(res, e.statusCode || 500, e.message);
         }
@@ -1345,6 +1363,23 @@ export const acceptOrder = async (req, res) => {
 
     if (!order) {
       return handleResponse(res, 404, "Order not found");
+    }
+
+    // Free-delivery sellers: only the seller's own riders may accept, and
+    // seller-owned riders may accept only their own seller's orders.
+    if (role === "delivery") {
+      const rider = await Delivery.findById(userId).select("sellerId").lean();
+      const orderSellerId = order.seller?._id || order.seller;
+      if (rider?.sellerId) {
+        if (String(rider.sellerId) !== String(orderSellerId)) {
+          return handleResponse(res, 403, "You can accept only your own seller's orders");
+        }
+      } else if (orderSellerId) {
+        const orderSeller = await Seller.findById(orderSellerId).select("freeDelivery").lean();
+        if (orderSeller?.freeDelivery) {
+          return handleResponse(res, 403, "This order is delivered by the seller's own delivery partner");
+        }
+      }
     }
 
     if (order.workflowVersion >= 2) {

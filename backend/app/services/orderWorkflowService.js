@@ -155,10 +155,14 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   // must stay above the DELIVERY_SEARCH transition so quick-commerce
   // orders are completely unaffected by this branch.
   const businessTypePreview = await Order.findOne({ orderId, seller: sellerId })
-    .select("businessType")
+    .select("businessType orderType")
     .lean();
   if (businessTypePreview?.businessType === "ecommerce") {
     return shiprocketSellerAcceptAtomic(sellerId, orderId);
+  }
+  // Takeaway: customer collects from the shop — no rider search/broadcast.
+  if (businessTypePreview?.orderType === "takeaway") {
+    return sellerAcceptTakeawayAtomic(sellerId, orderId);
   }
 
   const now = new Date();
@@ -236,6 +240,135 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
     userId: updated.customer?._id || updated.customer,
     sellerId: updated.seller?._id || updated.seller,
   });
+
+  return updated;
+}
+
+/**
+ * Takeaway accept: SELLER_PENDING -> SELLER_ACCEPTED (preparing). No rider.
+ */
+async function sellerAcceptTakeawayAtomic(sellerId, orderId) {
+  const now = new Date();
+  const updated = await Order.findOneAndUpdate(
+    {
+      orderId,
+      seller: sellerId,
+      orderType: "takeaway",
+      workflowVersion: { $gte: 2 },
+      workflowStatus: WORKFLOW_STATUS.SELLER_PENDING,
+      sellerPendingExpiresAt: { $gt: now },
+      $or: [{ paymentMode: { $ne: "ONLINE" } }, { paymentStatus: "PAID" }],
+    },
+    {
+      $set: {
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: legacyStatusFromWorkflow(WORKFLOW_STATUS.SELLER_ACCEPTED),
+        sellerAcceptedAt: now,
+      },
+      // Keep the order from being auto-deleted by the TTL index.
+      $unset: { expiresAt: 1 },
+    },
+    { new: true },
+  )
+    .populate("customer", "name phone")
+    .populate("seller", "shopName address name location serviceRadius");
+
+  if (!updated) {
+    const err = new Error("Order not available for acceptance or expired");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  await removeSellerTimeoutJob(orderId);
+
+  emitOrderStatusUpdate(
+    updated.orderId,
+    { status: updated.status || "confirmed", workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED },
+    updated.customer?._id ? updated.customer._id.toString() : updated.customer,
+  );
+
+  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CONFIRMED, {
+    orderId: updated.orderId,
+    customerId: updated.customer?._id || updated.customer,
+    userId: updated.customer?._id || updated.customer,
+    sellerId: updated.seller?._id || updated.seller,
+  });
+
+  return updated;
+}
+
+/**
+ * Takeaway seller steps (reuses the seller status dropdown):
+ *   "packed"    → SELLER_ACCEPTED -> PICKUP_READY (ready for customer pickup)
+ *   "delivered" → SELLER_ACCEPTED/PICKUP_READY -> DELIVERED (customer collected) + settlement
+ */
+export async function sellerUpdateTakeawayAtomic(sellerId, orderId, status) {
+  orderId = await requireCanonicalOrderId(orderId);
+  const now = new Date();
+  let filter;
+  let set;
+
+  if (status === "packed") {
+    filter = { workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED };
+    set = {
+      workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+      status: "packed",
+      orderStatus: "packed",
+      pickupReadyAt: now,
+    };
+  } else if (status === "delivered") {
+    filter = { workflowStatus: { $in: [WORKFLOW_STATUS.SELLER_ACCEPTED, WORKFLOW_STATUS.PICKUP_READY] } };
+    set = {
+      workflowStatus: WORKFLOW_STATUS.DELIVERED,
+      status: "delivered",
+      orderStatus: "delivered",
+      deliveredAt: now,
+    };
+  } else {
+    const err = new Error("For takeaway orders use: Ready for Pickup or Picked Up");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const updated = await Order.findOneAndUpdate(
+    { orderId, seller: sellerId, orderType: "takeaway", workflowVersion: { $gte: 2 }, ...filter },
+    { $set: set },
+    { new: true },
+  );
+
+  if (!updated) {
+    const err = new Error(
+      status === "packed"
+        ? "Accept the order first, then mark it ready for pickup"
+        : "Order is not ready to be marked as picked up",
+    );
+    err.statusCode = 409;
+    throw err;
+  }
+
+  if (status === "delivered") {
+    try {
+      await applyDeliveredSettlement(updated, orderId);
+    } catch (settlementError) {
+      logger.error("Settlement failed after takeaway pickup", {
+        scope: "sellerUpdateTakeawayAtomic",
+        orderId,
+        error: settlementError.message,
+      });
+    }
+    emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
+      orderId: updated.orderId,
+      customerId: updated.customer,
+      userId: updated.customer,
+      sellerId: updated.seller,
+    });
+  }
+
+  emitOrderStatusUpdate(
+    orderId,
+    { status: updated.status, workflowStatus: updated.workflowStatus },
+    updated.customer,
+  );
 
   return updated;
 }

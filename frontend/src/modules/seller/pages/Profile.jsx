@@ -21,6 +21,8 @@ import {
   Upload,
   Trash2,
   Loader2,
+  Truck,
+  UserPlus,
 } from "lucide-react";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
@@ -239,6 +241,84 @@ const SellerProfile = () => {
       toast.error(error.response?.data?.message || "Failed to submit change request");
     } finally {
       setIsSubmittingChangeRequest(false);
+    }
+  };
+
+  // ---- Free Delivery + own delivery boys ----
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const [isTogglingFreeDelivery, setIsTogglingFreeDelivery] = useState(false);
+  const [isAddingRider, setIsAddingRider] = useState(false);
+  const [showRiderForm, setShowRiderForm] = useState(false);
+  const [riderForm, setRiderForm] = useState({ name: "", phone: "", vehicleType: "bike", vehicleNumber: "" });
+
+  const fetchDeliveryBoys = async () => {
+    try {
+      const res = await sellerApi.getDeliveryBoys();
+      setDeliveryBoys(Array.isArray(res.data?.results) ? res.data.results : Array.isArray(res.data?.result) ? res.data.result : []);
+    } catch {
+      setDeliveryBoys([]);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.freeDelivery) fetchDeliveryBoys();
+  }, [profile?.freeDelivery]);
+
+  const toggleFreeDelivery = async () => {
+    const next = !profile?.freeDelivery;
+    setIsTogglingFreeDelivery(true);
+    try {
+      await sellerApi.updateProfile({ freeDelivery: next });
+      setProfile((prev) => ({ ...prev, freeDelivery: next }));
+      toast.success(next ? "Free Delivery turned ON" : "Free Delivery turned OFF");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update Free Delivery");
+    } finally {
+      setIsTogglingFreeDelivery(false);
+    }
+  };
+
+  const [isTogglingTakeaway, setIsTogglingTakeaway] = useState(false);
+  const toggleTakeaway = async () => {
+    const next = profile?.takeawayEnabled === false;
+    setIsTogglingTakeaway(true);
+    try {
+      await sellerApi.updateProfile({ takeawayEnabled: next });
+      setProfile((prev) => ({ ...prev, takeawayEnabled: next }));
+      toast.success(next ? "Takeaway turned ON" : "Takeaway turned OFF");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update Takeaway");
+    } finally {
+      setIsTogglingTakeaway(false);
+    }
+  };
+
+  const handleAddRider = async (e) => {
+    e.preventDefault();
+    if (riderForm.name.trim().length < 2) return toast.error("Enter delivery boy name");
+    if (!/^[6-9]\d{9}$/.test(riderForm.phone)) return toast.error("Enter a valid 10-digit mobile number");
+    setIsAddingRider(true);
+    try {
+      await sellerApi.addDeliveryBoy(riderForm);
+      toast.success("Delivery boy added. He can log in to the Delivery app with this number.");
+      setRiderForm({ name: "", phone: "", vehicleType: "bike", vehicleNumber: "" });
+      setShowRiderForm(false);
+      fetchDeliveryBoys();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to add delivery boy");
+    } finally {
+      setIsAddingRider(false);
+    }
+  };
+
+  const handleRemoveRider = async (rider) => {
+    if (!window.confirm(`Remove ${rider.name} (${rider.phone})? He will no longer be able to log in.`)) return;
+    try {
+      await sellerApi.removeDeliveryBoy(rider._id || rider.id);
+      toast.success("Delivery boy removed");
+      fetchDeliveryBoys();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to remove delivery boy");
     }
   };
 
@@ -945,6 +1025,152 @@ const SellerProfile = () => {
               <Button variant="outline" size="sm" onClick={() => setIsRequestingTypeChange(true)}>
                 Request Change
               </Button>
+            )}
+          </Card>
+
+          {/* Takeaway (customer collects from shop) */}
+          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center">
+                  <Store size={20} className="text-orange-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">Takeaway</h4>
+                  <p className="text-[11px] font-medium text-slate-500">Customers can collect orders from your shop</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={profile?.takeawayEnabled !== false}
+                disabled={isTogglingTakeaway}
+                onClick={toggleTakeaway}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${profile?.takeawayEnabled !== false ? "bg-orange-500" : "bg-slate-300"}`}
+              >
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${profile?.takeawayEnabled !== false ? "left-6" : "left-1"}`} />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-3">
+              Takeaway orders: accept → set status "Ready for Pickup" → "Picked Up" when the customer collects.
+            </p>
+          </Card>
+
+          {/* Free Delivery + own delivery boys */}
+          <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-lg">
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Truck size={20} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900">Free Delivery</h4>
+                  <p className="text-[11px] font-medium text-slate-500">Deliver with your own delivery boys</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!profile?.freeDelivery}
+                disabled={isTogglingFreeDelivery}
+                onClick={toggleFreeDelivery}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60 ${profile?.freeDelivery ? "bg-emerald-500" : "bg-slate-300"}`}
+              >
+                <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${profile?.freeDelivery ? "left-6" : "left-1"}`} />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+              When ON, customers pay ₹0 delivery fee on your items and your orders go only to the delivery boys you add below.
+            </p>
+
+            {profile?.freeDelivery && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[3px] text-slate-400">
+                    My Delivery Boys ({deliveryBoys.length})
+                  </p>
+                  {!showRiderForm && (
+                    <Button size="sm" variant="outline" onClick={() => setShowRiderForm(true)}>
+                      <UserPlus size={14} className="mr-1" /> Add
+                    </Button>
+                  )}
+                </div>
+
+                {showRiderForm && (
+                  <form onSubmit={handleAddRider} className="space-y-2 p-3 rounded-xl bg-slate-50">
+                    <input
+                      value={riderForm.name}
+                      onChange={(e) => setRiderForm({ ...riderForm, name: e.target.value })}
+                      placeholder="Full name"
+                      className="w-full px-3 py-2 bg-white rounded-lg text-xs font-medium outline-none border border-slate-200 focus:border-emerald-400"
+                    />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={riderForm.phone}
+                      onChange={(e) => setRiderForm({ ...riderForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                      placeholder="10-digit mobile number"
+                      className="w-full px-3 py-2 bg-white rounded-lg text-xs font-medium outline-none border border-slate-200 focus:border-emerald-400"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={riderForm.vehicleType}
+                        onChange={(e) => setRiderForm({ ...riderForm, vehicleType: e.target.value })}
+                        className="flex-1 px-3 py-2 bg-white rounded-lg text-xs font-medium outline-none border border-slate-200"
+                      >
+                        <option value="bike">Bike</option>
+                        <option value="scooter">Scooter</option>
+                        <option value="cycle">Cycle</option>
+                      </select>
+                      <input
+                        value={riderForm.vehicleNumber}
+                        onChange={(e) => setRiderForm({ ...riderForm, vehicleNumber: e.target.value.toUpperCase() })}
+                        placeholder="Vehicle no. (optional)"
+                        className="flex-1 min-w-0 px-3 py-2 bg-white rounded-lg text-xs font-medium outline-none border border-slate-200"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setShowRiderForm(false)} disabled={isAddingRider}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" size="sm" isLoading={isAddingRider}>
+                        Add Delivery Boy
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {deliveryBoys.length === 0 && !showRiderForm ? (
+                  <div className="p-3 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold">
+                    No delivery boys added yet. Add at least one, otherwise your orders will not be picked up.
+                  </div>
+                ) : (
+                  deliveryBoys.map((rider) => (
+                    <div key={rider._id || rider.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-100">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">{rider.name}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {rider.phone} • {rider.vehicleType}{rider.vehicleNumber ? ` • ${rider.vehicleNumber}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${rider.isOnline ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                          {rider.isOnline ? "Online" : "Offline"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRider(rider)}
+                          title="Remove"
+                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </Card>
         </div>

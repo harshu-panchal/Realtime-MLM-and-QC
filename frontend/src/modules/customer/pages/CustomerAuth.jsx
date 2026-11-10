@@ -41,9 +41,6 @@ const CustomerAuth = () => {
     const [authPayload, setAuthPayload] = useState(pendingSubData?.authPayload || null);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
     const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
-    const [showAadharStep, setShowAadharStep] = useState(false);
-    const [aadharNumber, setAadharNumber] = useState('');
-    const [pendingPaymentResponse, setPendingPaymentResponse] = useState(null);
     const [timer, setTimer] = useState(0);
     const { login } = useAuth();
     const { settings } = useSettings();
@@ -59,6 +56,7 @@ const CustomerAuth = () => {
         phone: pendingSubData?.phone || '',
         otp: '',
         name: pendingSubData?.name || '',
+        aadharNumber: '',
         referralCode: new URLSearchParams(window.location.search).get('ref') || ''
     });
 
@@ -90,7 +88,11 @@ const CustomerAuth = () => {
             toast.error(t('enterFullName'));
             return;
         }
-        
+        if (!isLogin && !/^\d{12}$/.test(formData.aadharNumber)) {
+            toast.error("Please enter a valid 12-digit Aadhar number");
+            return;
+        }
+
         setIsLoading(true);
         try {
             if (isLogin) {
@@ -99,6 +101,7 @@ const CustomerAuth = () => {
                 await customerApi.sendSignupOtp({ 
                     name: formData.name, 
                     phone: formData.phone,
+                    aadharNumber: formData.aadharNumber,
                     referralCode: formData.referralCode
                 });
             }
@@ -166,7 +169,7 @@ const CustomerAuth = () => {
             });
 
             if (res.data?.result?.exempt) {
-                setShowAadharStep(true);
+                finalizeSubscriptionSuccess(authPayload?.customer);
                 return;
             }
 
@@ -190,9 +193,7 @@ const CustomerAuth = () => {
                     color: "#f97316",
                 },
                 handler: async (paymentResponse) => {
-                    setPendingPaymentResponse(paymentResponse);
-                    setShowAadharStep(true);
-                    toast.success("Payment successful. Please enter your Aadhar number.");
+                    await verifySubscriptionPayment(paymentResponse);
                 },
                 modal: {
                     ondismiss: () => {
@@ -214,34 +215,23 @@ const CustomerAuth = () => {
         }
     };
 
-    const handleAadharSubmit = async (e) => {
-        e.preventDefault();
-        const normalizedAadhar = aadharNumber.replace(/\s/g, '');
-        if (!/^\d{12}$/.test(normalizedAadhar)) {
-            toast.error("Aadhar number must be 12 digits");
-            return;
-        }
-        if (!pendingPaymentResponse) {
-            toast.error("Please complete the subscription payment first");
-            return;
-        }
-
+    // Aadhar is collected at signup now, so payment is verified right after Razorpay success.
+    const verifySubscriptionPayment = async (paymentResponse) => {
         setIsLoading(true);
         try {
             const verifyRes = await customerApi.verifySubscriptionPayment({
-                razorpay_order_id: pendingPaymentResponse.razorpay_order_id,
-                razorpay_payment_id: pendingPaymentResponse.razorpay_payment_id,
-                razorpay_signature: pendingPaymentResponse.razorpay_signature,
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_signature: paymentResponse.razorpay_signature,
                 phone: formData.phone,
                 customerId: authPayload?.customer?._id,
-                aadharNumber: normalizedAadhar,
             });
             const updatedCust = verifyRes.data?.result?.customer || authPayload?.customer;
             setIsPaymentCompleted(true);
-            toast.success("Aadhar verified and registration completed!");
+            toast.success("Payment verified and registration completed!");
             setTimeout(() => finalizeSubscriptionSuccess(updatedCust), 800);
         } catch (error) {
-            toast.error(error?.response?.data?.message || "Aadhar verification failed.");
+            toast.error(error?.response?.data?.message || "Payment verification failed.");
         } finally {
             setIsLoading(false);
         }
@@ -342,42 +332,6 @@ const CustomerAuth = () => {
                 
                 {showSubscriptionStep ? (
                     <>
-                        {showAadharStep ? (
-                            <>
-                                <div className="text-left mb-6">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <ShieldCheck className="text-[#f97316] h-6 w-6" />
-                                        <h2 className="text-xl font-bold text-gray-900">
-                                            Step 3: Aadhar Verification
-                                        </h2>
-                                    </div>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Enter your 12-digit Aadhar number to complete registration.
-                                    </p>
-                                </div>
-
-                                <form onSubmit={handleAadharSubmit} className="space-y-4">
-                                    <input
-                                        required
-                                        type="tel"
-                                        inputMode="numeric"
-                                        maxLength={12}
-                                        value={aadharNumber}
-                                        onChange={(e) => setAadharNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                                        placeholder="Enter 12-digit Aadhar number"
-                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316]"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={isLoading || isPaymentCompleted}
-                                        className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide disabled:opacity-70"
-                                    >
-                                        {isPaymentCompleted ? "Registration completed" : isLoading ? "Please wait..." : "Submit & Complete Registration"}
-                                    </button>
-                                </form>
-                            </>
-                        ) : (
-                        <>
                         <div className="text-left mb-6">
                             <div className="flex items-center gap-2 mb-1">
                                 <ShieldCheck className="text-[#f97316] h-6 w-6" />
@@ -451,8 +405,6 @@ const CustomerAuth = () => {
                                 </button>
                             </div>
                         </div>
-                        </>
-                        )}
                     </>
                 ) : !showOtp ? (
                     <>
@@ -477,6 +429,19 @@ const CustomerAuth = () => {
                                             placeholder={t('fullName')}
                                             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            required
+                                            type="tel"
+                                            inputMode="numeric"
+                                            name="aadharNumber"
+                                            maxLength={12}
+                                            value={formData.aadharNumber}
+                                            placeholder="Aadhar Number (12 digits)"
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
+                                            onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value.replace(/\D/g, '').slice(0, 12) })}
                                         />
                                     </div>
                                     <div className="relative">

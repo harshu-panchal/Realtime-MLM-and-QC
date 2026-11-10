@@ -12,7 +12,7 @@ import {
     createSellerOnboardingOrder,
     verifySellerOnboardingPayment,
 } from "../controller/sellerAuthController.js";
-import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers, getSellerStorefront } from "../controller/sellerController.js";
+import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers, getSellerStorefront, getSellerDeliveryBoys, addSellerDeliveryBoy, removeSellerDeliveryBoy, getSellerSubscriptionStatus, createSellerSubscriptionOrder, verifySellerSubscriptionPayment } from "../controller/sellerController.js";
 import { getSellerStats, getSellerEarnings } from "../controller/sellerStatsController.js";
 import { getSellerWalletSummaryController } from "../controller/adminFinanceController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -74,6 +74,16 @@ router.put(
     allowRoles("seller"),
     updateSellerProfile
 );
+
+// Own delivery boys (Free Delivery sellers)
+router.get("/delivery-boys", verifyToken, allowRoles("seller"), getSellerDeliveryBoys);
+router.post("/delivery-boys", verifyToken, allowRoles("seller"), addSellerDeliveryBoy);
+router.delete("/delivery-boys/:id", verifyToken, allowRoles("seller"), removeSellerDeliveryBoy);
+
+// Seller paid subscription (required to request withdrawals)
+router.get("/subscription/status", verifyToken, allowRoles("seller"), getSellerSubscriptionStatus);
+router.post("/subscription/create-order", verifyToken, allowRoles("seller"), createSellerSubscriptionOrder);
+router.post("/subscription/verify-payment", verifyToken, allowRoles("seller"), verifySellerSubscriptionPayment);
 
 // Analytics & Financials
 router.get("/stats", verifyToken, allowRoles("seller"), getSellerStats);

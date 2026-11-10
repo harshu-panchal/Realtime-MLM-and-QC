@@ -33,6 +33,7 @@ export const signupCustomer = async (req, res) => {
         await issueCustomerOtp({
             name: payload.name,
             rawPhone: payload.phone,
+            aadharNumber: payload.aadharNumber,
             flow: "signup",
             referralCode: payload.referralCode,
             ipAddress: req.ip,
@@ -40,6 +41,10 @@ export const signupCustomer = async (req, res) => {
 
         return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
     } catch (error) {
+        // Unique index hit (e.g. two signups with the same Aadhar at the same moment)
+        if (error?.code === 11000 && error?.keyPattern?.aadharNumber) {
+            return handleResponse(res, 400, "This Aadhar number is already registered");
+        }
         return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
@@ -319,17 +324,20 @@ export const verifyCustomerSubscriptionPayment = async (req, res) => {
             return handleResponse(res, 400, "Payment verification parameters missing");
         }
 
+        // Aadhar is now collected (and uniqueness-checked) at signup. If it is still sent here, validate it.
         const normalizedAadharNumber = String(aadharNumber || "").replace(/\s/g, "");
-        if (!/^\d{12}$/.test(normalizedAadharNumber)) {
-            return handleResponse(res, 400, "Aadhar number is required and must be 12 digits");
-        }
+        if (normalizedAadharNumber) {
+            if (!/^\d{12}$/.test(normalizedAadharNumber)) {
+                return handleResponse(res, 400, "Aadhar number must be 12 digits");
+            }
 
-        const existingAadhar = await Customer.findOne({
-            aadharNumber: normalizedAadharNumber,
-            ...(customerId ? { _id: { $ne: customerId } } : {}),
-        }).lean();
-        if (existingAadhar) {
-            return handleResponse(res, 400, "This Aadhar number is already registered");
+            const existingAadhar = await Customer.findOne({
+                aadharNumber: normalizedAadharNumber,
+                ...(customerId ? { _id: { $ne: customerId } } : {}),
+            }).lean();
+            if (existingAadhar) {
+                return handleResponse(res, 400, "This Aadhar number is already registered");
+            }
         }
 
         const crypto = (await import("crypto")).default;
@@ -369,8 +377,23 @@ export const verifyCustomerSubscriptionPayment = async (req, res) => {
             });
         }
 
+        // Same Razorpay payment must not activate/renew twice.
+        const paymentAlreadyUsed = await Customer.findOne({
+            "weeklySubscription.razorpayPaymentId": razorpay_payment_id,
+        }).select("_id").lean();
+        if (paymentAlreadyUsed) {
+            if (customer && String(paymentAlreadyUsed._id) === String(customer._id)) {
+                return handleResponse(res, 200, "Subscription already activated for this payment", {
+                    customer: sanitizeCustomer(customer),
+                });
+            }
+            return handleResponse(res, 400, "This payment has already been used");
+        }
+
         if (customer) {
-            customer.aadharNumber = normalizedAadharNumber;
+            if (normalizedAadharNumber && !customer.aadharNumber) {
+                customer.aadharNumber = normalizedAadharNumber;
+            }
             customer.weeklySubscription = {
                 status: "active",
                 amount: feeAmount,

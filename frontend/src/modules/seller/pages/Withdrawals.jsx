@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import Button from '@shared/components/ui/Button';
@@ -23,12 +23,93 @@ import { BlurFade } from "@/components/ui/blur-fade";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
 import { useSellerEarnings } from "../context/SellerEarningsContext";
+import { useSettings } from "@core/context/SettingsContext";
 import Pagination from "@shared/components/ui/Pagination";
 
 const Withdrawals = () => {
     const { earningsData: data, earningsLoading: loading, refreshEarnings } = useSellerEarnings();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [amount, setAmount] = useState('');
+    const { settings } = useSettings();
+    const [transferType, setTransferType] = useState('bank_transfer');
+
+    // ---- Seller paid subscription (required to withdraw when a fee is set) ----
+    const [subState, setSubState] = useState(null);
+    const [isPayingSub, setIsPayingSub] = useState(false);
+    const subBlocked = !!(subState?.required && !subState?.isActive);
+
+    const loadSubscription = async () => {
+        try {
+            const res = await sellerApi.getSubscriptionStatus();
+            setSubState(res.data?.result || null);
+        } catch {
+            setSubState(null);
+        }
+    };
+    useEffect(() => { loadSubscription(); }, []);
+
+    const loadRazorpay = () => new Promise((resolve) => {
+        if (window.Razorpay) return resolve(true);
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+
+    const handlePaySubscription = async () => {
+        setIsPayingSub(true);
+        try {
+            if (!(await loadRazorpay())) {
+                toast.error("Payment gateway failed to load. Please check your internet connection.");
+                setIsPayingSub(false);
+                return;
+            }
+            const res = await sellerApi.createSubscriptionOrder();
+            const r = res.data?.result || {};
+            if (r.exempt) {
+                toast.success("Subscription is not required right now.");
+                await loadSubscription();
+                setIsPayingSub(false);
+                return;
+            }
+            if (!r.razorpayOrderId) throw new Error("Unable to create subscription order");
+            const rzp = new window.Razorpay({
+                key: r.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+                amount: Math.round(Number(r.amount || 0) * 100),
+                currency: r.currency || "INR",
+                name: settings?.appName || "Seller Subscription",
+                description: `Seller Subscription (${r.validityDays} days)`,
+                order_id: r.razorpayOrderId,
+                theme: { color: "#0f172a" },
+                handler: async (pr) => {
+                    try {
+                        const v = await sellerApi.verifySubscriptionPayment({
+                            razorpay_order_id: pr.razorpay_order_id,
+                            razorpay_payment_id: pr.razorpay_payment_id,
+                            razorpay_signature: pr.razorpay_signature,
+                        });
+                        setSubState(v.data?.result || null);
+                        toast.success("Subscription activated! You can now request withdrawals.");
+                    } catch (error) {
+                        toast.error(error.response?.data?.message || "Payment verification failed");
+                    } finally {
+                        setIsPayingSub(false);
+                    }
+                },
+                modal: { ondismiss: () => setIsPayingSub(false) },
+            });
+            rzp.on("payment.failed", (resp) => {
+                toast.error(resp?.error?.description || "Payment failed");
+                setIsPayingSub(false);
+            });
+            rzp.open();
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message || "Failed to start payment");
+            setIsPayingSub(false);
+        }
+    };
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [page, setPage] = useState(1);
@@ -103,7 +184,7 @@ const Withdrawals = () => {
 
         try {
             setIsSubmitting(true);
-            const response = await sellerApi.requestWithdrawal({ amount: parseFloat(amount) });
+            const response = await sellerApi.requestWithdrawal({ amount: parseFloat(amount) , transferType });
             if (response.data.success) {
                 toast.success('Withdrawal request submitted successfully!');
                 setIsModalOpen(false);
@@ -142,7 +223,13 @@ const Withdrawals = () => {
                         <p className="text-slate-600 text-base mt-1 font-medium">Request payouts and track your withdrawal history.</p>
                     </div>
                     <button
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={() => {
+                            if (subBlocked) {
+                                toast.error("Please activate your seller subscription to request a withdrawal.");
+                                return;
+                            }
+                            setIsModalOpen(true);
+                        }}
                         className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95 flex items-center gap-2 group"
                     >
                         <ArrowUpRight className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -150,6 +237,36 @@ const Withdrawals = () => {
                     </button>
                 </div>
             </BlurFade>
+
+            {/* Seller Subscription status (withdrawals need an active subscription) */}
+            {subState?.required && (
+                <div className={cn(
+                    "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border",
+                    subState.isActive ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"
+                )}>
+                    <div>
+                        <p className={cn("text-sm font-black", subState.isActive ? "text-emerald-800" : "text-amber-800")}>
+                            {subState.isActive ? "Seller Subscription Active" : subState.status === "expired" ? "Seller Subscription Expired" : "Seller Subscription Required"}
+                        </p>
+                        <p className="text-xs font-medium text-slate-600 mt-0.5">
+                            {subState.isActive
+                                ? `Valid until ${new Date(subState.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. You can request withdrawals.`
+                                : `Pay ₹${subState.fee} for ${subState.validityDays} days to request withdrawals.`}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handlePaySubscription}
+                        disabled={isPayingSub}
+                        className={cn(
+                            "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all disabled:opacity-60",
+                            subState.isActive ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"
+                        )}
+                    >
+                        {isPayingSub ? "Please wait..." : subState.isActive ? `Renew • ₹${subState.fee}` : `Pay & Activate • ₹${subState.fee}`}
+                    </button>
+                </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -307,6 +424,62 @@ const Withdrawals = () => {
                                 />
                             </div>
                         </div>
+
+                        {/* Transfer type */}
+
+                        <div className="grid grid-cols-3 gap-2">
+
+                            {[
+
+                                { id: 'bank_transfer', label: 'Bank Transfer' },
+
+                                { id: 'wallet_to_wallet', label: 'Wallet to Wallet' },
+
+                                { id: 'quick_transfer', label: `Quick Transfer (+${Number(settings?.withdrawalQuickTransferPercent ?? 2)}%)` },
+
+                            ].map((opt) => (
+
+                                <button
+
+                                    key={opt.id}
+
+                                    type="button"
+
+                                    onClick={() => setTransferType(opt.id)}
+
+                                    className={`px-2 py-2.5 rounded-xl border-2 text-[11px] font-bold leading-tight transition-all ${transferType === opt.id ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
+
+                                >
+
+                                    {opt.label}
+
+                                </button>
+
+                            ))}
+
+                        </div>
+
+                        {/* Withdrawal deductions preview (percentages from Settings / DB) */}
+                        {Number(amount) > 0 && (() => {
+                            const a = Number(amount);
+                            const tdsP = Number(settings?.withdrawalTdsPercent ?? 5);
+                            const svcP = Number(settings?.withdrawalServiceChargePercent ?? 5);
+                            const admP = Number(settings?.withdrawalAdminChargePercent ?? 15);
+                            const qtP = transferType === 'quick_transfer' ? Number(settings?.withdrawalQuickTransferPercent ?? 2) : 0;
+                            const r2 = (n) => Math.round(n * 100) / 100;
+                            const tds = r2((a * tdsP) / 100), svc = r2((a * svcP) / 100), adm = r2((a * admP) / 100), qt = r2((a * qtP) / 100);
+                            const net = r2(Math.max(0, a - tds - svc - adm - qt));
+                            const f = (n) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                            return (
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>TDS ({tdsP}%)</span><span>- {f(tds)}</span></div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Service Charge ({svcP}%)</span><span>- {f(svc)}</span></div>
+                                    <div className="flex justify-between text-xs font-semibold text-slate-600"><span>Admin Charge ({admP}%)</span><span>- {f(adm)}</span></div>
+                                    {qt > 0 && (<div className="flex justify-between text-xs font-semibold text-slate-600"><span>Quick Transfer ({qtP}%)</span><span>- {f(qt)}</span></div>)}
+                                    <div className="flex justify-between text-sm font-black text-emerald-700 pt-2 border-t border-slate-200"><span>You will receive</span><span>{f(net)}</span></div>
+                                </div>
+                            );
+                        })()}
 
                         <div className="p-4 bg-brand-50/50 rounded-2xl border border-brand-100/50 space-y-3">
                             <p className="text-[10px] font-black text-brand-600 uppercase tracking-widest mb-1">Transfer Destination</p>

@@ -59,6 +59,13 @@ const ALLOWED_KEYS = [
   "riderDailySubscriptionFee",
   "riderBaseEarning",
   "userWeeklySubscriptionFee",
+  "withdrawalTdsPercent",
+  "withdrawalServiceChargePercent",
+  "withdrawalAdminChargePercent",
+  "withdrawalQuickTransferPercent",
+  "sellerSubscriptionFee",
+  "sellerSubscriptionValidityDays",
+  "posCommissionPercent",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -155,6 +162,13 @@ const updateSettingsSchema = Joi.object({
   riderDailySubscriptionFee: Joi.number().min(0),
   riderBaseEarning: Joi.number().min(0),
   userWeeklySubscriptionFee: Joi.number().min(0),
+  withdrawalTdsPercent: Joi.number().min(0).max(100),
+  withdrawalServiceChargePercent: Joi.number().min(0).max(100),
+  withdrawalAdminChargePercent: Joi.number().min(0).max(100),
+  withdrawalQuickTransferPercent: Joi.number().min(0).max(100),
+  sellerSubscriptionFee: Joi.number().min(0),
+  sellerSubscriptionValidityDays: Joi.number().integer().min(1).max(3650),
+  posCommissionPercent: Joi.number().min(0).max(100),
 }).unknown(false);
 
 /**
@@ -175,7 +189,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner vendorRegistrationFee riderRegistrationFee riderDailySubscriptionFee riderBaseEarning userWeeklySubscriptionFee createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl customerSplashImage deliverySplashImage primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval categoriesBanner homeVideoBanner vendorRegistrationFee riderRegistrationFee riderDailySubscriptionFee riderBaseEarning userWeeklySubscriptionFee withdrawalTdsPercent withdrawalServiceChargePercent withdrawalAdminChargePercent withdrawalQuickTransferPercent sellerSubscriptionFee sellerSubscriptionValidityDays posCommissionPercent createdAt",
           )
           .lean();
         return existing || null;

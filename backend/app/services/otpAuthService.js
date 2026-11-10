@@ -95,12 +95,34 @@ export function normalizeAndValidatePhone(rawPhone) {
 export async function issueCustomerOtp({
   name = "",
   rawPhone,
+  aadharNumber,
   flow,
   referralCode,
   ipAddress = "unknown",
 }) {
   const phone = normalizeAndValidatePhone(rawPhone);
   const now = new Date();
+
+  // Signup: Aadhar is mandatory and one Aadhar = one account.
+  const normalizedAadhar = String(aadharNumber || "").replace(/\s/g, "");
+  if (flow === "signup") {
+    if (!/^\d{12}$/.test(normalizedAadhar)) {
+      const err = new Error("Aadhar number is required and must be 12 digits");
+      err.statusCode = 400;
+      throw err;
+    }
+    // Only a verified account "owns" an Aadhar; an unverified signup attempt doesn't block it.
+    const aadharOwner = await Customer.findOne({
+      aadharNumber: normalizedAadhar,
+      phone: { $ne: phone },
+      isVerified: true,
+    }).lean();
+    if (aadharOwner) {
+      const err = new Error("This Aadhar number is already registered");
+      err.statusCode = 400;
+      throw err;
+    }
+  }
 
   const sendAllowed = await incrementWindowCounter(`otp:send:phone:${phone}`, {
     limit: OTP_SEND_LIMIT_PER_WINDOW(),
@@ -128,20 +150,31 @@ export async function issueCustomerOtp({
     throw err;
   }
 
+  if (flow === "signup") {
+    // Free this Aadhar from any other unfinished (unverified) signup attempt.
+    await Customer.updateMany(
+      { aadharNumber: normalizedAadhar, phone: { $ne: phone }, isVerified: { $ne: true } },
+      { $unset: { aadharNumber: 1 } },
+    );
+  }
+
   if (!customer) {
     customer = await Customer.create({
       name: name || "Customer",
       phone,
       isVerified: false,
+      ...(flow === "signup" ? { aadharNumber: normalizedAadhar } : {}),
     });
-    try {
-      await placeInTree({ entityId: customer._id, entityType: "User", sponsorId: referralCode });
-    } catch (e) {
-      console.error("Failed to place Customer in MLM tree:", e);
-    }
+    // MLM tree placement is NOT done here: a customer joins the tree only
+    // after paying the subscription (see verifyCustomerSubscriptionPayment).
     customer = await Customer.findById(customer._id).select(
       "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
     );
+  }
+
+  // Existing record on signup: attach Aadhar if not verified yet or none saved (never overwrite a verified user's Aadhar).
+  if (flow === "signup" && (!customer.isVerified || !customer.aadharNumber)) {
+    customer.aadharNumber = normalizedAadhar;
   }
 
   if (referralCode && !customer.referredBy) {

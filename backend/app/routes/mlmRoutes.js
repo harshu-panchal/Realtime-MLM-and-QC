@@ -5,8 +5,10 @@ import {
   getCapStatus,
   getCommissionLogs,
   updateDailyCapSetting,
+  getDailyCapSetting,
   getMlmOverview,
 } from "../controller/mlmController.js";
+import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -27,7 +29,8 @@ router.get("/cap-status/:userId", getCapStatus);
 // Get Commission Logs / History
 router.get("/commissions", getCommissionLogs);
 
-// Admin: Update Daily Cap Setting
-router.put("/admin/cap-setting", updateDailyCapSetting);
+// Admin: Get / Update Daily Cap Setting (admin login required)
+router.get("/admin/cap-setting", verifyToken, allowRoles("admin"), getDailyCapSetting);
+router.put("/admin/cap-setting", verifyToken, allowRoles("admin"), updateDailyCapSetting);
 
 export default router;

@@ -118,7 +118,8 @@ export async function applyDeliveredSettlement(order, orderIdString) {
                 user: settled.seller,
                 userModel: "Seller",
                 type: "Seller Daily Subscription",
-                amount: dailyFee,
+                // Negative = deducted from the seller's balance (like withdrawals).
+                amount: -Math.abs(dailyFee),
                 status: "Settled",
                 reference: `SLR-SUB-${settled.seller}-${startOfDay.toISOString().split("T")[0]}`,
                 meta: { note: "Daily subscription applied on first order of the day", orderId: order._id },

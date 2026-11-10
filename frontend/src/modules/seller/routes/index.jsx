@@ -15,6 +15,7 @@ import {
   HiOutlineCreditCard,
   HiOutlineMapPin,
   HiOutlineShieldCheck,
+  HiOutlineCalculator,
 } from "react-icons/hi2";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -32,12 +33,14 @@ const DeliveryTracking = React.lazy(() => import("../pages/DeliveryTracking"));
 const Profile = React.lazy(() => import("../pages/Profile"));
 const Withdrawals = React.lazy(() => import("../pages/Withdrawals"));
 const ShipmentOrders = React.lazy(() => import("../pages/ShipmentOrders"));
+const PosManagement = React.lazy(() => import("../pages/PosManagement"));
 
 const baseNavItems = [
   { label: "Dashboard", path: "/seller", icon: HiOutlineSquares2X2, end: true },
   { label: "Products", path: "/seller/products", icon: HiOutlineCube },
   { label: "Stock", path: "/seller/inventory", icon: HiOutlineArchiveBox },
   { label: "Orders", path: "/seller/orders", icon: HiOutlineTruck },
+  { label: "POS Billing", path: "/seller/pos", icon: HiOutlineCalculator },
   { label: "Shipments", path: "/seller/shipments", icon: HiOutlineTruck, ecommerceOnly: true },
   { label: "Returns", path: "/seller/returns", icon: HiOutlineArchiveBox },
   { label: "Track Orders", path: "/seller/tracking", icon: HiOutlineMapPin, quickCommerceOnly: true },
@@ -94,6 +97,7 @@ const SellerRoutes = () => {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/earnings" element={<Earnings />} />
         <Route path="/withdrawals" element={<Withdrawals />} />
+        <Route path="/pos" element={<PosManagement />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

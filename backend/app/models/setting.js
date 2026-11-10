@@ -62,6 +62,50 @@ const settingSchema = new mongoose.Schema(
             default: 50,
             min: 0,
         },
+        // Withdrawal deductions (% of the requested amount). User receives the rest.
+        withdrawalTdsPercent: {
+            type: Number,
+            default: 5,
+            min: 0,
+            max: 100,
+        },
+        withdrawalServiceChargePercent: {
+            type: Number,
+            default: 5,
+            min: 0,
+            max: 100,
+        },
+        withdrawalAdminChargePercent: {
+            type: Number,
+            default: 15,
+            min: 0,
+            max: 100,
+        },
+        // Seller paid subscription: required (when fee > 0) to request withdrawals.
+        sellerSubscriptionFee: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        sellerSubscriptionValidityDays: {
+            type: Number,
+            default: 30,
+            min: 1,
+        },
+        // Platform commission % recorded on each POS (counter) bill. 0 = none.
+        posCommissionPercent: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 100,
+        },
+        // Extra % cut only when the user picks "Quick Transfer".
+        withdrawalQuickTransferPercent: {
+            type: Number,
+            default: 2,
+            min: 0,
+            max: 100,
+        },
 
         // Branding
         logoUrl: String,

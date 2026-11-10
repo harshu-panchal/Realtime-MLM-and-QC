@@ -3,6 +3,15 @@ import Joi from "joi";
 export const sendSignupOtpSchema = Joi.object({
   name: Joi.string().trim().min(2).max(80).required(),
   phone: Joi.string().trim().min(7).max(24).required(),
+  aadharNumber: Joi.string()
+    .replace(/\s/g, "")
+    .pattern(/^\d{12}$/)
+    .required()
+    .messages({
+      "any.required": "Aadhar number is required",
+      "string.empty": "Aadhar number is required",
+      "string.pattern.base": "Aadhar number must be 12 digits",
+    }),
   referralCode: Joi.string().trim().uppercase().optional().allow(''),
   fcmToken: Joi.string().trim().optional().allow('', null),
   token: Joi.string().trim().optional().allow('', null),

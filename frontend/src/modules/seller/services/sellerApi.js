@@ -30,6 +30,12 @@ export const sellerApi = {
     getWalletSummary: () => axiosInstance.get('/seller/wallet/summary'),
     getProfile: () => axiosInstance.get('/seller/profile'),
     updateProfile: (data) => axiosInstance.put('/seller/profile', data),
+    getSubscriptionStatus: () => axiosInstance.get('/seller/subscription/status'),
+    createSubscriptionOrder: () => axiosInstance.post('/seller/subscription/create-order'),
+    verifySubscriptionPayment: (data) => axiosInstance.post('/seller/subscription/verify-payment', data),
+    getDeliveryBoys: () => axiosInstance.get('/seller/delivery-boys'),
+    addDeliveryBoy: (data) => axiosInstance.post('/seller/delivery-boys', data),
+    removeDeliveryBoy: (id) => axiosInstance.delete(`/seller/delivery-boys/${id}`),
     uploadMedia: (formData) => axiosInstance.post('/media/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),

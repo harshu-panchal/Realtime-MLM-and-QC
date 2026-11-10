@@ -107,6 +107,14 @@ const deliverySchema = new mongoose.Schema(
             type: String,
             default: "delivery",
         },
+        // Set when a seller (with free delivery) adds this rider as their own.
+        // null = normal platform rider.
+        sellerId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Seller",
+            default: null,
+            index: true,
+        },
 
         otp: {
             type: String,

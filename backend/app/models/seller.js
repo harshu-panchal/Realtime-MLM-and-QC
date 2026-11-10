@@ -200,6 +200,17 @@ const sellerSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Paid subscription (Razorpay). Withdrawals are allowed only while
+    // expiresAt is in the future (when Setting.sellerSubscriptionFee > 0).
+    subscription: {
+      status: { type: String, enum: ["none", "active", "expired"], default: "none" },
+      amount: { type: Number, default: 0 },
+      paidAt: { type: Date },
+      expiresAt: { type: Date },
+      razorpayOrderId: { type: String, trim: true },
+      razorpayPaymentId: { type: String, trim: true },
+    },
+
     location: {
       type: {
         type: String,
@@ -214,6 +225,19 @@ const sellerSchema = new mongoose.Schema(
     serviceRadius: {
       type: Number,
       default: 5, // Default 5km
+    },
+    // Seller offers free delivery using their OWN delivery boys
+    // (Delivery.sellerId). Customer delivery fee becomes 0 for this
+    // seller's items and orders are offered only to the seller's riders.
+    freeDelivery: {
+      type: Boolean,
+      default: false,
+    },
+    // Customer can choose "Takeaway" (collect the order from the shop
+    // themselves). Seller can switch this off from their profile.
+    takeawayEnabled: {
+      type: Boolean,
+      default: true,
     },
     lastLogin: Date,
 

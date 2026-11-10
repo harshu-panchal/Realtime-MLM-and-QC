@@ -203,7 +203,7 @@ export const processBinaryCommission = async ({ entityId, entityType, source, am
     const setting = (await Setting.findOne().lean()) || {};
     const PAIR_VALUE = Number(setting.mlmPairValue ?? 3.60);
     const PER_ID_INCOME = Number(setting.mlmPerIdIncome ?? 0.0002);
-    const DAILY_CAP = Number(setting.userDailyCommissionCap ?? 10000);
+    const DAILY_CAP = Number(setting.userDailyCommissionCap ?? 25000);
 
     let currentNode = await MlmTree.findById(startNode.parentId);
     let childNodeId = startNode._id;
@@ -796,7 +796,7 @@ export const getPoolAndSectionsOverview = async (queryDate = null) => {
       .lean();
 
     // Also check if any Customers exist who are not yet in MlmTree (auto-place them)
-    const allCustomers = await Customer.find({ isActive: { $ne: false } }).select("name phone").lean();
+    const allCustomers = await Customer.find({ isActive: { $ne: false }, "weeklySubscription.paidAt": { $exists: true, $ne: null } }).select("name phone").lean();
     const existingEntityIds = new Set(allUserNodes.map((n) => n.entityId?._id?.toString() || n.entityId?.toString()));
 
     for (const cust of allCustomers) {

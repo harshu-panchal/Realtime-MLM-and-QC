@@ -1,4 +1,8 @@
 import Seller from "../models/seller.js";
+import Setting from "../models/setting.js";
+import crypto from "crypto";
+import Delivery from "../models/delivery.js";
+import { computeWithdrawalCharges, WITHDRAWAL_TRANSFER_TYPES } from "../services/admin/walletAdminService.js";
 import Transaction from "../models/transaction.js";
 import Product from "../models/product.js";
 import Category from "../models/category.js";
@@ -169,6 +173,17 @@ export const requestWithdrawal = async (req, res) => {
       return handleResponse(res, 400, "Please enter a valid amount");
     }
 
+    // Seller must have an active paid subscription to withdraw (only when a fee is set in Settings).
+    const subCheck = await getSellerSubscriptionState(sellerId);
+    if (subCheck.required && !subCheck.isActive) {
+      return handleResponse(
+        res,
+        403,
+        "Your subscription is not active. Please pay the seller subscription to request a withdrawal.",
+        subCheck,
+      );
+    }
+
     // 1. Calculate current available balance
     // Consistent with getSellerEarnings logic in sellerStatsController.js
     const transactions = await Transaction.find({
@@ -200,8 +215,14 @@ export const requestWithdrawal = async (req, res) => {
       );
     }
 
-    // 2. Create Withdrawal Transaction
-    // Withdrawals have negative amounts per the model comment
+    // 2. Deductions from Settings (TDS + service charge + admin charge)
+    // Transfer type: bank_transfer | wallet_to_wallet | quick_transfer (quick = extra % from Settings)
+    const transferType = WITHDRAWAL_TRANSFER_TYPES.includes(req.body?.transferType) ? req.body.transferType : "bank_transfer";
+    const charges = await computeWithdrawalCharges(amount, transferType);
+
+    // 3. Create Withdrawal Transaction
+    // Withdrawals have negative amounts per the model comment.
+    // Full requested amount leaves the wallet; seller is paid charges.netPayable.
     const withdrawal = await Transaction.create({
       user: sellerId,
       userModel: "Seller",
@@ -209,6 +230,7 @@ export const requestWithdrawal = async (req, res) => {
       amount: -Math.abs(amount),
       status: "Pending",
       reference: `WDR-${Date.now()}`,
+      meta: { transferType, withdrawalCharges: charges },
     });
 
     return handleResponse(
@@ -268,6 +290,8 @@ export const updateSellerProfile = async (req, res) => {
       category,
       description,
       rating,
+      freeDelivery,
+      takeawayEnabled,
     } = req.body;
 
     // Find seller
@@ -309,6 +333,8 @@ export const updateSellerProfile = async (req, res) => {
     if (category !== undefined) seller.category = category;
     if (description !== undefined) seller.description = description;
     if (rating !== undefined) seller.rating = Number(rating);
+    if (freeDelivery !== undefined) seller.freeDelivery = freeDelivery === true || freeDelivery === "true";
+    if (takeawayEnabled !== undefined) seller.takeawayEnabled = takeawayEnabled === true || takeawayEnabled === "true";
 
     // Validate and update geo data
     if (lat !== undefined && lng !== undefined) {
@@ -347,6 +373,217 @@ export const updateSellerProfile = async (req, res) => {
     if (error.code === 11000) {
       return handleResponse(res, 400, "Phone number already in use");
     }
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   SELLER OWN DELIVERY BOYS (Free Delivery)
+================================ */
+const SELLER_RIDER_FIELDS = "name phone vehicleType vehicleNumber isOnline isActive createdAt";
+
+export const getSellerDeliveryBoys = async (req, res) => {
+  try {
+    const riders = await Delivery.find({ sellerId: req.user.id, isActive: { $ne: false } })
+      .select(SELLER_RIDER_FIELDS)
+      .sort({ createdAt: -1 })
+      .lean();
+    return handleResponse(res, 200, "Delivery boys fetched successfully", riders);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+export const addSellerDeliveryBoy = async (req, res) => {
+  try {
+    const seller = await Seller.findById(req.user.id).select("freeDelivery");
+    if (!seller) return handleResponse(res, 404, "Seller not found");
+    if (!seller.freeDelivery) {
+      return handleResponse(res, 400, "Turn on Free Delivery to add your own delivery boys");
+    }
+
+    const name = String(req.body?.name || "").trim();
+    const phone = String(req.body?.phone || "").replace(/\D/g, "").slice(-10);
+    const vehicleType = ["bike", "cycle", "scooter"].includes(req.body?.vehicleType)
+      ? req.body.vehicleType
+      : "bike";
+    const vehicleNumber = String(req.body?.vehicleNumber || "").trim();
+
+    if (name.length < 2) return handleResponse(res, 400, "Name is required");
+    if (!/^[6-9]\d{9}$/.test(phone)) return handleResponse(res, 400, "Enter a valid 10-digit mobile number");
+
+    let rider = await Delivery.findOne({ phone });
+    if (rider) {
+      const isMineRemoved = rider.sellerId && String(rider.sellerId) === String(seller._id) && rider.isActive === false;
+      const isUnfinishedSignup = !rider.isVerified && !rider.sellerId;
+      if (!isMineRemoved && !isUnfinishedSignup) {
+        return handleResponse(res, 400, "This mobile number is already registered as a delivery partner");
+      }
+      // Re-add own removed rider, or take over an unfinished (unverified) signup.
+      rider.name = name;
+      rider.vehicleType = vehicleType;
+      rider.vehicleNumber = vehicleNumber;
+      rider.sellerId = seller._id;
+      rider.isVerified = true;
+      rider.isActive = true;
+      rider.onboardingPayment = { status: "exempt", amount: 0 };
+      await rider.save();
+    } else {
+      rider = await Delivery.create({
+        name,
+        phone,
+        vehicleType,
+        vehicleNumber,
+        sellerId: seller._id,
+        isVerified: true,
+        isActive: true,
+        isOnline: false,
+        onboardingPayment: { status: "exempt", amount: 0 },
+      });
+    }
+
+    const result = await Delivery.findById(rider._id).select(SELLER_RIDER_FIELDS).lean();
+    return handleResponse(res, 201, "Delivery boy added successfully", result);
+  } catch (error) {
+    if (error.code === 11000) {
+      return handleResponse(res, 400, "This mobile number is already registered as a delivery partner");
+    }
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+export const removeSellerDeliveryBoy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return handleResponse(res, 400, "Invalid delivery boy id");
+
+    // Deactivate (not hard delete) so past orders keep their rider reference.
+    const rider = await Delivery.findOneAndUpdate(
+      { _id: id, sellerId: req.user.id },
+      { $set: { isActive: false, isOnline: false } },
+      { new: true },
+    ).select(SELLER_RIDER_FIELDS);
+
+    if (!rider) return handleResponse(res, 404, "Delivery boy not found");
+    return handleResponse(res, 200, "Delivery boy removed successfully", { id });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+
+/* ===============================
+   SELLER PAID SUBSCRIPTION (required to withdraw)
+================================ */
+async function getSellerSubscriptionState(sellerId) {
+  const [seller, setting] = await Promise.all([
+    Seller.findById(sellerId).select("subscription").lean(),
+    Setting.findOne().select("sellerSubscriptionFee sellerSubscriptionValidityDays").lean(),
+  ]);
+  const fee = Math.max(0, Number(setting?.sellerSubscriptionFee ?? 0));
+  const validityDays = Math.max(1, Number(setting?.sellerSubscriptionValidityDays ?? 30));
+  const sub = seller?.subscription || {};
+  const isActive = !!(sub.expiresAt && new Date(sub.expiresAt) > new Date());
+  return {
+    required: fee > 0,
+    isActive,
+    status: isActive ? "active" : sub.expiresAt ? "expired" : "none",
+    fee,
+    validityDays,
+    expiresAt: sub.expiresAt || null,
+    paidAt: sub.paidAt || null,
+  };
+}
+
+export const getSellerSubscriptionStatus = async (req, res) => {
+  try {
+    const state = await getSellerSubscriptionState(req.user.id);
+    return handleResponse(res, 200, "Seller subscription status fetched", state);
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+export const createSellerSubscriptionOrder = async (req, res) => {
+  try {
+    const state = await getSellerSubscriptionState(req.user.id);
+    if (!state.required) {
+      return handleResponse(res, 200, "Seller subscription is not required right now", { exempt: true, amount: 0 });
+    }
+
+    const { RazorpayAdapter } = await import("../services/payment/providers/razorpay.adapter.js");
+    const adapter = new RazorpayAdapter();
+    const merchantOrderId = `SSUB_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const result = await adapter.initiatePayment({
+      merchantOrderId,
+      amountPaise: Math.round(state.fee * 100),
+      redirectUrl: "",
+    });
+
+    return handleResponse(res, 200, "Seller subscription order created", {
+      razorpayOrderId: result.gatewayResponse?.razorpayOrderId,
+      amount: state.fee,
+      currency: "INR",
+      keyId: process.env.RAZORPAY_KEY_ID,
+      validityDays: state.validityDays,
+      merchantOrderId,
+    });
+  } catch (error) {
+    return handleResponse(res, 500, error.message || "Failed to initialize payment");
+  }
+};
+
+export const verifySellerSubscriptionPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body || {};
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return handleResponse(res, 400, "Payment verification parameters missing");
+    }
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) return handleResponse(res, 500, "Payment gateway secret not configured");
+
+    const expected = crypto
+      .createHmac("sha256", keySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+    if (expected !== razorpay_signature) {
+      return handleResponse(res, 400, "Invalid payment signature");
+    }
+
+    // Same payment must not activate twice.
+    const used = await Seller.findOne({ "subscription.razorpayPaymentId": razorpay_payment_id }).select("_id").lean();
+    if (used) {
+      if (String(used._id) === String(req.user.id)) {
+        const state = await getSellerSubscriptionState(req.user.id);
+        return handleResponse(res, 200, "Subscription already activated for this payment", state);
+      }
+      return handleResponse(res, 400, "This payment has already been used");
+    }
+
+    const seller = await Seller.findById(req.user.id);
+    if (!seller) return handleResponse(res, 404, "Seller not found");
+
+    const state = await getSellerSubscriptionState(req.user.id);
+    // Renewing early extends from the current expiry; otherwise from now.
+    const now = new Date();
+    const base = seller.subscription?.expiresAt && new Date(seller.subscription.expiresAt) > now
+      ? new Date(seller.subscription.expiresAt)
+      : now;
+    const expiresAt = new Date(base.getTime() + state.validityDays * 24 * 60 * 60 * 1000);
+
+    seller.subscription = {
+      status: "active",
+      amount: state.fee,
+      paidAt: now,
+      expiresAt,
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+    };
+    await seller.save();
+
+    const updated = await getSellerSubscriptionState(req.user.id);
+    return handleResponse(res, 200, "Seller subscription activated successfully", updated);
+  } catch (error) {
     return handleResponse(res, 500, error.message);
   }
 };

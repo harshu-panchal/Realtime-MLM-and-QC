@@ -46,6 +46,44 @@ const MlmPoolManagement = () => {
     fetchMlmOverview(selectedDate);
   }, [selectedDate]);
 
+  // ---- User daily commission capping (Setting.userDailyCommissionCap) ----
+  const [capValue, setCapValue] = useState("");
+  const [savedCap, setSavedCap] = useState(null);
+  const [isSavingCap, setIsSavingCap] = useState(false);
+
+  useEffect(() => {
+    axiosInstance
+      .get("/mlm/admin/cap-setting")
+      .then((res) => {
+        const cap = res.data?.result?.userDailyCommissionCap;
+        if (cap !== undefined) {
+          setSavedCap(cap);
+          setCapValue(String(cap));
+        }
+      })
+      .catch((err) => showToast(err.response?.data?.message || "Failed to load capping", "error"));
+  }, []);
+
+  const handleSaveCap = async () => {
+    const cap = Number(capValue);
+    if (capValue === "" || !Number.isFinite(cap) || cap < 0) {
+      showToast("Enter a valid capping amount (0 or more)", "error");
+      return;
+    }
+    setIsSavingCap(true);
+    try {
+      const res = await axiosInstance.put("/mlm/admin/cap-setting", { userDailyCommissionCap: cap });
+      const updated = res.data?.result?.userDailyCommissionCap ?? cap;
+      setSavedCap(updated);
+      setCapValue(String(updated));
+      showToast("User daily capping updated", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to update capping", "error");
+    } finally {
+      setIsSavingCap(false);
+    }
+  };
+
   const summary = data?.poolSummary || {
     totalCustomerSubAmount: 0,
     totalVendorFeeAmount: 0,
@@ -96,6 +134,48 @@ const MlmPoolManagement = () => {
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* User Daily Commission Capping */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-xs">
+        <div className="flex items-start gap-3">
+          <span className="p-2 rounded-xl bg-emerald-100 text-emerald-600">
+            <Percent size={20} />
+          </span>
+          <div>
+            <h2 className="text-sm font-black text-slate-900">User Daily Commission Capping</h2>
+            <p className="text-xs text-slate-500 font-medium">
+              Maximum MLM income a user can receive in one day. Income above this is not credited.
+            </p>
+            {savedCap !== null && (
+              <p className="text-[11px] text-slate-400 mt-1 font-semibold">
+                Current: ₹{Number(savedCap).toLocaleString("en-IN")} / day
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-44">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₹</span>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={capValue}
+              onChange={(e) => setCapValue(e.target.value)}
+              placeholder="25000"
+              className="h-10 w-full pl-7 pr-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+            />
+          </div>
+          <button
+            onClick={handleSaveCap}
+            disabled={isSavingCap || capValue === String(savedCap)}
+            className="h-10 px-4 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-all disabled:opacity-50"
+          >
+            {isSavingCap ? "Saving..." : "Save"}
           </button>
         </div>
       </div>

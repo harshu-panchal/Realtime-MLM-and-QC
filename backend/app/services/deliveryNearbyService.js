@@ -10,7 +10,9 @@ const HAVERSINE_FALLBACK_LIMIT = () =>
   parseInt(process.env.DELIVERY_BROADCAST_HAVERSINE_LIMIT || "2000", 10);
 
 function buildDeliveryFilter() {
-  const q = { isOnline: true };
+  // sellerId: null → only platform riders (also matches docs without the field).
+  // Seller-owned riders get only their own seller's orders (see below).
+  const q = { isOnline: true, sellerId: null };
   if (requireVerifiedForBroadcast()) {
     q.isVerified = true;
   }
@@ -40,8 +42,20 @@ export async function getDeliveryPartnerIdsWithinSellerRadius(sellerId) {
   if (!sellerId) return [];
 
   const seller = await Seller.findById(sellerId)
-    .select("location serviceRadius")
+    .select("location serviceRadius freeDelivery")
     .lean();
+
+  // Free-delivery seller: offer the order only to the seller's own online riders.
+  if (seller?.freeDelivery) {
+    const ownRiders = await Delivery.find({
+      sellerId: seller._id,
+      isOnline: true,
+      isActive: { $ne: false },
+    })
+      .select("_id")
+      .lean();
+    return ownRiders.map((d) => d._id.toString());
+  }
 
   if (!seller?.location?.coordinates?.length) return [];
 

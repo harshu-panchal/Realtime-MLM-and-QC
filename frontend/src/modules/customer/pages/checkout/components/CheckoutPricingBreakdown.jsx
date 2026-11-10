@@ -37,7 +37,8 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
 
   return (
     <>
-      {/* Tip for Partner */}
+      {/* Tip for Partner (hidden for takeaway — no delivery partner) */}
+      {tipAmounts.length > 0 && (
       <motion.div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 border border-pink-100">
         <div className="flex items-center gap-2 mb-3">
           <Heart size={18} className="text-pink-500 fill-pink-500" />
@@ -59,6 +60,7 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
           ))}
         </div>
       </motion.div>
+      )}
 
       {/* Bill Details */}
       <motion.div className="bg-white rounded-[2rem] p-6 shadow-xl shadow-gray-200/50 border border-slate-100">

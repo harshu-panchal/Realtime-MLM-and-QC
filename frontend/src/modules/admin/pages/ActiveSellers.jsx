@@ -16,6 +16,9 @@ import {
   HiOutlineClock,
   HiOutlineArrowPath,
   HiOutlineDocumentText,
+  HiOutlineNoSymbol,
+  HiOutlineTrash,
+  HiOutlineExclamationTriangle,
 } from "react-icons/hi2";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -110,6 +113,44 @@ const ActiveSellers = () => {
   const [isEditingCommission, setIsEditingCommission] = useState(false);
   const [commissionEditValue, setCommissionEditValue] = useState('');
   const [isSavingCommission, setIsSavingCommission] = useState(false);
+
+  // Suspend / Delete seller: { type: "suspend" | "delete", seller }
+  const [sellerAction, setSellerAction] = useState(null);
+  const [suspendReason, setSuspendReason] = useState("");
+  const [isActionProcessing, setIsActionProcessing] = useState(false);
+
+  const openSellerAction = (type, seller) => {
+    setSuspendReason("");
+    setSellerAction({ type, seller });
+  };
+
+  const confirmSellerAction = async () => {
+    if (!sellerAction) return;
+    const { type, seller } = sellerAction;
+    const label = seller.shopName || seller.ownerName || "Seller";
+    setIsActionProcessing(true);
+    try {
+      if (type === "suspend") {
+        await adminApi.suspendSeller(seller.id, {
+          reason: suspendReason.trim() || "Suspended by admin",
+        });
+        toast.success(`Seller "${label}" suspended successfully`);
+      } else {
+        await adminApi.deleteSeller(seller.id);
+        toast.success(`Seller "${label}" deleted permanently`);
+      }
+      if (selectedSeller?.id === seller.id) setSelectedSeller(null);
+      setSellerAction(null);
+      setRefreshTick((t) => t + 1);
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          (type === "suspend" ? "Failed to suspend seller" : "Failed to delete seller"),
+      );
+    } finally {
+      setIsActionProcessing(false);
+    }
+  };
 
   const openCommissionEditor = () => {
     setCommissionEditValue(selectedSeller?.commissionValue != null ? String(selectedSeller.commissionValue) : '');
@@ -519,6 +560,20 @@ const ActiveSellers = () => {
                           <HiOutlineEye className="h-3.5 w-3.5" />
                           VIEW PROFILE
                         </button>
+                        <button
+                          onClick={() => openSellerAction("suspend", seller)}
+                          title="Suspend seller"
+                          className="p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all"
+                        >
+                          <HiOutlineNoSymbol className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => openSellerAction("delete", seller)}
+                          title="Delete seller"
+                          className="p-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-all"
+                        >
+                          <HiOutlineTrash className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -795,6 +850,103 @@ const ActiveSellers = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Suspend / Delete Confirmation */}
+      <AnimatePresence>
+        {sellerAction && (
+          <div className="fixed inset-0 z-[110] overflow-y-auto flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm"
+              onClick={() => !isActionProcessing && setSellerAction(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 border border-slate-100"
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={cn(
+                    "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0",
+                    sellerAction.type === "suspend" ? "bg-amber-100 text-amber-600" : "bg-red-100 text-red-600",
+                  )}
+                >
+                  {sellerAction.type === "suspend" ? (
+                    <HiOutlineNoSymbol className="h-6 w-6" />
+                  ) : (
+                    <HiOutlineExclamationTriangle className="h-6 w-6" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {sellerAction.type === "suspend" ? "Suspend Seller" : "Delete Seller Permanently"}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {sellerAction.type === "suspend"
+                      ? "Seller will be deactivated and cannot log in."
+                      : "This action cannot be undone."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-xs font-semibold text-slate-700">
+                  Store: <span className="font-bold text-slate-900">{sellerAction.seller.shopName}</span>
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Owner: <span className="font-medium text-slate-700">{sellerAction.seller.ownerName}</span>
+                  {(sellerAction.seller.email || sellerAction.seller.phone) &&
+                    ` (${sellerAction.seller.email || sellerAction.seller.phone})`}
+                </p>
+              </div>
+
+              {sellerAction.type === "suspend" && (
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-slate-700">Reason (optional)</label>
+                  <textarea
+                    rows={2}
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    placeholder="Suspended by admin"
+                    className="mt-1.5 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 resize-none"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  disabled={isActionProcessing}
+                  onClick={() => setSellerAction(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isActionProcessing}
+                  onClick={confirmSellerAction}
+                  className={cn(
+                    "px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg transition-all flex items-center gap-2 disabled:opacity-50",
+                    sellerAction.type === "suspend"
+                      ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                      : "bg-red-600 hover:bg-red-700 shadow-red-200",
+                  )}
+                >
+                  {isActionProcessing && <HiOutlineArrowPath className="h-4 w-4 animate-spin" />}
+                  {isActionProcessing
+                    ? sellerAction.type === "suspend" ? "Suspending..." : "Deleting..."
+                    : sellerAction.type === "suspend" ? "Yes, Suspend" : "Yes, Delete"}
+                </button>
               </div>
             </motion.div>
           </div>

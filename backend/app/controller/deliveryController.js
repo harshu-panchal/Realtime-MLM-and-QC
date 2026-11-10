@@ -16,6 +16,7 @@ import {
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
 import { roundCurrency } from "../utils/money.js";
 import logger from "../services/logger.js";
+import { computeWithdrawalCharges, WITHDRAWAL_TRANSFER_TYPES } from "../services/admin/walletAdminService.js";
 import { shouldThrottle as throttleLocationUpdate } from "../services/delivery/locationThrottleService.js";
 import {
     getDeliveryStats as getDeliveryStatsFromService,
@@ -315,14 +316,21 @@ export const requestWithdrawal = async (req, res) => {
             return handleResponse(res, 400, `Insufficient balance. Available: ₹${availableBalance}`);
         }
 
-        // 2. Create Withdrawal Transaction
+        // 2. Deductions from Settings (TDS + service charge + admin charge)
+        // Transfer type: bank_transfer | wallet_to_wallet | quick_transfer (quick = extra % from Settings)
+        const transferType = WITHDRAWAL_TRANSFER_TYPES.includes(req.body?.transferType) ? req.body.transferType : "bank_transfer";
+        const charges = await computeWithdrawalCharges(amount, transferType);
+
+        // 3. Create Withdrawal Transaction
+        // Full requested amount leaves the wallet; rider is paid charges.netPayable.
         const withdrawal = await Transaction.create({
             user: deliveryBoyId,
             userModel: "Delivery",
             type: "Withdrawal",
             amount: -Math.abs(amount),
             status: "Pending",
-            reference: `WDR-DL-${Date.now()}`
+            reference: `WDR-DL-${Date.now()}`,
+            meta: { transferType, withdrawalCharges: charges },
         });
 
         return handleResponse(res, 201, "Withdrawal request submitted successfully", withdrawal);

@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   UserCheck,
   ScrollText,
+  Calculator,
 } from "lucide-react";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -103,6 +104,7 @@ const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 const LegalPageEditor = React.lazy(() => import("../pages/LegalPageEditor"));
 const MlmPoolManagement = React.lazy(() => import("../pages/MlmPoolManagement"));
+const PosReports = React.lazy(() => import("../pages/PosReports"));
 
 const navItems = [
   {
@@ -170,6 +172,7 @@ const navItems = [
   },
   { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
   { label: "MLM Pool & IDs", path: "/admin/mlm-pool", icon: Coins, color: "amber" },
+  { label: "POS Reports", path: "/admin/pos-reports", icon: Calculator, color: "emerald" },
   {
     label: "Money Requests",
     path: "/admin/withdrawals",
@@ -291,6 +294,7 @@ const AdminRoutes = () => {
         <Route path="/sos-alerts" element={<SOSAlerts />} />
         <Route path="/wallet" element={<AdminWallet />} />
         <Route path="/mlm-pool" element={<MlmPoolManagement />} />
+        <Route path="/pos-reports" element={<PosReports />} />
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
         <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />

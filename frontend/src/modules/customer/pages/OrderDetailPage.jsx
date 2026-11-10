@@ -902,6 +902,63 @@ const OrderDetailPage = () => {
             handoff is possible for a nationwide courier shipment. */}
         {order.businessType === "ecommerce" ? (
           <EcommerceShipmentTracker order={order} onOrderUpdate={setOrder} />
+        ) : order.orderType === "takeaway" ? (
+          /* Takeaway: customer collects from the shop — no rider tracker / delivery OTP */
+          (() => {
+            const ws = String(order.workflowStatus || "").toUpperCase();
+            const steps = [
+              { key: "placed", label: "Order placed" },
+              { key: "accepted", label: "Shop is preparing your order" },
+              { key: "ready", label: "Ready for pickup" },
+              { key: "collected", label: "Collected" },
+            ];
+            const current =
+              ws === "DELIVERED" ? 3 : ws === "PICKUP_READY" ? 2 : ws === "SELLER_ACCEPTED" ? 1 : 0;
+            const isCancelled = ws === "CANCELLED" || status === "cancelled";
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-11 w-11 rounded-2xl bg-orange-50 flex items-center justify-center">
+                    <Store size={22} className="text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-orange-600 uppercase tracking-wider">Takeaway Order</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {isCancelled
+                        ? "Order cancelled"
+                        : current === 2
+                          ? "Your order is ready! Please collect it from the shop."
+                          : current === 3
+                            ? "You have collected your order."
+                            : "Collect from the shop when it is ready."}
+                    </p>
+                  </div>
+                </div>
+                {!isCancelled && (
+                  <div className="space-y-2">
+                    {steps.map((step, i) => (
+                      <div key={step.key} className="flex items-center gap-3">
+                        <span
+                          className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                            i <= current ? "bg-green-500 text-white" : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {i <= current ? "✓" : i + 1}
+                        </span>
+                        <span className={`text-sm ${i <= current ? "font-bold text-slate-900" : "text-slate-400"}`}>
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })()
         ) : (
           <>
             {/* Order Progress Tracker */}
@@ -992,7 +1049,8 @@ const OrderDetailPage = () => {
           </div>
         </motion.div>
 
-        {/* Delivery Address Card - Redesigned */}
+        {/* Delivery Address Card - Redesigned (not shown for takeaway) */}
+        {order.orderType !== "takeaway" && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1029,6 +1087,7 @@ const OrderDetailPage = () => {
             </div>
           </div>
         </motion.div>
+        )}
 
         {/* Order Items - Compact Design */}
         <motion.div

@@ -1,4 +1,5 @@
 import Transaction from "../../models/transaction.js";
+import Setting from "../../models/setting.js";
 import Notification from "../../models/notification.js";
 import { getAdminFinanceSummary } from "../finance/walletService.js";
 import { getLedgerEntries } from "../finance/ledgerService.js";
@@ -183,4 +184,52 @@ export async function bulkSettleDeliveryTransactions() {
     { userModel: "Delivery", status: "Pending" },
     { status: "Settled" },
   );
+}
+
+/**
+ * Withdrawal deductions, read from Settings (DB):
+ *   TDS % + Service charge % + Admin charge % of the requested amount.
+ * The full requested amount leaves the wallet; the user receives netPayable.
+ */
+export const WITHDRAWAL_TRANSFER_TYPES = ["bank_transfer", "wallet_to_wallet", "quick_transfer"];
+
+export async function computeWithdrawalCharges(amount, transferType = "bank_transfer") {
+  if (!WITHDRAWAL_TRANSFER_TYPES.includes(transferType)) transferType = "bank_transfer";
+  const setting = (await Setting.findOne()
+    .select("withdrawalTdsPercent withdrawalServiceChargePercent withdrawalAdminChargePercent withdrawalQuickTransferPercent")
+    .lean()) || {};
+  const pct = (v, d) => {
+    const n = Number(v ?? d);
+    return Number.isFinite(n) && n >= 0 ? n : d;
+  };
+  const round2 = (n) => Math.round(n * 100) / 100;
+
+  const grossAmount = round2(Math.abs(Number(amount) || 0));
+  const tdsPercent = pct(setting.withdrawalTdsPercent, 5);
+  const serviceChargePercent = pct(setting.withdrawalServiceChargePercent, 5);
+  const adminChargePercent = pct(setting.withdrawalAdminChargePercent, 15);
+  // Extra cut only for Quick Transfer.
+  const quickTransferPercent = transferType === "quick_transfer" ? pct(setting.withdrawalQuickTransferPercent, 2) : 0;
+
+  const tdsAmount = round2((grossAmount * tdsPercent) / 100);
+  const serviceChargeAmount = round2((grossAmount * serviceChargePercent) / 100);
+  const adminChargeAmount = round2((grossAmount * adminChargePercent) / 100);
+  const quickTransferAmount = round2((grossAmount * quickTransferPercent) / 100);
+  const totalDeduction = round2(tdsAmount + serviceChargeAmount + adminChargeAmount + quickTransferAmount);
+  const netPayable = round2(Math.max(0, grossAmount - totalDeduction));
+
+  return {
+    transferType,
+    grossAmount,
+    tdsPercent,
+    tdsAmount,
+    serviceChargePercent,
+    serviceChargeAmount,
+    adminChargePercent,
+    adminChargeAmount,
+    quickTransferPercent,
+    quickTransferAmount,
+    totalDeduction,
+    netPayable,
+  };
 }

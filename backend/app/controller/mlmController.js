@@ -100,11 +100,29 @@ export const getCommissionLogs = async (req, res) => {
 /* ===============================
    ADMIN: UPDATE DAILY CAP SETTING
 ================================ */
+export const getDailyCapSetting = async (req, res) => {
+  try {
+    const setting = (await Setting.findOne().select("userDailyCommissionCap mlmEnabled").lean()) || {};
+    return handleResponse(res, 200, "MLM cap setting fetched", {
+      userDailyCommissionCap: Number(setting.userDailyCommissionCap ?? 25000),
+      mlmEnabled: setting.mlmEnabled !== false,
+    });
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
 export const updateDailyCapSetting = async (req, res) => {
   try {
     const { userDailyCommissionCap, mlmEnabled } = req.body;
     const update = {};
-    if (userDailyCommissionCap !== undefined) update.userDailyCommissionCap = Number(userDailyCommissionCap);
+    if (userDailyCommissionCap !== undefined) {
+      const cap = Number(userDailyCommissionCap);
+      if (!Number.isFinite(cap) || cap < 0) {
+        return handleResponse(res, 400, "Daily commission cap must be a number of 0 or more");
+      }
+      update.userDailyCommissionCap = cap;
+    }
     if (mlmEnabled !== undefined) update.mlmEnabled = Boolean(mlmEnabled);
 
     const setting = await Setting.findOneAndUpdate({}, { $set: update }, { new: true, upsert: true });

@@ -80,6 +80,13 @@ const AdminSettings = () => {
         returnDeliveryCommission: 0,
         vendorRegistrationFee: 1000,
         userWeeklySubscriptionFee: 50,
+        withdrawalTdsPercent: 5,
+        withdrawalServiceChargePercent: 5,
+        withdrawalAdminChargePercent: 15,
+        withdrawalQuickTransferPercent: 2,
+        sellerSubscriptionFee: 0,
+        sellerSubscriptionValidityDays: 30,
+        posCommissionPercent: 0,
         riderRegistrationFee: 500,
         riderDailySubscriptionFee: 0,
         riderBaseEarning: 25,
@@ -506,6 +513,28 @@ const AdminSettings = () => {
                                         className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
                                     />
                                 </div>
+                                {[
+                                    { key: 'withdrawalTdsPercent', label: 'Withdrawal TDS (%)', def: 5 },
+                                    { key: 'withdrawalServiceChargePercent', label: 'Withdrawal Service Charge (%)', def: 5 },
+                                    { key: 'withdrawalAdminChargePercent', label: 'Withdrawal Admin Charge (%)', def: 15 },
+                                    { key: 'withdrawalQuickTransferPercent', label: 'Quick Transfer Extra Charge (%)', def: 2 },
+                                    { key: 'sellerSubscriptionFee', label: 'Seller Subscription Fee (₹) — 0 = not required', def: 0, max: Infinity },
+                                    { key: 'sellerSubscriptionValidityDays', label: 'Seller Subscription Validity (Days)', def: 30, min: 1, max: 3650 },
+                                    { key: 'posCommissionPercent', label: 'POS (Counter) Sale Commission (%)', def: 0 },
+                                ].map(({ key, label, def, min = 0, max = 100 }) => (
+                                    <div key={key} className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+                                        <input
+                                            type="number"
+                                            min={min}
+                                            max={max === Infinity ? undefined : max}
+                                            step="any"
+                                            value={settings[key] ?? def}
+                                            onChange={(e) => handleInputChange(key, Math.min(max, Math.max(min, Number(e.target.value))))}
+                                            className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                        />
+                                    </div>
+                                ))}
                                 <div className="space-y-3">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rider / Delivery Boy Onboarding Fee (₹)</label>
                                     <input
